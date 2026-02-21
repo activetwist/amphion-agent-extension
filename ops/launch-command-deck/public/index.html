@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Launch Command Board</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script>
+    (function () {
+      var view = localStorage.getItem("mcd_current_view") || "board";
+      document.documentElement.setAttribute('data-current-view', view);
+    })();
+  </script>
+  <style>
+    html[data-current-view="dashboard"] #boardView,
+    html[data-current-view="dashboard"] #guideView {
+      display: none !important;
+    }
+
+    html[data-current-view="guide"] #boardView,
+    html[data-current-view="guide"] #dashboardView {
+      display: none !important;
+    }
+
+    html[data-current-view="board"] #dashboardView,
+    html[data-current-view="board"] #guideView {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <header class="global-header">
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <h1>Command Deck</h1>
+        <nav class="nav-tabs" id="navTabs">
+          <button class="nav-tab active" data-view="board">Board</button>
+          <button class="nav-tab" data-view="dashboard">Dashboard</button>
+          <button class="nav-tab" data-view="guide">MCD Guide</button>
+        </nav>
+      </div>
+      <div>
+        <button id="btnNewBoard" class="btn primary">New Board</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>Boards</h2>
+        <div id="boardList" class="board-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Milestone Progress</h2>
+        <div id="milestoneProgress" class="milestone-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Utilities</h2>
+        <div class="utility-actions">
+          <button id="btnCloneBoard" class="btn">Clone Active</button>
+          <button id="btnExportBoard" class="btn">Export JSON</button>
+          <button id="btnImportBoard" class="btn">Import JSON</button>
+
+          <input id="importFile" type="file" accept="application/json" hidden />
+        </div>
+      </section>
+    </aside>
+
+    <main id="dashboardView" class="workspace" style="display: none; padding: 20px; overflow-y: auto;">
+      <header style="border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 1.4rem;">Project Dashboard</h2>
+        <div id="dashboardPhase" style="color: var(--accent); font-size: 0.9rem; margin-top: 4px;">Active Phase:
+          Reading...</div>
+      </header>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <!-- Vitals & Metrics -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <section class="panel">
+            <h2>Milestone Burn-down</h2>
+            <div id="dashboardBurndown">Loading...</div>
+          </section>
+          <section class="panel">
+            <h2>Blockers</h2>
+            <div id="dashboardBlockers" style="color: var(--danger); font-size: 0.85rem;">None</div>
+          </section>
+          <section class="panel">
+            <h2>Domain Metrics</h2>
+            <div id="dashboardMetrics" style="font-size: 0.85rem; color: var(--text-dim);">Loading project type...</div>
+          </section>
+        </div>
+
+        <!-- Library & Traceability -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          <section class="panel">
+            <h2>Core Reference Library</h2>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-doc" data-doc="charter">Project Charter</button>
+              <button class="btn btn-doc" data-doc="prd">PRD</button>
+              <button class="btn btn-doc" data-doc="guardrails">Guardrails</button>
+              <button class="btn btn-doc" data-doc="contract" style="border-color: var(--accent);">Active
+                Contract</button>
+            </div>
+          </section>
+          <section class="panel">
+            <h2>Traceability Feed (Git)</h2>
+            <pre id="dashboardGitLog"
+              style="font-size: 0.75rem; color: var(--text-dim); margin: 0; white-space: pre-wrap; word-break: break-all;">Loading...</pre>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <main id="guideView" class="workspace" style="display: none; padding: 20px; overflow-y: auto;">
+      <header
+        style="border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0; font-size: 1.4rem;">MCD Methodology Playbook</h2>
+        <button id="btnWhyMcd" class="btn" style="background: var(--bg-2); border: 1px solid var(--line);">Why
+          MCD?</button>
+      </header>
+      <div id="guideContent" class="markdown-body"
+        style="font-family: sans-serif; font-size: 0.95rem; line-height: 1.5; color: #d0e8fc; max-width: 900px;">
+        Loading playbook...
+      </div>
+    </main>
+
+    <main id="boardView" class="workspace">
+      <header class="workspace-header">
+        <div class="title-wrap">
+          <input id="boardName" class="board-name" maxlength="120" />
+          <textarea id="boardDescription" class="board-description" rows="2" placeholder="Board description"></textarea>
+        </div>
+        <div class="header-actions">
+          <button id="btnSaveBoard" class="btn">Save Board Meta</button>
+          <button id="btnDeleteBoard" class="btn danger">Delete Board</button>
+        </div>
+      </header>
+
+      <section class="toolbar">
+        <div class="left-tools">
+          <button id="btnAddCard" class="btn primary">+ Task</button>
+          <button id="btnAddMilestone" class="btn">+ Milestone</button>
+          <button id="btnAddList" class="btn">+ Column</button>
+        </div>
+        <div class="right-tools">
+          <label>
+            Milestone
+            <select id="milestoneFilter"></select>
+          </label>
+          <label>
+            Search
+            <input id="searchInput" placeholder="Find task" />
+          </label>
+        </div>
+      </section>
+
+      <section id="kanbanColumns" class="kanban-columns"></section>
+    </main>
+  </div>
+
+  <dialog id="docDialog" class="card-dialog" style="width: min(860px, 95vw); max-height: 90vh;">
+    <form method="dialog" style="display: flex; flex-direction: column; height: 100%;">
+      <header
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px;">
+        <h3 id="docDialogTitle" style="margin: 0;">Document</h3>
+        <button value="close" class="btn">Close</button>
+      </header>
+      <div id="docDialogContent" class="markdown-body"
+        style="overflow-y: auto; flex: 1; font-family: sans-serif; font-size: 0.9rem; line-height: 1.5; color: #d0e8fc;">
+        Loading...</div>
+    </form>
+  </dialog>
+
+  <!-- Why MCD Modal -->
+  <dialog id="whyMcdDialog" class="card-dialog" style="max-width: 600px; padding: 24px;">
+    <form method="dialog">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 1.3rem;">Why MCD?</h2>
+        <button value="close" class="btn">Close</button>
+      </div>
+    </form>
+    <div style="font-family: var(--font); font-size: 0.95rem; line-height: 1.6; color: var(--text);">
+      <p style="margin-bottom: 16px;">The <strong>Micro-Contract Development (MCD)</strong> methodology was forged for
+        solo operators collaborating with advanced AI agents. It trades raw conversational speed for systemic
+        determinism.</p>
+
+      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Constraint is Freedom</h3>
+      <p style="margin-bottom: 16px;">By severely limiting what an AI agent can do without explicit permission, the
+        operator guarantees that the architecture remains entirely under their control. No phantom files are generated,
+        and no scope creep occurs without a formalized contract.</p>
+
+      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Total Observability</h3>
+      <p style="margin-bottom: 16px;">Every decision, rollback, and feature deployment is captured as a semantic,
+        human-readable artifact. The operator never has to wonder <em>what</em> an AI agent changed while working on a
+        complex feature.</p>
+
+      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Deterministic Engineering</h3>
+      <p>Contracts act as both absolute instruction sets for the machine and historical ledgers for human operators,
+        eliminating "black box" code drift and making the software's evolution totally replayable.</p>
+    </div>
+  </dialog>
+
+  <dialog id="cardDialog" class="card-dialog">
+    <form id="cardForm" method="dialog">
+      <h3 id="cardDialogTitle">Task</h3>
+      <input id="cardId" type="hidden" />
+
+      <label>Title
+        <input id="cardTitle" required maxlength="160" />
+      </label>
+
+      <div class="grid-two">
+        <label>Milestone
+          <select id="cardMilestone"></select>
+        </label>
+        <label>Priority
+          <select id="cardPriority">
+            <option value="P0">P0</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid-two">
+        <label>Status Column
+          <select id="cardList"></select>
+        </label>
+        <label>Target Date
+          <input id="cardTargetDate" type="date" />
+        </label>
+      </div>
+
+      <label>Owner
+        <input id="cardOwner" maxlength="80" placeholder="Optional" />
+      </label>
+
+      <label>Description
+        <textarea id="cardDescription" rows="4" placeholder="What needs to happen?"></textarea>
+      </label>
+
+      <label>Acceptance
+        <textarea id="cardAcceptance" rows="3" placeholder="How do we know this is done?"></textarea>
+      </label>
+
+      <menu>
+        <button value="cancel" type="button" id="btnCancelCard" class="btn">Cancel</button>
+        <button value="delete" type="button" id="btnDeleteCard" class="btn danger">Delete</button>
+        <button value="save" type="submit" class="btn primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <template id="cardTemplate">
+    <article class="card" draggable="true">
+      <header>
+        <span class="milestone-badge"></span>
+        <span class="priority-badge"></span>
+      </header>
+      <h4></h4>
+      <p class="description"></p>
+      <footer>
+        <span class="owner"></span>
+        <span class="target-date"></span>
+      </footer>
+    </article>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script src="/app.js" defer></script>
+</body>
+
+</html>

@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "updatedAt": "2026-02-21T23:46:06Z",
+  "activeBoardId": "board_46736b188b",
+  "boards": [
+    {
+      "id": "board_46736b188b",
+      "name": "AmphionAgent Launch Command Deck",
+      "description": "Command deck for AmphionAgent (BlackClaw) using MCD protocol.",
+      "projectType": "standard",
+      "createdAt": "2026-02-21T23:46:06Z",
+      "updatedAt": "2026-02-21T23:46:06Z",
+      "lists": [
+        {
+          "id": "list_1b38384ac5",
+          "key": "backlog",
+          "title": "Backlog",
+          "order": 0,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "list_fe6160088d",
+          "key": "active",
+          "title": "In Progress",
+          "order": 1,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "list_7f1fd2b289",
+          "key": "blocked",
+          "title": "Blocked",
+          "order": 2,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "list_3782c4a334",
+          "key": "qa",
+          "title": "QA / Review",
+          "order": 3,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "list_5c158d96b9",
+          "key": "done",
+          "title": "Done",
+          "order": 4,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        }
+      ],
+      "milestones": [
+        {
+          "id": "ms_dad9ed83f5",
+          "code": "v001a",
+          "title": "Version 0a Pre-Release",
+          "order": 0,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        }
+      ],
+      "cards": [
+        {
+          "id": "card_7c3a215378",
+          "title": "v0.01a - Scaffold Baseline",
+          "description": "Validate guardrails, canonical milestone, and startup flow for the new project.",
+          "acceptance": "- MCD directories exist.\\n- GUARDRAILS.md is created.\\n- Launch Command Deck is reachable.",
+          "milestoneId": "ms_dad9ed83f5",
+          "listId": "list_fe6160088d",
+          "priority": "P0",
+          "owner": "",
+          "targetDate": "",
+          "order": 0,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "card_33fd4f572f",
+          "title": "v0.01a - Project Charter + PRD Baseline",
+          "description": "Capture charter, strategy baseline, and high-level PRD before implementation contracts.",
+          "acceptance": "- Charter and PRD drafts exist in strategy docs.\\n- Scope boundaries are explicit.",
+          "milestoneId": "ms_dad9ed83f5",
+          "listId": "list_1b38384ac5",
+          "priority": "P0",
+          "owner": "",
+          "targetDate": "",
+          "order": 1,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        },
+        {
+          "id": "card_db71e7a235",
+          "title": "v0.01a - First Contract + Execute Slice",
+          "description": "Write first build contract and execute one deterministic slice end-to-end.",
+          "acceptance": "- Contract is approved.\\n- Implementation validates against acceptance criteria.",
+          "milestoneId": "ms_dad9ed83f5",
+          "listId": "list_1b38384ac5",
+          "priority": "P1",
+          "owner": "",
+          "targetDate": "",
+          "order": 2,
+          "createdAt": "2026-02-21T23:46:06Z",
+          "updatedAt": "2026-02-21T23:46:06Z"
+        }
+      ]
+    }
+  ]
+}
