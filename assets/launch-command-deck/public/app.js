@@ -21,6 +21,7 @@ const el = {
   btnCloneBoard: document.querySelector("#btnCloneBoard"),
   btnExportBoard: document.querySelector("#btnExportBoard"),
   btnImportBoard: document.querySelector("#btnImportBoard"),
+  btnReloadState: document.querySelector("#btnReloadState"),
 
   dashboardView: document.querySelector("#dashboardView"),
   boardView: document.querySelector("#boardView"),
