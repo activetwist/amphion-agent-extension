@@ -38,7 +38,7 @@ const vscode = __importStar(require("vscode"));
 async function runWizard() {
     // Step 1: Project Name
     const projectName = await vscode.window.showInputBox({
-        title: 'MCD Starter Kit (1/5)',
+        title: 'AmphionAgent (1/5)',
         prompt: 'Enter the Project Name',
         placeHolder: 'e.g. Acme Platform',
         ignoreFocusOut: true,
@@ -53,7 +53,7 @@ async function runWizard() {
         { label: 'Python', description: 'Default — zero setup', detail: 'python' },
         { label: 'Node.js', description: 'JavaScript runtime', detail: 'node' },
     ], {
-        title: 'MCD Starter Kit (2/5)',
+        title: 'AmphionAgent (2/5)',
         placeHolder: 'Select Command Deck server language',
         ignoreFocusOut: true,
     });
@@ -62,7 +62,7 @@ async function runWizard() {
     const serverLang = serverPick.detail || 'python';
     // Step 3: Codename
     const codename = await vscode.window.showInputBox({
-        title: 'MCD Starter Kit (3/5)',
+        title: 'AmphionAgent (3/5)',
         prompt: 'Enter the Project Codename',
         placeHolder: 'e.g. Genesis',
         ignoreFocusOut: true,
@@ -74,7 +74,7 @@ async function runWizard() {
         return undefined;
     // Step 4: Initial Version
     const initialVersion = await vscode.window.showInputBox({
-        title: 'MCD Starter Kit (4/5)',
+        title: 'AmphionAgent (4/5)',
         prompt: 'Enter the Initial Version',
         value: 'v0.01a',
         ignoreFocusOut: true,
@@ -86,7 +86,7 @@ async function runWizard() {
         return undefined;
     // Step 5: Port
     const port = await vscode.window.showInputBox({
-        title: 'MCD Starter Kit (5/5)',
+        title: 'AmphionAgent (5/5)',
         prompt: 'Enter the Command Deck Port (must not be in use)',
         value: '8765',
         ignoreFocusOut: true,
