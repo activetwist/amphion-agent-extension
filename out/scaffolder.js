@@ -121,7 +121,7 @@ async function pathExists(root, relativePath) {
     }
 }
 async function deployWorkflows(root, config) {
-    const commands = ['evaluate', 'contract', 'execute', 'closeout', 'charter', 'prd'];
+    const commands = ['evaluate', 'contract', 'execute', 'closeout', 'docs'];
     const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
     for (const cmd of commands) {
         // Antigravity

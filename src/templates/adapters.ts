@@ -48,29 +48,21 @@ ${content}
 
 function getCommandDescription(command: string, config: ProjectConfig): string {
     const cmd = command.toLowerCase();
-    if (cmd === 'charter') return `Generate Project Charter from source documents for ${config.projectName}`;
-    if (cmd === 'prd') return `Generate High-Level PRD from source documents for ${config.projectName}`;
+    if (cmd === 'docs') return `Generate Project Strategy (Charter & PRD) from source documents for ${config.projectName}`;
     return `Run MCD ${command.toUpperCase()} command for ${config.projectName}`;
 }
 
 function getCommandContent(command: string): string {
     const cmd = command.toLowerCase();
-    if (cmd === 'charter') {
-        return `This command automates the derivation of your Project Charter.
+    if (cmd === 'docs') {
+        return `This command automates the derivation of your Project Strategy (Charter and High-Level PRD).
 
 1.  **Read Source Documents**: Read every file in \`referenceDocs/05_Records/documentation/helperContext/\`.
-2.  **Derive Content**: Fill every section marked \`*[Derive from source documents]*\` in the latest Project Charter in \`referenceDocs/01_Strategy/\`.
-3.  **Preserve Constraints**: Do not modify the "Operating Constraints" section.
-4.  **Completion**: Once finished, tell the user: "The Project Charter is complete. Now type **/prd** to derive your High-Level PRD."`;
-    }
-    if (cmd === 'prd') {
-        return `This command automates the derivation of your High-Level PRD.
-
-1.  **Read Source Documents**: Read every file in \`referenceDocs/05_Records/documentation/helperContext/\`.
-2.  **Read Charter**: Read the completed Project Charter in \`referenceDocs/01_Strategy/\` to ensure alignment.
-3.  **Derive Content**: Fill every section marked \`*[Derive from source documents]*\` in the latest High-Level PRD in \`referenceDocs/01_Strategy/\`.
-4.  **Cleanup**: Remove any remaining stub markers or introductory agent instructions from both the Charter and the PRD.
-5.  **Completion**: Once finished, tell the user: "The Project PRD and Strategy documents are complete! Please return to the Onboarding WebUI and click **Complete & Launch Command Deck**."`;
+2.  **Derive Charter**: Fill every section marked \`*[Derive from source documents]*\` in the latest Project Charter in \`referenceDocs/01_Strategy/\`. Do not modify the "Operating Constraints" section.
+3.  **Read Charter**: Read the completed Project Charter to ensure alignment for the next step.
+4.  **Derive PRD**: Fill every section marked \`*[Derive from source documents]*\` in the latest High-Level PRD in \`referenceDocs/01_Strategy/\`.
+5.  **Cleanup**: Remove any remaining stub markers or introductory agent instructions from both the Charter and the PRD.
+6.  **Completion**: Once finished, tell the user: "The Project PRD and Strategy documents are complete! Please return to the Onboarding WebUI and click **Complete & Launch Command Deck**."`;
     }
 
     const cmdUpper = command.toUpperCase();

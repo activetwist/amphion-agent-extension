@@ -397,22 +397,17 @@ class OnboardingPanel {
                         /charter
                     </div>
                     <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in <b>Cursor</b>, <b>Windsurf</b>, or <b>Antigravity</b> to derive the Charter from source materials.</p>
-                    <button id="btn-charter-done" class="primary" style="width: 100%;">I've typed /charter</button>
-                </div>
-
-                <div id="step-prd" class="step-card" style="display: none; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
-                    <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 2</div>
-                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build High-Level PRD</div>
+                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build Strategy Documents</div>
                     <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
-                        /prd
+                        /docs
                     </div>
-                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Once the Charter is complete, type <b>/prd</b> to finish the strategy phase.</p>
-                    <button id="btn-prd-done" class="primary" style="width: 100%;">I've typed /prd</button>
+                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in <b>Cursor</b>, <b>Windsurf</b>, or <b>Antigravity</b> to derive the Charter and PRD from source materials.</p>
+                    <button id="btn-docs-done" class="primary" style="width: 100%;">I've typed /docs</button>
                 </div>
 
                 <div id="handoff-complete" style="display: none; text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--mcd-border);">
                     <h3 style="color: #2ea043; margin-bottom: 12px;">Strategy Architecture Complete</h3>
-                    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and PRD are now fully documented. You are ready to launch the Command Deck.</p>
+                    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Strategy is now fully documented. You are ready to launch the Command Deck.</p>
                     <button id="btn-launch-cd" class="primary" style="width: 100%; font-size: 16px;">Open Command Deck</button>
                 </div>
             </div>
@@ -451,12 +446,10 @@ class OnboardingPanel {
         const handoffView = document.getElementById('agent-handoff-view');
         const manualSuccessView = document.getElementById('manual-success-view');
 
-        const stepCharter = document.getElementById('step-charter');
-        const stepPrd = document.getElementById('step-prd');
-        const btnCharterDone = document.getElementById('btn-charter-done');
-        const btnPrdDone = document.getElementById('btn-prd-done');
+        const stepDocs = document.getElementById('step-docs');
+        const btnDocsDone = document.getElementById('btn-docs-done');
         const handoffComplete = document.getElementById('handoff-complete');
-        const btnLaunchCd = document.getElementById('btn-launch-cd');
+        const btnCompleteOnboarding = document.getElementById('btn-launch-cd');
         const btnLaunchCdManual = document.getElementById('btn-launch-cd-manual');
 
         if (document.getElementById('btn-submit-init')) {
@@ -558,16 +551,14 @@ class OnboardingPanel {
             });
         });
 
-        if (btnCharterDone) {
-            btnCharterDone.addEventListener('click', () => {
-                btnCharterDone.style.display = 'none';
-                stepPrd.style.display = 'block';
-            });
-        }
+        const stepDocs = document.getElementById('step-docs');
+        const btnDocsDone = document.getElementById('btn-docs-done');
+        const handoffComplete = document.getElementById('handoff-complete');
+        const btnLaunchCd = document.getElementById('btn-launch-cd');
 
-        if (btnPrdDone) {
-            btnPrdDone.addEventListener('click', () => {
-                btnPrdDone.style.display = 'none';
+        if (btnDocsDone) {
+            btnDocsDone.addEventListener('click', () => {
+                stepDocs.style.display = 'none';
                 handoffComplete.style.display = 'block';
             });
         }
