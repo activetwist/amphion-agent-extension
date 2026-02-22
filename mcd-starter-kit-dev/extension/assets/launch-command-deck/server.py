@@ -431,6 +431,12 @@ class KanbanHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "state": STORE.snapshot()})
             return
 
+        if route == "/api/state/version":
+            with STORE._lock:
+                version = STORE._last_mtime
+            self._send_json({"ok": True, "version": version})
+            return
+
         if route.startswith("/api/docs/"):
             doc_id = route.split("/")[-1]
             try:
