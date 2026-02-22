@@ -82,7 +82,7 @@ The wizard collects five inputs before writing any files:
 
 | Step | Prompt | Example | Notes |
 |------|--------|---------|-------|
-| 1/5 | **Project Name** | `Cymata` | The full human-readable project name |
+| 1/5 | **Project Name** | `Acme Platform` | The full human-readable project name |
 | 2/5 | **Server Language** | `Python` or `Node.js` | Select the backend runtime for the Command Deck |
 | 3/5 | **Codename** | `Genesis` | Short internal codename (used in commit messages and docs) |
 | 4/5 | **Initial Version** | `v0.01a` | Default is `v0.01a`. Follows the MCD versioning format |

@@ -3,6 +3,13 @@
   --bg-1: #0f1d2a;
   --bg-2: #16293c;
   --panel: #102231cc;
+  --panel-bg: #0b1a26cc;
+  --header-bg: #102131cc;
+  --card-bg: linear-gradient(180deg, #17344a, #122b3f);
+  --card-hover: linear-gradient(180deg, #1b3d56, #143247);
+  --column-bg: #112738;
+  --board-item-bg: #14293bcc;
+  --input-bg: #0b1d2b;
   --line: #2f4e66;
   --text: #e9f5ff;
   --text-dim: #a8c3d8;
@@ -14,6 +21,28 @@
   --shadow: 0 20px 30px rgb(0 0 0 / 0.2);
   --font: "IBM Plex Mono", "SF Mono", "Menlo", monospace;
 }
+
+html[data-theme="light"] {
+  --bg-0: #f4f6f8;
+  --bg-1: #e9ecef;
+  --bg-2: #dee2e6;
+  --panel: #ffffffcc;
+  --panel-bg: #ffffff;
+  --header-bg: #f8f9facc;
+  --card-bg: #ffffff;
+  --card-hover: #f1f3f5;
+  --column-bg: #e9ecef;
+  --board-item-bg: #ffffff;
+  --input-bg: #ffffff;
+  --line: #ced4da;
+  --text: #212529;
+  --text-dim: #495057;
+  --accent: #20c997;
+  --accent-2: #17a2b8;
+  --danger: #fa5252;
+  --shadow: 0 10px 15px rgb(0 0 0 / 0.05);
+}
+
 
 * {
   box-sizing: border-box;
@@ -118,7 +147,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px;
-  background: #0b1a26cc;
+  background: var(--panel-bg);
 }
 
 .panel h2 {
@@ -134,7 +163,7 @@ textarea {
 
 .board-item {
   border: 1px solid var(--line);
-  background: #14293bcc;
+  background: var(--board-item-bg);
   color: var(--text);
   border-radius: var(--radius);
   padding: 8px 10px;
@@ -156,7 +185,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 8px;
-  background: #132637;
+  background: var(--panel-bg);
 }
 
 .milestone-item header {
@@ -211,7 +240,7 @@ textarea {
   padding: 8px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: #0b1d2b;
+  background: var(--input-bg);
 }
 
 .board-description {
@@ -221,7 +250,7 @@ textarea {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   padding: 8px;
-  background: #0b1d2b;
+  background: var(--input-bg);
 }
 
 .header-actions {
@@ -236,7 +265,7 @@ textarea {
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  background: #102131cc;
+  background: var(--header-bg);
   flex-wrap: wrap;
 }
 
@@ -260,7 +289,7 @@ select,
 textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #08131e;
+  background: var(--input-bg);
   padding: 7px 8px;
 }
 
@@ -281,7 +310,7 @@ textarea {
 .column {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #112738;
+  background: var(--column-bg);
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 0;
@@ -322,19 +351,20 @@ textarea {
 }
 
 .card {
-  border: 1px solid #39576f;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #17344a, #122b3f);
+  background: var(--card-bg);
   padding: 10px;
   display: grid;
   gap: 9px;
   cursor: grab;
   transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  color: var(--text);
 }
 
 .card:hover {
-  border-color: #4f89ae;
-  background: linear-gradient(180deg, #1b3d56, #143247);
+  border-color: var(--accent);
+  background: var(--card-hover);
   transform: translateY(-1px);
 }
 
@@ -404,7 +434,8 @@ textarea {
 
 .btn {
   border: 1px solid var(--line);
-  background: #153249;
+  background: var(--panel-bg);
+  color: var(--text);
   border-radius: var(--radius);
   padding: 7px 10px;
   cursor: pointer;
@@ -428,7 +459,7 @@ textarea {
   width: min(760px, 95vw);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #0f2131;
+  background: var(--panel-bg);
   color: var(--text);
   box-shadow: var(--shadow);
 }
