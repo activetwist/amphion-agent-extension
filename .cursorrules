@@ -9,3 +9,5 @@ Before starting any task, verify the active development phase and read the corre
 - Phase 4: `referenceDocs/00_Governance/mcd/CLOSEOUT.md`
 
 Maintain systemic determinism by following the step-by-step instructions in these files. Do not modify files not listed in the 'Approved AFPs' of an active contract.
+
+**Important**: Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.

@@ -23,6 +23,8 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 4. **Primitive Review**: Determine if new Architecture Primitives are required.
 5. **Card Update**: Update the Command Deck card with research findings and clear acceptance criteria.
 
+**CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
+
 ## Output
 - [ ] Updated Command Deck card with Acceptance Criteria.
 - [ ] (Optional) New or revised Architecture Primitives in \`02_Architecture/\`.
@@ -51,6 +53,8 @@ Invoke this command after Evaluation is complete and scope is locked. This phase
 3. **Risk Assessment**: identify potential side effects or breaking changes.
 4. **AFP Enumeration**: List every file that will be created, modified, or deleted.
 5. **Approval**: Present the contract to the operator for formal approval.
+
+**CRITICAL AGENT INSTRUCTION:** After generating the Contract, you MUST halt execution. Do not proceed to the Execute phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
 ## Output
 - [ ] Approved Contract file in \`03_Contracts/active/\`.

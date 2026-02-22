@@ -13,3 +13,5 @@ The source of truth for all engineering logic is located in:
 - **Closeout**: Archiving, record keeping, and final commit.
 
 Do not deviate from the instructions provided in the canonical command files.
+
+**Important**: Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
