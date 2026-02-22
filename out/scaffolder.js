@@ -160,6 +160,8 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     await writeFile(root, `${wfDir}/contract.md`, (0, adapters_1.renderAntigravityWorkflow)('contract', config));
     await writeFile(root, `${wfDir}/execute.md`, (0, adapters_1.renderAntigravityWorkflow)('execute', config));
     await writeFile(root, `${wfDir}/closeout.md`, (0, adapters_1.renderAntigravityWorkflow)('closeout', config));
+    await writeFile(root, `${wfDir}/charter.md`, (0, adapters_1.renderCharterWorkflow)(config));
+    await writeFile(root, `${wfDir}/prd.md`, (0, adapters_1.renderPrdWorkflow)(config));
     // 7. Copy the bundled Command Deck into ops/
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
     const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
