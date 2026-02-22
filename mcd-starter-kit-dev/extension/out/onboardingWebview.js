@@ -84,8 +84,8 @@ class OnboardingPanel {
                 case 'generateManual':
                     if (!scaffoldComplete)
                         return;
-                    const manualPrompts = await (0, charterWizard_1.runManualPath)(root, this._config, this._terminal, message.data);
-                    this._panel.webview.postMessage({ command: 'handoffReady', data: manualPrompts });
+                    await (0, charterWizard_1.runManualPath)(root, this._config, this._terminal, message.data);
+                    this._panel.webview.postMessage({ command: 'manualComplete' });
                     return;
                 case 'importDocs':
                     if (!scaffoldComplete)
@@ -416,6 +416,28 @@ class OnboardingPanel {
                 </div>
             </div>
         </div>
+
+        <div id="manual-success-view" class="view">
+            <div class="card" style="text-align: center;">
+                <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Completed!</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for execution.</p>
+                <div style="padding: 24px; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); border-radius: 6px; margin-bottom: 24px;">
+                    <p style="margin: 0;">Launch the Command Deck to view your Kanban board and govern your Micro-Contracts.</p>
+                </div>
+                <button id="btn-launch-cd-manual" class="primary" style="width: 100%; font-size: 16px; padding: 12px;">Launch Command Deck</button>
+            </div>
+        </div>
+
+        <div id="manual-success-view" class="view">
+            <div class="card" style="text-align: center;">
+                <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Completed!</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for execution.</p>
+                <div style="padding: 24px; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); border-radius: 6px; margin-bottom: 24px;">
+                    <p style="margin: 0;">Launch the Command Deck to view your Kanban board and govern your Micro-Contracts.</p>
+                </div>
+                <button id="btn-launch-cd-manual" class="primary" style="width: 100%; font-size: 16px; padding: 12px;">Launch Command Deck</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -426,6 +448,7 @@ class OnboardingPanel {
         const selectionView = document.getElementById('selection-view');
         const manualView = document.getElementById('manual-view');
         const handoffView = document.getElementById('agent-handoff-view');
+        const manualSuccessView = document.getElementById('manual-success-view');
 
         const charterPromptDisplay = document.getElementById('charter-prompt-display');
         const prdPromptDisplay = document.getElementById('prd-prompt-display');
@@ -433,6 +456,7 @@ class OnboardingPanel {
         const btnCopyPrd = document.getElementById('btn-copy-prd');
         const handoffComplete = document.getElementById('handoff-complete');
         const btnLaunchCd = document.getElementById('btn-launch-cd');
+        const btnLaunchCdManual = document.getElementById('btn-launch-cd-manual');
 
         let charterPromptText = '';
         let prdPromptText = '';
@@ -570,6 +594,12 @@ class OnboardingPanel {
             });
         }
 
+        if (btnLaunchCdManual) {
+            btnLaunchCdManual.addEventListener('click', () => {
+                vscode.postMessage({ command: 'launchCommandDeck' });
+            });
+        }
+
         // Listen for messages from the extension
         window.addEventListener('message', event => {
             const message = event.data;
@@ -593,6 +623,11 @@ class OnboardingPanel {
                     if (manualView) manualView.classList.remove('active');
                     if (selectionView) selectionView.classList.remove('active');
                     handoffView.classList.add('active');
+                    break;
+                case 'manualComplete':
+                    if (manualView) manualView.classList.remove('active');
+                    if (selectionView) selectionView.classList.remove('active');
+                    manualSuccessView.classList.add('active');
                     break;
             }
         });

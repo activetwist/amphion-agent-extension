@@ -26,7 +26,7 @@ export async function runManualPath(
         keyFeatures: string;
         successMetric: string;
     }
-): Promise<{ charterPrompt: string, prdPrompt: string }> {
+): Promise<void> {
     // ── Write documents ──────────────────────────────────────────────────────
     const timestamp = nowTimestamp();
     const encoder = new TextEncoder();
@@ -63,12 +63,11 @@ export async function runManualPath(
     );
 
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-
-    return {
-        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
-        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the PRD file and derive the High-Level PRD."
-    };
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath), {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: true,
+        preview: false
+    });
 }
 
 export async function runSourceDocsPath(

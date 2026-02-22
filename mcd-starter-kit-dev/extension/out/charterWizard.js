@@ -68,11 +68,11 @@ async function runManualPath(root, config, terminal, data) {
     terminal.sendText(`git commit -m "docs(${config.initialVersion}): add Project Charter and High-Level PRD for ${config.codename}"`);
     vscode.window.showInformationMessage(`✅ Project Charter and PRD created in referenceDocs/01_Strategy/ and committed.`);
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-    return {
-        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
-        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the PRD file and derive the High-Level PRD."
-    };
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath), {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: true,
+        preview: false
+    });
 }
 async function runSourceDocsPath(root, config, terminal) {
     // ── Step 1: File picker ──────────────────────────────────────────────────
