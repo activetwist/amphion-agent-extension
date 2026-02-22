@@ -4,10 +4,12 @@ import * as fs from 'fs';
 import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
+import { renderEvaluate, renderContract, renderExecute, renderCloseout } from './templates/commands';
+import { renderAntigravityWorkflow, renderClaudeMd, renderAgentsMd, renderCursorRules } from './templates/adapters';
 import { runCharterWizard } from './charterWizard';
 
 const DIRS = [
-    'referenceDocs/00_Governance',
+    'referenceDocs/00_Governance/commands',
     'referenceDocs/01_Strategy',
     'referenceDocs/02_Architecture/primitives',
     'referenceDocs/03_Contracts/active',
@@ -17,6 +19,7 @@ const DIRS = [
     'referenceDocs/05_Records/buildLogs',
     'referenceDocs/05_Records/chatLogs',
     'referenceDocs/05_Records/documentation/helperContext',
+    '.agents/workflows',
     'ops',
 ];
 
@@ -106,7 +109,26 @@ export async function buildScaffold(
         getPlaybookContent()
     );
 
-    // 4. Copy the bundled Command Deck into ops/
+    // 4. Write Canonical Commands
+    const cmdDir = 'referenceDocs/00_Governance/commands';
+    await writeFile(root, `${cmdDir}/EVALUATE.md`, renderEvaluate(config));
+    await writeFile(root, `${cmdDir}/CONTRACT.md`, renderContract(config));
+    await writeFile(root, `${cmdDir}/EXECUTE.md`, renderExecute(config));
+    await writeFile(root, `${cmdDir}/CLOSEOUT.md`, renderCloseout(config));
+
+    // 5. Write Agent Adapters
+    await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
+    await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
+    await writeFile(root, '.cursorrules', renderCursorRules(config));
+
+    // 6. Write Antigravity Workflows
+    const wfDir = '.agents/workflows';
+    await writeFile(root, `${wfDir}/evaluate.md`, renderAntigravityWorkflow('evaluate', config));
+    await writeFile(root, `${wfDir}/contract.md`, renderAntigravityWorkflow('contract', config));
+    await writeFile(root, `${wfDir}/execute.md`, renderAntigravityWorkflow('execute', config));
+    await writeFile(root, `${wfDir}/closeout.md`, renderAntigravityWorkflow('closeout', config));
+
+    // 7. Copy the bundled Command Deck into ops/
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
     const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
     copyDirSync(deckSrc.fsPath, deckDest);
