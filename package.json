@@ -2,7 +2,7 @@
     "name": "amphion-agent",
     "displayName": "AmphionAgent",
     "description": "Initialize a full Micro-Contract Development (MCD) project scaffold with a single command.",
-    "version": "1.24.3",
+    "version": "1.25.0",
     "icon": "icon.png",
     "publisher": "stanton-brooks",
     "engines": {

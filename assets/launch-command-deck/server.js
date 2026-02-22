@@ -498,6 +498,11 @@ function handleGet(req, res, route, store) {
         return sendJson(res, { ok: true, state: store.snapshot() });
     }
 
+    if (route === '/api/state/version') {
+        const version = store._lastMtime || null;
+        return sendJson(res, { ok: true, version });
+    }
+
     if (route.startsWith('/api/docs/')) {
         const docId = route.split('/').pop();
         const content = resolveDoc(docId);
