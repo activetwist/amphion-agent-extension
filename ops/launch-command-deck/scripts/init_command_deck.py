@@ -58,6 +58,8 @@ def build_state(
     board = {
         "id": board_id,
         "name": f"{project_name} Launch Command Deck",
+        "codename": codename.upper()[:3],
+        "nextIssueNumber": 1,
         "description": f"Command deck for {project_name} ({codename}) using MCD protocol.",
         "projectType": project_type,
         "createdAt": now_iso(),
@@ -101,9 +103,11 @@ def build_state(
             ),
         ]
         for order, (list_key, title, priority, description, acceptance) in enumerate(seed_cards):
+            issue_num = board["nextIssueNumber"]
             board["cards"].append(
                 {
                     "id": new_id("card"),
+                    "issueNumber": f"{board['codename']}-{issue_num:03d}",
                     "title": title,
                     "description": description,
                     "acceptance": acceptance,
@@ -117,6 +121,7 @@ def build_state(
                     "updatedAt": now_iso(),
                 }
             )
+            board["nextIssueNumber"] += 1
 
     state = {
         "version": 1,

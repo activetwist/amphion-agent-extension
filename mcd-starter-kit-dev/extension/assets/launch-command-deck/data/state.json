@@ -1,17 +1,17 @@
 {
   "version": 1,
-  "updatedAt": "2026-02-22T00:53:06Z",
+  "updatedAt": "2026-02-22T00:48:40Z",
   "activeBoardId": "board_46736b188b",
   "boards": [
     {
       "id": "board_46736b188b",
       "name": "AmphionAgent Launch Command Deck",
       "codename": "AM",
-      "nextIssueNumber": 9,
+      "nextIssueNumber": 8,
       "description": "Command deck for AmphionAgent (BlackClaw) using MCD protocol.",
       "projectType": "standard",
       "createdAt": "2026-02-21T23:46:06Z",
-      "updatedAt": "2026-02-22T00:53:06Z",
+      "updatedAt": "2026-02-22T00:48:40Z",
       "lists": [
         {
           "id": "list_1b38384ac5",
@@ -141,13 +141,13 @@
           "description": "Add a persistent, human-readable issue number to every Kanban card. Scheme: {PREFIX}-{NNN} (e.g., AM-001) where PREFIX is the first 2 uppercase chars of the board codename and NNN is a zero-padded board-scoped counter that never reuses numbers after deletion. Displayed bottom-left of each card as a muted monospace badge. Priority badges (P0/P1/P2) are preserved unchanged. Change spans: state.json schema (issueNumber on cards, nextIssueNumber on board), server.py + server.js (auto-assign on card creation), app.js + styles.css + index.html (render badge), init_command_deck.py (seed cards get AM-001/002/003). Existing cards without issueNumber display '\u2014'. Contract: CT-20260221-OPS-019.",
           "acceptance": "- New cards receive correctly formatted issueNumber (e.g., AM-004).\\n- Badge visible in bottom-left of each card.\\n- Pre-migration cards display '\u2014' without error.\\n- Priority badge unchanged in position, style, and behavior.\\n- nextIssueNumber increments correctly; never reused after deletion.\\n- Cloned boards inherit source counter and issue numbers.\\n- init_command_deck.py seeds AM-001/002/003 and sets nextIssueNumber: 4.\\n- Both server.py and server.js implement identical behavior.\\n- Both ops/ and extension/assets/ Command Deck copies updated.\\n- package.json version is 1.6.0.",
           "milestoneId": "ms_dad9ed83f5",
-          "listId": "list_5c158d96b9",
+          "listId": "list_1b38384ac5",
           "priority": "P2",
           "owner": "",
           "targetDate": "",
-          "order": 6,
+          "order": 0,
           "createdAt": "2026-02-22T00:13:19Z",
-          "updatedAt": "2026-02-22T00:53:06Z"
+          "updatedAt": "2026-02-22T00:13:19Z"
         },
         {
           "id": "card_v17_hot_reload",

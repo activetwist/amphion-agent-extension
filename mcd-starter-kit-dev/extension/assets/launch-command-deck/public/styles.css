@@ -377,6 +377,12 @@ textarea {
   border-color: #4ca6dd;
   color: #aee7ff;
 }
+.issue-badge {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
 
 .priority-p0 {
   color: #ffdfe5;

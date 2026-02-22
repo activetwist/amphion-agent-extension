@@ -233,6 +233,7 @@ function createCardNode(board, card) {
 
   node.querySelector("h4").textContent = card.title;
   node.querySelector(".description").textContent = card.description || "No description";
+  node.querySelector(".issue-badge").textContent = card.issueNumber || "—";
   node.querySelector(".owner").textContent = card.owner ? `@${card.owner}` : "";
   node.querySelector(".target-date").textContent = card.targetDate ? `Due ${formatDate(card.targetDate)}` : "";
 
