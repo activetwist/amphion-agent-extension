@@ -284,8 +284,8 @@ export class OnboardingPanel {
 </head>
 <body>
     <div class="container">
-        <h1>Project Onboarding: ${projectName}</h1>
-        <p class="subtitle">Establish your deterministic guardrails. Define your strategy to unlock agent execution.</p>
+        <h1 id="main-title">Project Onboarding: ${projectName}</h1>
+        <p class="subtitle">We'll set up your project with initial guardrails and build your strategy documents.</p>
 
         <div id="init-view" class="view ${!isScaffolded ? 'active' : ''}">
             <div class="card">
@@ -399,15 +399,14 @@ export class OnboardingPanel {
         <div id="agent-handoff-view" class="view">
             <div class="card">
                 <h3>Universal Onboarding Rails</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your background is set. We've deployed slash commands to <b>.cursor/commands</b>, <b>.windsurf/workflows</b>, and <b>.agents/workflows</b> for instant strategy document derivation.</p>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your project has been started, and custom commands for your IDE have been added.</p>
                 
                 <div id="step-docs" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
-                    <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 1</div>
                     <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build Strategy Documents</div>
                     <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
                         /docs
                     </div>
-                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in <b>Cursor</b>, <b>Windsurf</b>, or <b>Antigravity</b> to derive the Charter and PRD from source materials.</p>
+                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type '/docs' in your Agent Chat to create your Charter and PRD from the materials you provided.</p>
                     <button id="btn-docs-done" class="primary" style="width: 100%;">I've typed /docs</button>
                 </div>
 
@@ -470,6 +469,8 @@ export class OnboardingPanel {
                 btn.innerText = 'Initializing...';
                 btn.style.opacity = '0.7';
                 btn.style.cursor = 'not-allowed';
+
+                document.getElementById('main-title').innerText = 'Project Onboarding: ' + data.projectName;
 
                 vscode.postMessage({
                     command: 'startScaffold',
