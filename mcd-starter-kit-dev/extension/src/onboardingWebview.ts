@@ -399,7 +399,7 @@ export class OnboardingPanel {
         <div id="agent-handoff-view" class="view">
             <div class="card">
                 <h3>Universal Onboarding Rails</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your background is set. We've deployed slash commands to <b>.cursor/rules</b>, <b>.windsurf/workflows</b>, and <b>.agents/workflows</b> for instant strategy document derivation.</p>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your background is set. We've deployed slash commands to <b>.cursor/commands</b>, <b>.windsurf/workflows</b>, and <b>.agents/workflows</b> for instant strategy document derivation.</p>
                 
                 <div id="step-charter" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
                     <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 1</div>
