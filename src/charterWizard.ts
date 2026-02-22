@@ -6,6 +6,7 @@ import { renderCharter, CharterData } from './templates/charter';
 import { renderPrd, PrdData } from './templates/prd';
 import { renderCharterStub } from './templates/charterStub';
 import { renderPrdStub } from './templates/prdStub';
+import { launchCommandDeck } from './scaffolder';
 
 function nowTimestamp(): string {
     const d = new Date();
@@ -60,6 +61,16 @@ export async function runManualPath(
     vscode.window.showInformationMessage(
         `✅ Project Charter and PRD created in referenceDocs/01_Strategy/ and committed.`
     );
+
+    const action = await vscode.window.showInformationMessage(
+        'MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Return to VS Code when you are ready to manage your work.',
+        { modal: true },
+        'Launch Command Deck'
+    );
+
+    if (action === 'Launch Command Deck') {
+        await launchCommandDeck(root, config);
+    }
 }
 
 export async function runSourceDocsPath(
@@ -133,4 +144,14 @@ export async function runSourceDocsPath(
 
     // Guide user to Charter unconditionally — the embedded agent block handles the rest
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
+
+    const action = await vscode.window.showInformationMessage(
+        'MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Complete your Strategy Docs with your AI Agent, and return to VS Code when you are ready to manage your work.',
+        { modal: true },
+        'Launch Command Deck'
+    );
+
+    if (action === 'Launch Command Deck') {
+        await launchCommandDeck(root, config);
+    }
 }
