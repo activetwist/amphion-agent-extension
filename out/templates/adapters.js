@@ -37,9 +37,10 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Closeout**: [CLOSEOUT.md](referenceDocs/00_Governance/mcd/CLOSEOUT.md)
 
 ## Operational Rules
-1. Always read the corresponding command file before starting a phase.
-2. Ensure an active contract exists in \`03_Contracts/active/\` before performing any \`EXECUTE\` actions.
-3. Maintain deterministic naming for all artifacts and records.
+1. Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+2. Always read the corresponding command file before starting a phase.
+3. Ensure an active contract exists in \`03_Contracts/active/\` before performing any \`EXECUTE\` actions.
+4. Maintain deterministic naming for all artifacts and records.
 `;
 }
 function renderAgentsMd(config) {
@@ -60,6 +61,8 @@ Before performing any task, the agent must identify the current phase and load t
 2. **Plan** via the Contract command.
 3. **Build** via the Execute command.
 4. **Finalize** via the Closeout command.
+
+**Important**: Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 `;
 }
 function renderCursorRules(config) {
@@ -69,6 +72,7 @@ function renderCursorRules(config) {
 This repository is governed by the Micro-Contract Development (MCD) protocol.
 
 ### Rules
+- Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 - Never modify core files without an active contract in \`referenceDocs/03_Contracts/active/\`.
 - Follow the canonical instructions in \`referenceDocs/00_Governance/mcd/\` for each lifecycle phase.
 - Use \`Mermaid.js\` for all architecture diagrams.
