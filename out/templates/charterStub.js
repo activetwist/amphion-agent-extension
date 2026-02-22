@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderCharterStub = renderCharterStub;
 function renderCharterStub(config, sourceFiles, timestamp) {
     const fileList = sourceFiles.map(f => `> - \`${f}\``).join('\n');
+    const fileListPrompt = sourceFiles.map(f => `> - ${f}`).join('\\n');
     return `# Project Charter — ${config.projectName}
 
 > [!IMPORTANT]
@@ -11,8 +12,11 @@ function renderCharterStub(config, sourceFiles, timestamp) {
 ${fileList}
 
 > [!NOTE]
-> **Agent Prompt — copy and run in your AI agent:**
-> "Read each file listed above in \`referenceDocs/05_Records/documentation/helperContext/\` and derive the content for every section marked \`*[Derive from source documents]*\`. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section."
+> **Agent Prompt — automatically copied to your clipboard:**
+> "Read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+${fileListPrompt}
+>
+> Derive the content for every section marked \`*[Derive from source documents]*\` in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section."
 
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`

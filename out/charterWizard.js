@@ -137,13 +137,21 @@ async function runSourceDocsPath(root, config, terminal) {
     const prdPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`);
     // 1. Guide user to Charter
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-    // Using modal: true for 'Show Prompt' so the user is forced to see/interact with it before moving on
-    const charterAction = await vscode.window.showInformationMessage(`Step 1: Project Charter. Copy the Agent Prompt from the top of the file and paste it into your AI agent chat to derive the Charter from your source docs.`, { modal: false }, 'Next: High-Level PRD');
-    if (charterAction === 'Next: High-Level PRD') {
-        // 2. Guide user to PRD
-        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prdPath));
-        await vscode.window.showInformationMessage(`Step 2: High-Level PRD. Copy the Agent Prompt (which now includes cleanup instructions) and run it. The agent will finalize both files and remove all placeholder text.`, { modal: false }, 'Done');
-    }
+    await vscode.window.showInputBox({
+        title: 'Step 1: Project Charter Derivation',
+        prompt: 'Copy the prompt below and paste it into your AI agent chat to derive the Charter. Press Enter when derivation is complete.',
+        value: 'Read each file listed above in `referenceDocs/05_Records/documentation/helperContext/` and derive the content for every section marked `*[Derive from source documents]*`. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.',
+        ignoreFocusOut: true,
+    });
+    // 2. Guide user to PRD
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prdPath));
+    await vscode.window.showInputBox({
+        title: 'Step 2: High-Level PRD Derivation',
+        prompt: 'Copy the prompt below and paste it into your AI agent chat. Press Enter when done.',
+        value: 'Read each file listed above in `referenceDocs/05_Records/documentation/helperContext/` and derive the content for every section marked `*[Derive from source documents]*`. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional.',
+        ignoreFocusOut: true,
+    });
+    vscode.window.showInformationMessage('✅ BYO Docs derivation flow complete. You can now close the stubs and review the generated documents.');
 }
 async function runCharterWizard(root, config, terminal) {
     // Offer the wizard — operator can skip entirely

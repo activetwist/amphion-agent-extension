@@ -7,6 +7,8 @@ export function renderPrdStub(
 ): string {
     const fileList = sourceFiles.map(f => `> - \`${f}\``).join('\n');
 
+    const fileListPrompt = sourceFiles.map(f => `> - ${f}`).join('\\n');
+
     return `# High-Level PRD — ${config.projectName}
 
 > [!IMPORTANT]
@@ -15,8 +17,11 @@ export function renderPrdStub(
 ${fileList}
 
 > [!NOTE]
-> **Agent Prompt — copy and run in your AI agent:**
-> "Read each file listed above in \`referenceDocs/05_Records/documentation/helperContext/\` and derive the content for every section marked \`*[Derive from source documents]*\`. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional."
+> **Agent Prompt — automatically copied to your clipboard:**
+> "Read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+${fileListPrompt}
+>
+> Derive the content for every section marked \`*[Derive from source documents]*\` in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional."
 
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`
