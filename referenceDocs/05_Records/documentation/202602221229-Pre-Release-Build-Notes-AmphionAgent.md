@@ -1,7 +1,7 @@
-# Comprehensive Pre-Release Record: AmphionAgent (v1.20.0)
+# Comprehensive Pre-Release Record: AmphionAgent (v1.21.0)
 
 **Date:** 2026-02-22  
-**Build Version:** `1.20.0`  
+**Build Version:** `1.21.0`  
 **Status:** Pre-Release Baseline (LDSGv2 Evolution)  
 **Author:** Antigravity (Agentic AI)
 
@@ -16,13 +16,10 @@ What began as a simple "Starter Kit" has evolved into a comprehensive **Methodol
 
 ## 2. Technical Feature Catalog (Soup to Nuts)
 
-### 2.1 The Onboarding Engine (Precision Scaffolding)
-- **Adaptive 5-Step Wizard**: A custom TypeScript-driven flow that captures:
-  - Project Meta (Name, Codename).
-  - Environment Config (Server Language, Port Mapping).
-  - Version Control (Baseline Versioning).
+- **Adaptive 5-Step Wizard**: A custom TypeScript-driven flow that captures project metadata, environment config, and baseline versioning.
+- **Slash Command Onboarding Rails**: Automates Project Charter and PRD derivation via deterministic `/charter` and `/prd` commands, eliminating manual prompt copy-pasting.
 - **Hybrid Scaffolder**: Generates a unified workspace combining a backend server (Node/Python) with a high-performance frontend "Command Deck."
-- **Governance Bootstrapping**: Automatically deploys the MCD methodology directory structure (`00_Governance`, `03_Contracts`, `05_Records`).
+- **Governance Bootstrapping**: Automatically deploys the MCD methodology directory structure (`00_Governance`, `03_Contracts`, `05_Records`) along with active agent workflows.
 
 ### 2.2 The Command Deck (Methodology OS)
 - **Unified Workspace UI**: A React-inspired, vanilla-JS powered dashboard centered on observability.
@@ -59,7 +56,7 @@ The evolution of AmphionAgent reflects the transformative speed of agentic devel
 - **Hour 4-12**: Implementation of the 5-Step Wizard and Template Engine.
 - **Hour 12-24**: Buildout of the Command Deck Web UI and Kanban Logic.
 - **Hour 24-36**: Refactoring for Theme Support, Persistence, and Accessibility.
-- **Hour 36-48**: Re-branding to AmphionAgent and final Portfolio-Grade documentation.
+- **Hour 36-48**: Re-branding to AmphionAgent, final Portfolio-Grade documentation, and **Zero-Friction Onboarding Rails (Slash Commands)**.
 
 ---
 

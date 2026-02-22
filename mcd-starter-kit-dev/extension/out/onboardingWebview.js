@@ -387,32 +387,33 @@ class OnboardingPanel {
 
         <div id="agent-handoff-view" class="view">
             <div class="card">
-                <h3>Agent Strategy Handoff</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your project files are ready. Follow these steps to generate your Project Charter and PRD with your AI Agent.</p>
+                <h3>AmphionAgent Onboarding Rails</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your project background is set. We've created specialized slash commands to build your strategy documents instantly.</p>
                 
-                <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
-                    <div style="font-weight: 600; margin-bottom: 8px;">Step 1: Project Charter</div>
-                    <details style="margin-bottom: 12px;">
-                        <summary style="cursor: pointer; color: var(--vscode-textLink-foreground); font-size: 13px; margin-bottom: 8px;">View Prompt Payload</summary>
-                        <code id="charter-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
-                    </details>
-                    <button id="btn-copy-charter" class="primary" style="width: 100%;">Copy Charter Prompt</button>
+                <div id="step-charter" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
+                    <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 1</div>
+                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build Project Charter</div>
+                    <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
+                        /charter
+                    </div>
+                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in your agent chat to derive the Charter from source materials.</p>
+                    <button id="btn-charter-done" class="primary" style="width: 100%;">I've typed /charter</button>
                 </div>
 
-                <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
-                    <div style="font-weight: 600; margin-bottom: 8px;">Step 2: High-Level PRD</div>
-                    <p style="font-size: 13px; color: #8b949e; margin-top: 0; margin-bottom: 8px;">Wait for the agent to finish writing the Charter before copying this prompt.</p>
-                    <details style="margin-bottom: 12px;">
-                        <summary style="cursor: pointer; color: var(--vscode-textLink-foreground); font-size: 13px; margin-bottom: 8px;">View Prompt Payload</summary>
-                        <code id="prd-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
-                    </details>
-                    <button id="btn-copy-prd" style="width: 100%;" disabled>Copy PRD Prompt</button>
+                <div id="step-prd" class="step-card" style="display: none; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
+                    <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 2</div>
+                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build High-Level PRD</div>
+                    <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
+                        /prd
+                    </div>
+                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Once the Charter is complete, type <b>/prd</b> to finish the strategy phase.</p>
+                    <button id="btn-prd-done" class="primary" style="width: 100%;">I've typed /prd</button>
                 </div>
 
                 <div id="handoff-complete" style="display: none; text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--mcd-border);">
-                    <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Started!</h3>
-                    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Review your documents with the agent. When you're ready, launch the Command Deck to track your work.</p>
-                    <button id="btn-launch-cd" class="primary" style="width: 100%;">Complete & Launch Command Deck</button>
+                    <h3 style="color: #2ea043; margin-bottom: 12px;">Strategy Architecture Complete</h3>
+                    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and PRD are now fully documented. You are ready to launch the Command Deck.</p>
+                    <button id="btn-launch-cd" class="primary" style="width: 100%; font-size: 16px;">Open Command Deck</button>
                 </div>
             </div>
         </div>
@@ -450,18 +451,13 @@ class OnboardingPanel {
         const handoffView = document.getElementById('agent-handoff-view');
         const manualSuccessView = document.getElementById('manual-success-view');
 
-        const charterPromptDisplay = document.getElementById('charter-prompt-display');
-        const prdPromptDisplay = document.getElementById('prd-prompt-display');
-        const btnCopyCharter = document.getElementById('btn-copy-charter');
-        const btnCopyPrd = document.getElementById('btn-copy-prd');
+        const stepCharter = document.getElementById('step-charter');
+        const stepPrd = document.getElementById('step-prd');
+        const btnCharterDone = document.getElementById('btn-charter-done');
+        const btnPrdDone = document.getElementById('btn-prd-done');
         const handoffComplete = document.getElementById('handoff-complete');
         const btnLaunchCd = document.getElementById('btn-launch-cd');
         const btnLaunchCdManual = document.getElementById('btn-launch-cd-manual');
-
-        let charterPromptText = '';
-        let prdPromptText = '';
-
-        // Note: The visibility of init vs selection is driven by the state injected during HTML generation
 
         if (document.getElementById('btn-submit-init')) {
             document.getElementById('btn-submit-init').addEventListener('click', () => {
@@ -526,64 +522,52 @@ class OnboardingPanel {
 
         if (document.getElementById('btn-submit-manual')) {
             document.getElementById('btn-submit-manual').addEventListener('click', () => {
-            const data = {
-                targetUsers: document.getElementById('targetUsers').value,
-                problemStatement: document.getElementById('problemStatement').value,
-                coreValue: document.getElementById('coreValue').value,
-                nonGoals: document.getElementById('nonGoals').value,
-                keyFeatures: document.getElementById('keyFeatures').value,
-                successMetric: document.getElementById('successMetric').value
-            };
-            
-            // Basic validation
-            for (const key in data) {
-                if (!data[key].trim()) {
-                    // Quick and dirty visual validation
-                    document.getElementById(key).style.borderColor = '#fa4549';
-                    return; // Stop submission
-                } else {
-                    document.getElementById(key).style.borderColor = 'var(--mcd-border)';
+                const data = {
+                    targetUsers: document.getElementById('targetUsers').value,
+                    problemStatement: document.getElementById('problemStatement').value,
+                    coreValue: document.getElementById('coreValue').value,
+                    nonGoals: document.getElementById('nonGoals').value,
+                    keyFeatures: document.getElementById('keyFeatures').value,
+                    successMetric: document.getElementById('successMetric').value
+                };
+                
+                for (const key in data) {
+                    if (!data[key].trim()) {
+                        document.getElementById(key).style.borderColor = '#fa4549';
+                        return;
+                    } else {
+                        document.getElementById(key).style.borderColor = 'var(--mcd-border)';
+                    }
                 }
-            }
 
-            const btn = document.getElementById('btn-submit-manual');
-            btn.innerText = 'Generating...';
-            btn.disabled = true;
-            btn.style.opacity = '0.7';
+                const btn = document.getElementById('btn-submit-manual');
+                btn.innerText = 'Generating...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
 
-            vscode.postMessage({
-                command: 'generateManual',
-                data: data
+                vscode.postMessage({
+                    command: 'generateManual',
+                    data: data
+                });
             });
-        });
         }
 
-        // Clear error styling on input
         document.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', (e) => {
                 e.target.style.borderColor = 'var(--mcd-border)';
             });
         });
 
-        if (btnCopyCharter) {
-            btnCopyCharter.addEventListener('click', () => {
-                vscode.postMessage({ command: 'copyToClipboard', text: charterPromptText });
-                btnCopyCharter.innerText = '✅ Charter Prompt Copied!';
-                btnCopyCharter.style.backgroundColor = '#238636';
-                btnCopyCharter.disabled = true;
-                
-                btnCopyPrd.disabled = false;
-                btnCopyPrd.classList.add('primary');
+        if (btnCharterDone) {
+            btnCharterDone.addEventListener('click', () => {
+                btnCharterDone.style.display = 'none';
+                stepPrd.style.display = 'block';
             });
         }
 
-        if (btnCopyPrd) {
-            btnCopyPrd.addEventListener('click', () => {
-                vscode.postMessage({ command: 'copyToClipboard', text: prdPromptText });
-                btnCopyPrd.innerText = '✅ PRD Prompt Copied!';
-                btnCopyPrd.style.backgroundColor = '#238636';
-                btnCopyPrd.disabled = true;
-
+        if (btnPrdDone) {
+            btnPrdDone.addEventListener('click', () => {
+                btnPrdDone.style.display = 'none';
                 handoffComplete.style.display = 'block';
             });
         }
@@ -600,26 +584,18 @@ class OnboardingPanel {
             });
         }
 
-        // Listen for messages from the extension
         window.addEventListener('message', event => {
             const message = event.data;
             switch (message.command) {
                 case 'scaffoldComplete':
                     if (initView && selectionView) {
                         initView.classList.remove('active');
-                        // Small delay for smooth transition feel
                         setTimeout(() => {
                             selectionView.classList.add('active');
                         }, 150);
                     }
                     break;
                 case 'handoffReady':
-                    charterPromptText = message.data.charterPrompt;
-                    prdPromptText = message.data.prdPrompt;
-                    
-                    charterPromptDisplay.innerText = charterPromptText;
-                    prdPromptDisplay.innerText = prdPromptText;
-
                     if (manualView) manualView.classList.remove('active');
                     if (selectionView) selectionView.classList.remove('active');
                     handoffView.classList.add('active');

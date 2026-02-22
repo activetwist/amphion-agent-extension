@@ -7,7 +7,7 @@ import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
 import { renderEvaluate, renderContract, renderExecute, renderCloseout } from './templates/commands';
-import { renderAntigravityWorkflow, renderClaudeMd, renderAgentsMd, renderCursorRules } from './templates/adapters';
+import { renderAntigravityWorkflow, renderCharterWorkflow, renderPrdWorkflow, renderClaudeMd, renderAgentsMd, renderCursorRules } from './templates/adapters';
 
 
 const DIRS = [
@@ -157,6 +157,8 @@ export async function buildScaffold(
     await writeFile(root, `${wfDir}/contract.md`, renderAntigravityWorkflow('contract', config));
     await writeFile(root, `${wfDir}/execute.md`, renderAntigravityWorkflow('execute', config));
     await writeFile(root, `${wfDir}/closeout.md`, renderAntigravityWorkflow('closeout', config));
+    await writeFile(root, `${wfDir}/charter.md`, renderCharterWorkflow(config));
+    await writeFile(root, `${wfDir}/prd.md`, renderPrdWorkflow(config));
 
     // 7. Copy the bundled Command Deck into ops/
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
