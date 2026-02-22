@@ -401,13 +401,8 @@ export class OnboardingPanel {
                 <h3>Universal Onboarding Rails</h3>
                 <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your background is set. We've deployed slash commands to <b>.cursor/commands</b>, <b>.windsurf/workflows</b>, and <b>.agents/workflows</b> for instant strategy document derivation.</p>
                 
-                <div id="step-charter" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
+                <div id="step-docs" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
                     <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 1</div>
-                    <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build Project Charter</div>
-                    <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
-                        /charter
-                    </div>
-                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in <b>Cursor</b>, <b>Windsurf</b>, or <b>Antigravity</b> to derive the Charter from source materials.</p>
                     <div style="font-weight: 600; font-size: 18px; margin-bottom: 16px;">Build Strategy Documents</div>
                     <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
                         /docs
@@ -421,17 +416,6 @@ export class OnboardingPanel {
                     <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Strategy is now fully documented. You are ready to launch the Command Deck.</p>
                     <button id="btn-launch-cd" class="primary" style="width: 100%; font-size: 16px;">Open Command Deck</button>
                 </div>
-            </div>
-        </div>
-
-        <div id="manual-success-view" class="view">
-            <div class="card" style="text-align: center;">
-                <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Completed!</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for execution.</p>
-                <div style="padding: 24px; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); border-radius: 6px; margin-bottom: 24px;">
-                    <p style="margin: 0;">Launch the Command Deck to view your Kanban board and govern your Micro-Contracts.</p>
-                </div>
-                <button id="btn-launch-cd-manual" class="primary" style="width: 100%; font-size: 16px; padding: 12px;">Launch Command Deck</button>
             </div>
         </div>
 
