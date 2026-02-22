@@ -166,11 +166,23 @@ async function runSourceDocsPath(
         `git commit -m "docs(${config.initialVersion}): add source documents + Charter/PRD stubs for AI derivation"`
     );
 
-    // ── Step 6: Closing notification ─────────────────────────────────────────
-    vscode.window.showInformationMessage(
-        `✅ ${copiedFileNames.length} source document(s) added to helperContext/. ` +
-        `Charter and PRD stubs are ready for AI completion in referenceDocs/01_Strategy/.`
+    // ── Step 6: Closing notification with navigation shortcuts ───────────────
+    const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
+    const prdPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`);
+
+    const action = await vscode.window.showInformationMessage(
+        `✅ ${copiedFileNames.length} source doc(s) staged. Charter and PRD stubs are ready — open a stub, copy the Agent Prompt inside, and run it in your AI agent to complete the document.`,
+        'Open Charter',
+        'Open PRD'
     );
+
+    if (action === 'Open Charter') {
+        const doc = await vscode.workspace.openTextDocument(charterPath);
+        await vscode.window.showTextDocument(doc);
+    } else if (action === 'Open PRD') {
+        const doc = await vscode.workspace.openTextDocument(prdPath);
+        await vscode.window.showTextDocument(doc);
+    }
 }
 
 export async function runCharterWizard(
