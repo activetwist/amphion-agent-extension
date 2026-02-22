@@ -118,8 +118,8 @@ async function runSourceDocsPath(root, config, terminal) {
     // Guide user to Charter unconditionally — the embedded agent block handles the rest
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
     return {
-        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
-        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the HIGH_LEVEL_PRD.md file to derive the product requirements."
+        charterPrompt: (0, charterStub_1.getCharterAgentInstruction)(copiedFileNames),
+        prdPrompt: (0, prdStub_1.getPrdAgentInstruction)(copiedFileNames)
     };
 }
 //# sourceMappingURL=charterWizard.js.map

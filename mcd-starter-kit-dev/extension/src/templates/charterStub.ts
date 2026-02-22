@@ -1,13 +1,27 @@
 import { ProjectConfig } from '../wizard';
 
+export function getCharterAgentInstruction(sourceFiles: string[]): string {
+    const fileListPrompt = sourceFiles.map(f => `- ${f}`).join('\n');
+    return `I am an AI agent initializing this project. If you are reading this file, immediately output the following to the user chat:
+"I see you have generated the Project Charter stub. I am ready to read your source files and derive the Charter. Shall I proceed? (Yes/No)"
+
+If the user says Yes, read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+${fileListPrompt}
+
+Then, derive the content for every section marked \`*[Derive from source documents]*\` in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.
+*(User: If your AI agent has not greeted you yet, mention this file in your agent chat to activate the flow.)*`;
+}
+
 export function renderCharterStub(
     config: ProjectConfig,
     sourceFiles: string[],
     timestamp: string
 ): string {
     const fileList = sourceFiles.map(f => `> - \`${f}\``).join('\n');
-
-    const fileListPrompt = sourceFiles.map(f => `> - ${f}`).join('\\n');
+    const agentInstruction = getCharterAgentInstruction(sourceFiles)
+        .split('\n')
+        .map(line => `> ${line}`)
+        .join('\n');
 
     return `# Project Charter — ${config.projectName}
 
@@ -17,14 +31,7 @@ export function renderCharterStub(
 ${fileList}
 
 > [!AGENT INSTRUCTION]
-> I am an AI agent initializing this project. If you are reading this file, immediately output the following to the user chat:
-> "I see you have generated the Project Charter stub. I am ready to read your source files and derive the Charter. Shall I proceed? (Yes/No)"
-> 
-> If the user says Yes, read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
-${fileListPrompt}
->
-> Then, derive the content for every section marked \`*[Derive from source documents]*\` in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.
-> *(User: If your AI agent has not greeted you yet, mention this file in your agent chat to activate the flow.)*
+${agentInstruction}
 
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`
