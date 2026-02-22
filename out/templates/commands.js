@@ -25,7 +25,7 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
 3. **Scoping**: Define the specific boundaries of the work. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine if new Architecture Primitives are required.
-5. **Card Update**: Update the Command Deck card with research findings and clear acceptance criteria.
+5. **Card Update**: Create or update a Kanban card in \`ops/launch-command-deck/data/state.json\` with your findings and acceptance criteria to ensure the Product Owner can observe the plan.
 
 **CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
