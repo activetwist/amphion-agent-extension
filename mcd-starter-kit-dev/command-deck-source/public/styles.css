@@ -11,6 +11,10 @@
   --input-bg: #0b1d2b;
   --card-bg: linear-gradient(180deg, #17344a, #122b3f);
   --card-hover: linear-gradient(180deg, #1b3d56, #143247);
+  --app-bg:
+    radial-gradient(1200px 600px at 20% -10%, #1f4364 0%, transparent 70%),
+    radial-gradient(800px 500px at 110% 110%, #124c46 0%, transparent 70%),
+    linear-gradient(180deg, #16293c, #09121a);
 
   /* Text & Borders */
   --line: #2f4e66;
@@ -69,6 +73,7 @@ html[data-theme="light"] {
   --input-bg: #ffffff;
   --card-bg: #ffffff;
   --card-hover: #f8fafc;
+  --app-bg: var(--bg-0);
 
   /* Text & Borders */
   --line: #cbd5e1;
@@ -123,10 +128,7 @@ body {
   height: 100%;
   font-family: var(--font);
   color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 20% -10%, #1f4364 0%, transparent 70%),
-    radial-gradient(800px 500px at 110% 110%, #124c46 0%, transparent 70%),
-    linear-gradient(180deg, var(--bg-2), var(--bg-0));
+  background: var(--app-bg);
 }
 
 button,
@@ -267,7 +269,8 @@ textarea {
   width: 100%;
   height: 8px;
   border-radius: var(--radius);
-  background: #0a1622;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
   overflow: hidden;
 }
 
@@ -460,7 +463,7 @@ textarea {
 .card .owner,
 .card .target-date {
   font-size: 0.74rem;
-  color: #8bb4cf;
+  color: var(--text-dim);
 }
 
 .milestone-badge,
