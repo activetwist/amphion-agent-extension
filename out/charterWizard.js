@@ -116,7 +116,11 @@ async function runSourceDocsPath(root, config, terminal) {
     // ── Step 6: Product Owner Agent Handoff ──────────────────────────────────
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
     // Guide user to Charter unconditionally — the embedded agent block handles the rest
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath), {
+        viewColumn: vscode.ViewColumn.Beside,
+        preserveFocus: true,
+        preview: false
+    });
     return {
         charterPrompt: (0, charterStub_1.getCharterAgentInstruction)(copiedFileNames),
         prdPrompt: (0, prdStub_1.getPrdAgentInstruction)(copiedFileNames)
