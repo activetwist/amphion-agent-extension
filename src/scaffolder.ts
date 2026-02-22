@@ -91,7 +91,7 @@ async function pathExists(root: vscode.Uri, relativePath: string): Promise<boole
     }
 }
 async function deployWorkflows(root: vscode.Uri, config: ProjectConfig): Promise<void> {
-    const commands = ['evaluate', 'contract', 'execute', 'closeout', 'docs'];
+    const commands = ['evaluate', 'board', 'contract', 'execute', 'closeout', 'docs'];
     const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await import('./templates/adapters');
 
     for (const cmd of commands) {

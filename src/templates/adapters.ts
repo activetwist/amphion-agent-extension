@@ -49,6 +49,7 @@ ${content}
 function getCommandDescription(command: string, config: ProjectConfig): string {
     const cmd = command.toLowerCase();
     if (cmd === 'docs') return `Generate Project Strategy (Charter & PRD) from source documents for ${config.projectName}`;
+    if (cmd === 'board') return `Populate the Command Board and draft contracts based on Evaluate findings for ${config.projectName}`;
     return `Run MCD ${command.toUpperCase()} command for ${config.projectName}`;
 }
 
@@ -86,12 +87,13 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 
 ## Active Commands
 - **Evaluate**: [EVALUATE.md](referenceDocs/00_Governance/mcd/EVALUATE.md)
+- **Board**: [BOARD.md](referenceDocs/00_Governance/mcd/BOARD.md)
 - **Contract**: [CONTRACT.md](referenceDocs/00_Governance/mcd/CONTRACT.md)
 - **Execute**: [EXECUTE.md](referenceDocs/00_Governance/mcd/EXECUTE.md)
 - **Closeout**: [CLOSEOUT.md](referenceDocs/00_Governance/mcd/CLOSEOUT.md)
 
 ## Operational Rules
-1. Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 2. Always read the corresponding command file before starting a phase.
 3. Ensure an active contract exists in \`03_Contracts/active/\` before performing any \`EXECUTE\` actions.
 4. Maintain deterministic naming for all artifacts and records.
@@ -117,11 +119,12 @@ Before performing any task, the agent must identify the current phase and load t
 
 ## Workflow
 1. **Research** via the Evaluate command.
-2. **Plan** via the Contract command.
-3. **Build** via the Execute command.
-4. **Finalize** via the Closeout command.
+2. **Board** (Optional) via the Board command.
+3. **Plan** via the Contract command.
+4. **Build** via the Execute command.
+5. **Finalize** via the Closeout command.
 
-**Important**: Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+**Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 
 ## Product Owner Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
@@ -136,7 +139,7 @@ export function renderCursorRules(config: ProjectConfig): string {
 This repository is governed by the Micro-Contract Development (MCD) protocol.
 
 ### Rules
-- Never chain MCD phases. If you complete an EVALUATE or CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+- Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 - Never modify core files without an active contract in \`referenceDocs/03_Contracts/active/\`.
 - Follow the canonical instructions in \`referenceDocs/00_Governance/mcd/\` for each lifecycle phase.
 - Use \`Mermaid.js\` for all architecture diagrams.
@@ -148,6 +151,7 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 
 ### Command Shortcuts
 - **Evaluate**: Refer to \`referenceDocs/00_Governance/mcd/EVALUATE.md\`
+- **Board**: Refer to \`referenceDocs/00_Governance/mcd/BOARD.md\`
 - **Contract**: Refer to \`referenceDocs/00_Governance/mcd/CONTRACT.md\`
 - **Execute**: Refer to \`referenceDocs/00_Governance/mcd/EXECUTE.md\`
 - **Closeout**: Refer to \`referenceDocs/00_Governance/mcd/CLOSEOUT.md\`
