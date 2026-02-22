@@ -306,7 +306,7 @@ export class OnboardingPanel {
             </div>
             
             <div class="footer-buttons" style="justify-content: flex-end;">
-                <button id="btn-submit-init" class="primary" style="flex: 0 1 auto; padding-left: 40px; padding-right: 40px;">Initialize Skeleton</button>
+                <button id="btn-submit-init" class="primary" style="flex: 0 1 auto; padding-left: 40px; padding-right: 40px;">Initialize Project</button>
             </div>
         </div>
 
@@ -400,7 +400,8 @@ export class OnboardingPanel {
 
                 for (const key in data) {
                     if (key !== 'port' && key !== 'serverLang' && !data[key]) {
-                        document.getElementById('init' + key.charAt(0).toUpperCase() + key.slice(1)).style.borderColor = '#fa4549';
+                        const id = key === 'initialVersion' ? 'initVersion' : 'init' + key.charAt(0).toUpperCase() + key.slice(1);
+                        document.getElementById(id).style.borderColor = '#fa4549';
                         return;
                     }
                 }
