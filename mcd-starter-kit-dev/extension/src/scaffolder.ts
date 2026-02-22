@@ -9,7 +9,7 @@ import { renderAntigravityWorkflow, renderClaudeMd, renderAgentsMd, renderCursor
 import { runCharterWizard } from './charterWizard';
 
 const DIRS = [
-    'referenceDocs/00_Governance/commands',
+    'referenceDocs/00_Governance/mcd',
     'referenceDocs/01_Strategy',
     'referenceDocs/02_Architecture/primitives',
     'referenceDocs/03_Contracts/active',
@@ -110,11 +110,11 @@ export async function buildScaffold(
     );
 
     // 4. Write Canonical Commands
-    const cmdDir = 'referenceDocs/00_Governance/commands';
-    await writeFile(root, `${cmdDir}/EVALUATE.md`, renderEvaluate(config));
-    await writeFile(root, `${cmdDir}/CONTRACT.md`, renderContract(config));
-    await writeFile(root, `${cmdDir}/EXECUTE.md`, renderExecute(config));
-    await writeFile(root, `${cmdDir}/CLOSEOUT.md`, renderCloseout(config));
+    const mcdDir = 'referenceDocs/00_Governance/mcd';
+    await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(config));
+    await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(config));
+    await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(config));
+    await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));
 
     // 5. Write Agent Adapters
     await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));

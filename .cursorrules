@@ -3,9 +3,9 @@
 This project uses the **Micro-Contract Development (MCD)** protocol.
 
 Before starting any task, verify the active development phase and read the corresponding command file:
-- Phase 1: `referenceDocs/00_Governance/commands/EVALUATE.md`
-- Phase 2: `referenceDocs/00_Governance/commands/CONTRACT.md`
-- Phase 3: `referenceDocs/00_Governance/commands/EXECUTE.md`
-- Phase 4: `referenceDocs/00_Governance/commands/CLOSEOUT.md`
+- Phase 1: `referenceDocs/00_Governance/mcd/EVALUATE.md`
+- Phase 2: `referenceDocs/00_Governance/mcd/CONTRACT.md`
+- Phase 3: `referenceDocs/00_Governance/mcd/EXECUTE.md`
+- Phase 4: `referenceDocs/00_Governance/mcd/CLOSEOUT.md`
 
 Maintain systemic determinism by following the step-by-step instructions in these files. Do not modify files not listed in the 'Approved AFPs' of an active contract.

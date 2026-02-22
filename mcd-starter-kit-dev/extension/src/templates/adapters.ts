@@ -11,7 +11,7 @@ description: Run MCD ${phaseUpper} command for ${config.projectName}
 This workflow invokes the canonical MCD ${phaseUpper} command.
 
 1. Read the command instructions:
-[${phaseUpper}.md](file:///$\{projectRoot\}/referenceDocs/00_Governance/commands/${phaseUpper}.md)
+[${phaseUpper}.md](file:///$\{projectRoot\}/referenceDocs/00_Governance/mcd/${phaseUpper}.md)
 
 2. Follow the step-by-step instructions in the file to complete the phase.
 `;
@@ -28,10 +28,10 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Playbook**: [MCD_PLAYBOOK.md](referenceDocs/00_Governance/MCD_PLAYBOOK.md)
 
 ## Active Commands
-- **Evaluate**: [EVALUATE.md](referenceDocs/00_Governance/commands/EVALUATE.md)
-- **Contract**: [CONTRACT.md](referenceDocs/00_Governance/commands/CONTRACT.md)
-- **Execute**: [EXECUTE.md](referenceDocs/00_Governance/commands/EXECUTE.md)
-- **Closeout**: [CLOSEOUT.md](referenceDocs/00_Governance/commands/CLOSEOUT.md)
+- **Evaluate**: [EVALUATE.md](referenceDocs/00_Governance/mcd/EVALUATE.md)
+- **Contract**: [CONTRACT.md](referenceDocs/00_Governance/mcd/CONTRACT.md)
+- **Execute**: [EXECUTE.md](referenceDocs/00_Governance/mcd/EXECUTE.md)
+- **Closeout**: [CLOSEOUT.md](referenceDocs/00_Governance/mcd/CLOSEOUT.md)
 
 ## Operational Rules
 1. Always read the corresponding command file before starting a phase.
@@ -46,7 +46,7 @@ export function renderAgentsMd(config: ProjectConfig): string {
 This project uses the MCD protocol for deterministic AI alignment and safety.
 
 ## Protocol Entrance
-Before performing any task, the agent must identify the current phase and load the appropriate command from \`referenceDocs/00_Governance/commands/\`.
+Before performing any task, the agent must identify the current phase and load the appropriate command from \`referenceDocs/00_Governance/mcd/\`.
 
 ## Core References
 - [Governance Guardrails](referenceDocs/00_Governance/GUARDRAILS.md)
@@ -69,14 +69,14 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 
 ### Rules
 - Never modify core files without an active contract in \`referenceDocs/03_Contracts/active/\`.
-- Follow the canonical instructions in \`referenceDocs/00_Governance/commands/\` for each lifecycle phase.
+- Follow the canonical instructions in \`referenceDocs/00_Governance/mcd/\` for each lifecycle phase.
 - Use \`Mermaid.js\` for all architecture diagrams.
 - Prefix all new documents with a \`YYYYMMDDHHMM-\` timestamp.
 
 ### Command Shortcuts
-- **Evaluate**: Refer to \`referenceDocs/00_Governance/commands/EVALUATE.md\`
-- **Contract**: Refer to \`referenceDocs/00_Governance/commands/CONTRACT.md\`
-- **Execute**: Refer to \`referenceDocs/00_Governance/commands/EXECUTE.md\`
-- **Closeout**: Refer to \`referenceDocs/00_Governance/commands/CLOSEOUT.md\`
+- **Evaluate**: Refer to \`referenceDocs/00_Governance/mcd/EVALUATE.md\`
+- **Contract**: Refer to \`referenceDocs/00_Governance/mcd/CONTRACT.md\`
+- **Execute**: Refer to \`referenceDocs/00_Governance/mcd/EXECUTE.md\`
+- **Closeout**: Refer to \`referenceDocs/00_Governance/mcd/CLOSEOUT.md\`
 `;
 }

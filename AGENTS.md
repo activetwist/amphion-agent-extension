@@ -4,7 +4,7 @@ This project is managed under the **Micro-Contract Development (MCD)** protocol.
 
 ## Navigation
 The source of truth for all engineering logic is located in:
-`referenceDocs/00_Governance/commands/`
+`referenceDocs/00_Governance/mcd/`
 
 ## Available Phases
 - **Evaluate**: Research, scoping, and gap analysis.
