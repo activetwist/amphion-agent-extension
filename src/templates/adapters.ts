@@ -29,6 +29,11 @@ ${content}
 `;
 }
 
+export function renderCursorCommand(command: string, config: ProjectConfig): string {
+    const content = getCommandContent(command);
+    return content;
+}
+
 export function renderWindsurfWorkflow(command: string, config: ProjectConfig): string {
     const description = getCommandDescription(command, config);
     const content = getCommandContent(command);

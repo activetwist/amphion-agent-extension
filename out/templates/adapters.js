@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderAntigravityWorkflow = renderAntigravityWorkflow;
 exports.renderCursorRule = renderCursorRule;
+exports.renderCursorCommand = renderCursorCommand;
 exports.renderWindsurfWorkflow = renderWindsurfWorkflow;
 exports.renderClaudeMd = renderClaudeMd;
 exports.renderAgentsMd = renderAgentsMd;
@@ -30,6 +31,10 @@ globs:
 
 ${content}
 `;
+}
+function renderCursorCommand(command, config) {
+    const content = getCommandContent(command);
+    return content;
 }
 function renderWindsurfWorkflow(command, config) {
     const description = getCommandDescription(command, config);

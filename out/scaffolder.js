@@ -57,6 +57,7 @@ const DIRS = [
     'referenceDocs/05_Records/documentation/helperContext',
     '.agents/workflows',
     '.cursor/rules',
+    '.cursor/commands',
     '.windsurf/workflows',
     'ops',
 ];
@@ -121,12 +122,14 @@ async function pathExists(root, relativePath) {
 }
 async function deployWorkflows(root, config) {
     const commands = ['evaluate', 'contract', 'execute', 'closeout', 'charter', 'prd'];
-    const { renderAntigravityWorkflow, renderCursorRule, renderWindsurfWorkflow } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
+    const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
     for (const cmd of commands) {
         // Antigravity
         await writeFile(root, `.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, config));
-        // Cursor (.mdc for rules)
+        // Cursor Rules (background)
         await writeFile(root, `.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, config));
+        // Cursor Commands (slash menu)
+        await writeFile(root, `.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, config));
         // Windsurf
         await writeFile(root, `.windsurf/workflows/${cmd}.md`, renderWindsurfWorkflow(cmd, config));
     }

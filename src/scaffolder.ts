@@ -23,6 +23,7 @@ const DIRS = [
     'referenceDocs/05_Records/documentation/helperContext',
     '.agents/workflows',
     '.cursor/rules',
+    '.cursor/commands',
     '.windsurf/workflows',
     'ops',
 ];
@@ -91,13 +92,15 @@ async function pathExists(root: vscode.Uri, relativePath: string): Promise<boole
 }
 async function deployWorkflows(root: vscode.Uri, config: ProjectConfig): Promise<void> {
     const commands = ['evaluate', 'contract', 'execute', 'closeout', 'charter', 'prd'];
-    const { renderAntigravityWorkflow, renderCursorRule, renderWindsurfWorkflow } = await import('./templates/adapters');
+    const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await import('./templates/adapters');
 
     for (const cmd of commands) {
         // Antigravity
         await writeFile(root, `.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, config));
-        // Cursor (.mdc for rules)
+        // Cursor Rules (background)
         await writeFile(root, `.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, config));
+        // Cursor Commands (slash menu)
+        await writeFile(root, `.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, config));
         // Windsurf
         await writeFile(root, `.windsurf/workflows/${cmd}.md`, renderWindsurfWorkflow(cmd, config));
     }
