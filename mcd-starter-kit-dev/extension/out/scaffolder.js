@@ -175,9 +175,9 @@ async function buildScaffold(root, config, extensionUri) {
         const url = vscode.Uri.parse(`http://127.0.0.1:${config.port}`);
         await vscode.env.openExternal(url);
     }, 2500);
-    // 9. Offer Charter + PRD wizard (opt-in, async — does not block server startup)
+    // 9. Open Webview for Charter + PRD wizard (async — does not block server startup)
     setTimeout(async () => {
-        await (0, charterWizard_1.runCharterWizard)(root, config, initTerminal);
+        await (0, charterWizard_1.runCharterWizard)(extensionUri, root, config, initTerminal);
     }, 3500);
 }
 //# sourceMappingURL=scaffolder.js.map
