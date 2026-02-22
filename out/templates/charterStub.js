@@ -11,12 +11,15 @@ function renderCharterStub(config, sourceFiles, timestamp) {
 > Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileList}
 
-> [!NOTE]
-> **Agent Prompt — automatically copied to your clipboard:**
-> "Read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+> [!AGENT INSTRUCTION]
+> I am an AI agent initializing this project. If you are reading this file, immediately output the following to the user chat:
+> "I see you have generated the Project Charter stub. I am ready to read your source files and derive the Charter. Shall I proceed? (Yes/No)"
+> 
+> If the user says Yes, read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileListPrompt}
 >
-> Derive the content for every section marked \`*[Derive from source documents]*\` in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section."
+> Then, derive the content for every section marked \`*[Derive from source documents]*\` in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.
+> *(User: If your AI agent has not greeted you yet, mention this file in your agent chat to activate the flow.)*
 
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`

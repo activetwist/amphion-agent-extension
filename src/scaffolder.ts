@@ -6,7 +6,7 @@ import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
 import { renderEvaluate, renderContract, renderExecute, renderCloseout } from './templates/commands';
 import { renderAntigravityWorkflow, renderClaudeMd, renderAgentsMd, renderCursorRules } from './templates/adapters';
-import { runCharterWizard } from './charterWizard';
+
 
 const DIRS = [
     'referenceDocs/00_Governance/mcd',
@@ -67,7 +67,8 @@ async function pathExists(root: vscode.Uri, relativePath: string): Promise<boole
 export async function buildScaffold(
     root: vscode.Uri,
     config: ProjectConfig,
-    extensionUri: vscode.Uri
+    extensionUri: vscode.Uri,
+    initTerminal: vscode.Terminal
 ): Promise<void> {
     // --- Pre-flight: conflict detection ---
     const conflicts: string[] = [];
@@ -89,6 +90,10 @@ export async function buildScaffold(
             return;
         }
     }
+
+    // Trigger the unified Webview flow
+    const { OnboardingPanel } = await import('./onboardingWebview');
+    OnboardingPanel.createOrShow(extensionUri, root);
 
     // 1. Create all directory structure
     for (const dir of DIRS) {
@@ -134,10 +139,7 @@ export async function buildScaffold(
     copyDirSync(deckSrc.fsPath, deckDest);
 
     // 5. Initialize the Command Deck board for this project
-    const initTerminal = vscode.window.createTerminal({
-        name: 'MCD Init',
-        cwd: root.fsPath,
-    });
+    // (initTerminal replaces the old internal instantiation)
 
     const initScript = path.join(
         root.fsPath,
@@ -194,8 +196,5 @@ export async function buildScaffold(
         await vscode.env.openExternal(url);
     }, 2500);
 
-    // 9. Open Webview for Charter + PRD wizard (async — does not block server startup)
-    setTimeout(async () => {
-        await runCharterWizard(extensionUri, root, config, initTerminal);
-    }, 3500);
+    // (The Onboarding Webview handles the Charter/PRD continuation now)
 }

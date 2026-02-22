@@ -128,65 +128,9 @@ export async function runSourceDocsPath(
         `git commit -m "docs(${config.initialVersion}): add source documents + Charter/PRD stubs for AI derivation"`
     );
 
-    // ── Step 6: Guided Sequential Flow ───────────────────────────────────────
+    // ── Step 6: Product Owner Agent Handoff ──────────────────────────────────
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
-    const prdPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`);
 
-    const fileListMarkdown = copiedFileNames.map(f => `- ${f}`).join('\n');
-
-    // 1. Guide user to Charter
+    // Guide user to Charter unconditionally — the embedded agent block handles the rest
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-
-    const charterPrompt = `Read each of the following files in referenceDocs/05_Records/documentation/helperContext/:\n${fileListMarkdown}\n\nDerive the content for every section marked *[Derive from source documents]* in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.`;
-
-    let charterCopied = false;
-    while (!charterCopied) {
-        await vscode.env.clipboard.writeText(charterPrompt);
-        const action = await vscode.window.showInformationMessage(
-            'Step 1: Project Charter Prompt copied to clipboard! Paste it into your AI agent to derive the Charter. Click "Next" when derivation is complete.',
-            { modal: true },
-            'Copy Again',
-            'Next'
-        );
-        if (action === 'Next') {
-            charterCopied = true;
-        } else if (action === undefined) {
-            return; // User cancelled the flow
-        }
-    }
-
-    // 2. Guide user to PRD
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prdPath));
-
-    const prdPrompt = `Read each of the following files in referenceDocs/05_Records/documentation/helperContext/:\n${fileListMarkdown}\n\nDerive the content for every section marked *[Derive from source documents]* in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional.`;
-
-    let prdCopied = false;
-    while (!prdCopied) {
-        await vscode.env.clipboard.writeText(prdPrompt);
-        const action = await vscode.window.showInformationMessage(
-            'Step 2: High-Level PRD Prompt copied to clipboard! Paste it into your AI agent. The agent will finalize both files.',
-            { modal: true },
-            'Copy Again',
-            'Done'
-        );
-        if (action === 'Done') {
-            prdCopied = true;
-        } else if (action === undefined) {
-            return; // User cancelled the flow
-        }
-    }
-
-    vscode.window.showInformationMessage('✅ BYO Docs derivation flow complete. You can now close the stubs and review the generated documents.');
-}
-
-import { OnboardingPanel } from './onboardingWebview';
-
-export async function runCharterWizard(
-    extensionUri: vscode.Uri,
-    root: vscode.Uri,
-    config: ProjectConfig,
-    terminal: vscode.Terminal
-): Promise<void> {
-    // Launch Webview natively!
-    OnboardingPanel.createOrShow(extensionUri, root, config, terminal);
 }

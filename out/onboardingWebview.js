@@ -36,8 +36,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OnboardingPanel = void 0;
 const vscode = __importStar(require("vscode"));
 const charterWizard_1 = require("./charterWizard");
+const scaffolder_1 = require("./scaffolder");
 class OnboardingPanel {
-    static createOrShow(extensionUri, root, config, terminal) {
+    static createOrShow(extensionUri, root) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
@@ -45,28 +46,52 @@ class OnboardingPanel {
             OnboardingPanel.currentPanel._panel.reveal(column);
             return;
         }
-        const panel = vscode.window.createWebviewPanel('mcdOnboarding', `MCD Onboarding: ${config.projectName}`, column || vscode.ViewColumn.One, {
+        const panel = vscode.window.createWebviewPanel('mcdOnboarding', `MCD Onboarding`, column || vscode.ViewColumn.One, {
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'assets')],
             retainContextWhenHidden: true
         });
-        OnboardingPanel.currentPanel = new OnboardingPanel(panel, extensionUri, root, config, terminal);
+        OnboardingPanel.currentPanel = new OnboardingPanel(panel, extensionUri, root);
     }
-    constructor(panel, extensionUri, root, config, terminal) {
+    constructor(panel, extensionUri, root) {
         this._disposables = [];
         this._panel = panel;
         this._extensionUri = extensionUri;
-        this._update(config);
+        this._update();
+        let scaffoldComplete = false;
         this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
         this._panel.webview.onDidReceiveMessage(async (message) => {
             switch (message.command) {
+                case 'startScaffold':
+                    this._config = message.data;
+                    this._terminal = vscode.window.createTerminal({
+                        name: 'MCD Init',
+                        cwd: root.fsPath,
+                    });
+                    await vscode.window.withProgress({
+                        location: vscode.ProgressLocation.Notification,
+                        title: `MCD: Initializing ${this._config.projectName}...`,
+                        cancellable: false,
+                    }, async (progress) => {
+                        progress.report({ message: 'Writing scaffold directories...' });
+                        await (0, scaffolder_1.buildScaffold)(root, this._config, extensionUri, this._terminal);
+                        progress.report({ increment: 100, message: 'Done!' });
+                    });
+                    vscode.window.showInformationMessage(`✅ MCD project "${this._config.projectName}" initialized! The Command Deck is starting on port ${this._config.port}.`);
+                    scaffoldComplete = true;
+                    this._update(); // re-render to show the strategy doc step
+                    return;
                 case 'generateManual':
-                    this._panel.dispose(); // Close the UI as it bridges to the agent
-                    await (0, charterWizard_1.runManualPath)(root, config, terminal, message.data);
+                    if (!scaffoldComplete)
+                        return;
+                    this._panel.dispose();
+                    await (0, charterWizard_1.runManualPath)(root, this._config, this._terminal, message.data);
                     return;
                 case 'importDocs':
+                    if (!scaffoldComplete)
+                        return;
                     this._panel.dispose();
-                    await (0, charterWizard_1.runSourceDocsPath)(root, config, terminal);
+                    await (0, charterWizard_1.runSourceDocsPath)(root, this._config, this._terminal);
                     return;
                 case 'cancel':
                     this._panel.dispose();
@@ -84,10 +109,14 @@ class OnboardingPanel {
             }
         }
     }
-    _update(config) {
-        this._panel.webview.html = this._getHtmlForWebview(config);
+    _update() {
+        this._panel.title = this._config ? `MCD Onboarding: ${this._config.projectName}` : 'MCD Onboarding';
+        this._panel.webview.html = this._getHtmlForWebview();
     }
-    _getHtmlForWebview(config) {
+    _getHtmlForWebview() {
+        const isScaffolded = !!this._config;
+        const projectName = this._config ? this._config.projectName : 'New Project';
+        const initialVersion = this._config ? this._config.initialVersion : '0.1.0';
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -229,10 +258,52 @@ class OnboardingPanel {
 </head>
 <body>
     <div class="container">
-        <h1>Project Onboarding: ${config.projectName}</h1>
+        <h1>Project Onboarding: ${projectName}</h1>
         <p class="subtitle">Establish your deterministic guardrails. Define your strategy to unlock agent execution.</p>
 
-        <div id="selection-view" class="view active">
+        <div id="init-view" class="view ${!isScaffolded ? 'active' : ''}">
+            <div class="card">
+                <h3>Project Initialization</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Define the core identity of this MCD project.</p>
+                
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" id="initProjectName" placeholder="e.g. Acme Web App">
+                </div>
+                
+                <div class="form-group">
+                    <label>Codename</label>
+                    <input type="text" id="initCodename" placeholder="e.g. Phoenix" style="text-transform: uppercase;">
+                    <span class="hint">One word, uppercase. Used for branching and prefixing.</span>
+                </div>
+                
+                <div style="display: flex; gap: 16px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Port</label>
+                        <input type="text" id="initPort" value="4000">
+                        <span class="hint">Command Deck port.</span>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Initial Version</label>
+                        <input type="text" id="initVersion" value="0.1.0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Command Deck Language</label>
+                    <select id="initLang" style="width: 100%; padding: 8px 12px; background-color: var(--mcd-bg); border: 1px solid var(--mcd-border); border-radius: 6px; color: var(--mcd-text); font-size: 14px;">
+                        <option value="node">Node.js</option>
+                        <option value="python">Python</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="footer-buttons" style="justify-content: flex-end;">
+                <button id="btn-submit-init" class="primary" style="flex: 0 1 auto; padding-left: 40px; padding-right: 40px;">Initialize Skeleton</button>
+            </div>
+        </div>
+
+        <div id="selection-view" class="view ${isScaffolded ? 'active' : ''}">
             <div class="card">
                 <h3>How would you like to build your Strategy?</h3>
                 <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Choose an approach to generate your Project Charter and High-Level PRD.</p>
@@ -283,7 +354,7 @@ class OnboardingPanel {
                 <hr style="border: none; border-top: 1px solid var(--mcd-border); margin: 32px 0;">
                 
                 <div class="form-group">
-                    <label>Key Features (Version ${config.initialVersion})</label>
+                    <label>Key Features (Version ${initialVersion})</label>
                     <input type="text" id="keyFeatures" placeholder="e.g. Scaffold generator, Kanban board, Contract management">
                 </div>
                 
@@ -304,29 +375,64 @@ class OnboardingPanel {
         const vscode = acquireVsCodeApi();
 
         // View swapping
+        const initView = document.getElementById('init-view');
         const selectionView = document.getElementById('selection-view');
         const manualView = document.getElementById('manual-view');
 
-        document.getElementById('btn-show-manual').addEventListener('click', () => {
-            selectionView.classList.remove('active');
-            manualView.classList.add('active');
-        });
+        // Note: The visibility of init vs selection is driven by the state injected during HTML generation
 
-        document.getElementById('btn-back-manual').addEventListener('click', () => {
-            manualView.classList.remove('active');
-            selectionView.classList.add('active');
-        });
+        if (document.getElementById('btn-submit-init')) {
+            document.getElementById('btn-submit-init').addEventListener('click', () => {
+                const data = {
+                    projectName: document.getElementById('initProjectName').value,
+                    codename: document.getElementById('initCodename').value,
+                    port: parseInt(document.getElementById('initPort').value) || 4000,
+                    initialVersion: document.getElementById('initVersion').value,
+                    serverLang: document.getElementById('initLang').value
+                };
 
-        // Actions
-        document.getElementById('btn-cancel').addEventListener('click', () => {
-            vscode.postMessage({ command: 'cancel' });
-        });
+                for (const key in data) {
+                    if (key !== 'port' && key !== 'serverLang' && !data[key]) {
+                        document.getElementById('init' + key.charAt(0).toUpperCase() + key.slice(1)).style.borderColor = '#fa4549';
+                        return;
+                    }
+                }
 
-        document.getElementById('btn-action-import').addEventListener('click', () => {
-            vscode.postMessage({ command: 'importDocs' });
-        });
+                vscode.postMessage({
+                    command: 'startScaffold',
+                    data: data
+                });
+            });
+        }
 
-        document.getElementById('btn-submit-manual').addEventListener('click', () => {
+        if (document.getElementById('btn-show-manual')) {
+            document.getElementById('btn-show-manual').addEventListener('click', () => {
+                selectionView.classList.remove('active');
+                manualView.classList.add('active');
+            });
+        }
+
+        if (document.getElementById('btn-back-manual')) {
+            document.getElementById('btn-back-manual').addEventListener('click', () => {
+                manualView.classList.remove('active');
+                selectionView.classList.add('active');
+            });
+        }
+
+        if (document.getElementById('btn-cancel')) {
+            document.getElementById('btn-cancel').addEventListener('click', () => {
+                vscode.postMessage({ command: 'cancel' });
+            });
+        }
+
+        if (document.getElementById('btn-action-import')) {
+            document.getElementById('btn-action-import').addEventListener('click', () => {
+                vscode.postMessage({ command: 'importDocs' });
+            });
+        }
+
+        if (document.getElementById('btn-submit-manual')) {
+            document.getElementById('btn-submit-manual').addEventListener('click', () => {
             const data = {
                 targetUsers: document.getElementById('targetUsers').value,
                 problemStatement: document.getElementById('problemStatement').value,
