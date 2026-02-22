@@ -2,7 +2,7 @@
 description: Generate High-Level PRD from source documents for AmphionAgent
 ---
 
-# /prd
+# PRD
 
 This command automates the derivation of your High-Level PRD.
 

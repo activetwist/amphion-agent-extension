@@ -22,7 +22,7 @@ export function renderCharterWorkflow(config: ProjectConfig): string {
 description: Generate Project Charter from source documents for ${config.projectName}
 ---
 
-# /charter
+# CHARTER
 
 This command automates the derivation of your Project Charter.
 
@@ -38,7 +38,7 @@ export function renderPrdWorkflow(config: ProjectConfig): string {
 description: Generate High-Level PRD from source documents for ${config.projectName}
 ---
 
-# /prd
+# PRD
 
 This command automates the derivation of your High-Level PRD.
 

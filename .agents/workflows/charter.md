@@ -2,7 +2,7 @@
 description: Generate Project Charter from source documents for AmphionAgent
 ---
 
-# /charter
+# CHARTER
 
 This command automates the derivation of your Project Charter.
 
