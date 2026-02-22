@@ -599,6 +599,11 @@ function registerEvents() {
     await refresh();
   });
 
+  el.btnReloadState.addEventListener("click", async () => {
+    await api("/api/reload", "POST", {});
+    await refresh();
+  });
+
   el.btnSaveBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;

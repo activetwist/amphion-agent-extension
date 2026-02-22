@@ -204,6 +204,11 @@ class StateStore:
             self._write(self._state)
             return copy.deepcopy(self._state)
 
+    def reload(self) -> Dict[str, Any]:
+        with self._lock:
+            self._state = self._load_or_create()
+            return copy.deepcopy(self._state)
+
 
 def find_board(state: Dict[str, Any], board_id: str) -> Dict[str, Any]:
     for board in state["boards"]:
@@ -656,7 +661,10 @@ class KanbanHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "state": state})
                 return
 
-
+            if route == "/api/reload":
+                state = STORE.reload()
+                self._send_json({"ok": True, "state": state})
+                return
 
             self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
         except KeyError as exc:

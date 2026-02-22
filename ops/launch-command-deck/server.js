@@ -231,6 +231,11 @@ class StateStore {
         this._write(this.state);
         return this.snapshot();
     }
+
+    reload() {
+        this.state = this._loadOrCreate();
+        return this.snapshot();
+    }
 }
 
 // ---------- finders ----------
@@ -622,6 +627,12 @@ async function handlePost(req, res, route, store) {
                 item.updatedAt = nowIso();
                 board.updatedAt = nowIso();
             });
+            return sendJson(res, { ok: true, state });
+        }
+
+        // POST /api/reload
+        if (route === '/api/reload') {
+            const state = store.reload();
             return sendJson(res, { ok: true, state });
         }
 
