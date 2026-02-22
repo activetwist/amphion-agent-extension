@@ -14,6 +14,10 @@ export function renderPrdStub(
 > Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileList}
 
+> [!NOTE]
+> **Agent Prompt — copy and run in your AI agent:**
+> "Read each file listed above in \`referenceDocs/05_Records/documentation/helperContext/\` and derive the content for every section marked \`*[Derive from source documents]*\`. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document."
+
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`
 Date: \`${timestamp}\`

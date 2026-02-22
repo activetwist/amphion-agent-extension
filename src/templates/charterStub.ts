@@ -14,6 +14,10 @@ export function renderCharterStub(
 > Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileList}
 
+> [!NOTE]
+> **Agent Prompt — copy and run in your AI agent:**
+> "Read each file listed above in \`referenceDocs/05_Records/documentation/helperContext/\` and derive the content for every section marked \`*[Derive from source documents]*\`. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section."
+
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`
 Date: \`${timestamp}\`
