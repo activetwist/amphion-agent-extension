@@ -7,7 +7,7 @@ export function activate(context: vscode.ExtensionContext) {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             vscode.window.showErrorMessage(
-                'MCD Starter Kit: Please open a folder in VS Code before initializing a project.'
+                'AmphionAgent: Please open a folder in VS Code before initializing a project.'
             );
             return;
         }
@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
                 // referenceDocs does not exist — offer initialization
                 vscode.window
                     .showInformationMessage(
-                        'Initialize an MCD project in this workspace?',
+                        'Initialize an AmphionAgent project in this workspace?',
                         'Initialize'
                     )
                     .then((selection) => {

@@ -1,8 +1,9 @@
 {
-    "name": "mcd-starter-kit",
-    "displayName": "MCD Starter Kit",
+    "name": "amphion-agent",
+    "displayName": "AmphionAgent",
     "description": "Initialize a full Micro-Contract Development (MCD) project scaffold with a single command.",
-    "version": "1.18.0",
+    "version": "1.19.0",
+    "icon": "icon.png",
     "publisher": "stanton-brooks",
     "engines": {
         "vscode": "^1.85.0"
