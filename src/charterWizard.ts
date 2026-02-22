@@ -4,8 +4,8 @@ import * as fs from 'fs';
 import { ProjectConfig } from './wizard';
 import { renderCharter, CharterData } from './templates/charter';
 import { renderPrd, PrdData } from './templates/prd';
-import { renderCharterStub } from './templates/charterStub';
-import { renderPrdStub } from './templates/prdStub';
+import { renderCharterStub, getCharterAgentInstruction } from './templates/charterStub';
+import { renderPrdStub, getPrdAgentInstruction } from './templates/prdStub';
 import { launchCommandDeck } from './scaffolder';
 
 function nowTimestamp(): string {
@@ -144,7 +144,7 @@ export async function runSourceDocsPath(
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
 
     return {
-        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
-        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the HIGH_LEVEL_PRD.md file to derive the product requirements."
+        charterPrompt: getCharterAgentInstruction(copiedFileNames),
+        prdPrompt: getPrdAgentInstruction(copiedFileNames)
     };
 }
