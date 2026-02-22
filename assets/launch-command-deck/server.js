@@ -200,12 +200,14 @@ function normalizeStateOrders(state) {
 class StateStore {
     constructor(filePath) {
         this.filePath = filePath;
+        this._lastMtime = null;
         this.state = this._loadOrCreate();
     }
 
     _loadOrCreate() {
         if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
         if (fs.existsSync(this.filePath)) {
+            this._lastMtime = fs.statSync(this.filePath).mtimeMs;
             const state = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
             normalizeStateOrders(state);
             this._write(state);
@@ -226,9 +228,20 @@ class StateStore {
         const tmp = this.filePath + '.tmp';
         fs.writeFileSync(tmp, JSON.stringify(payload, null, 2) + '\n', 'utf8');
         fs.renameSync(tmp, this.filePath);
+        this._lastMtime = fs.statSync(this.filePath).mtimeMs;
     }
 
     snapshot() {
+        try {
+            if (fs.existsSync(this.filePath)) {
+                const currentMtime = fs.statSync(this.filePath).mtimeMs;
+                if (!this._lastMtime || currentMtime > this._lastMtime) {
+                    this.state = this._loadOrCreate();
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
         return JSON.parse(JSON.stringify(this.state));
     }
 
