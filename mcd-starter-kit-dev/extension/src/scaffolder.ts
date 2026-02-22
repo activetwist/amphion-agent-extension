@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
-import { renderEvaluate, renderContract, renderExecute, renderCloseout } from './templates/commands';
+import { renderEvaluate, renderBoard, renderContract, renderExecute, renderCloseout } from './templates/commands';
 // Adapters and workflows are loaded dynamically in buildScaffold/deployWorkflows
 
 
@@ -159,6 +159,7 @@ export async function buildScaffold(
     // 4. Write Canonical Commands
     const mcdDir = 'referenceDocs/00_Governance/mcd';
     await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(config));
+    await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(config));
     await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(config));
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));

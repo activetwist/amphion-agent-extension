@@ -17,6 +17,17 @@ What began as a simple "Starter Kit" has evolved into a comprehensive **Methodol
 ## 2. Technical Feature Catalog (Soup to Nuts)
 
 - **Adaptive 5-Step Wizard**: A custom TypeScript-driven flow that captures project metadata, environment config, and baseline versioning.
+v1.24.1 | Hotfix    | MCD Engine - Deployed missing BOARD.md template and added mtime check to Command Deck for automatic refresh sync
+v1.24.0 | Feat      | MCD Orchestration Engine Hardening (/board workflow added, strict halting enforced)
+v1.23.4 | Polish    | Button Text Tweak - "Agent Confirmed Documents."
+v1.23.3 | Polish    | UI/UX Language Refinements and Dynamic Project Name Injection
+v1.23.2 | Patch     | UI Structural Fix - Resolved DOM conflict breaking handoff confirmation
+v1.23.1 | Hotfix    | JavaScript Syntax Fix - Restored "Initialize" button
+v1.23.0 | Complete  | Surgical `/docs` Command Consolidation
+v1.22.1 | Stable    | Emergency Rollback - Stable baseline restored
+v1.25.0 | Broken    | Rolled back due to stability issues
+v1.24.1 | Broken    | Rolled back due to stability issues
+v1.24.0 | Broken    | Rolled back due to stability issues
 - **Slash Command Onboarding Rails**: Automates Project Charter and PRD derivation via deterministic `/charter` and `/prd` commands, eliminating manual prompt copy-pasting.
 - **Hybrid Scaffolder**: Generates a unified workspace combining a backend server (Node/Python) with a high-performance frontend "Command Deck."
 - **Governance Bootstrapping**: Automatically deploys the MCD methodology directory structure (`00_Governance`, `03_Contracts`, `05_Records`) along with active agent workflows.

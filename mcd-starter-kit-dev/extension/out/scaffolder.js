@@ -163,6 +163,7 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     // 4. Write Canonical Commands
     const mcdDir = 'referenceDocs/00_Governance/mcd';
     await writeFile(root, `${mcdDir}/EVALUATE.md`, (0, commands_1.renderEvaluate)(config));
+    await writeFile(root, `${mcdDir}/BOARD.md`, (0, commands_1.renderBoard)(config));
     await writeFile(root, `${mcdDir}/CONTRACT.md`, (0, commands_1.renderContract)(config));
     await writeFile(root, `${mcdDir}/EXECUTE.md`, (0, commands_1.renderExecute)(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, (0, commands_1.renderCloseout)(config));

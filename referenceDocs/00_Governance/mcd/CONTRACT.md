@@ -5,11 +5,10 @@
 **Codename:** `BlackClaw`
 
 ## When to Use
-Invoke this command after Evaluation is complete and scope is locked. This phase is for defining the "How" and securing operator approval before execution.
+Invoke this command after Evaluation is complete and the user has chosen to build a contract (without populating the board). This phase is for defining the "How" and securing operator approval before execution.
 
 ## Inputs
 - [ ] Evaluation Findings
-- [ ] Locked Acceptance Criteria (on Command Deck)
 - [ ] Affected File Paths (AFPs)
 
 ## Instructions
@@ -17,7 +16,7 @@ Invoke this command after Evaluation is complete and scope is locked. This phase
 2. **Breakdown**: Divide the work into logical, deterministic steps.
 3. **Risk Assessment**: identify potential side effects or breaking changes.
 4. **AFP Enumeration**: List every file that will be created, modified, or deleted.
-5. **Approval**: Present the contract to the operator for formal approval.
+5. **Approval**: Present the contract to the operator for formal approval. Let them know they can invoke execution by referencing the new contract name.
 
 ## Output
 - [ ] Approved Contract file in `03_Contracts/active/`.

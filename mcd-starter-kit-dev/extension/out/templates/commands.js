@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderEvaluate = renderEvaluate;
+exports.renderBoard = renderBoard;
 exports.renderContract = renderContract;
 exports.renderExecute = renderExecute;
 exports.renderCloseout = renderCloseout;
@@ -30,9 +31,33 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 **CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
 ## Output
-- [ ] Updated Command Deck card with Acceptance Criteria.
 - [ ] (Optional) New or revised Architecture Primitives in \`02_Architecture/\`.
-- [ ] Research findings documented in \`04_Analysis/findings/\`.
+- [ ] Research findings documented in \`04_Analysis/findings/\` and presented to the user.
+`;
+}
+function renderBoard(config) {
+    return `# BOARD · ${config.projectName}
+
+**Phase:** 1.5 (Board Population)
+**Status:** Canonical Instruction Set
+**Codename:** \`${config.codename}\`
+
+## When to Use
+Invoke this command after an Evaluation has been presented, and the user has chosen to populate the Command Board.
+
+## Inputs
+- [ ] Evaluation Findings
+
+## Instructions
+1. **Drafting**: Create new contract file(s) in \`03_Contracts/active/\` based on the evaluation findings, using the standard MCD template.
+2. **Breakdown**: Divide the work into logical, deterministic steps within the contract.
+3. **Board Population**: Create corresponding task cards in the Command Deck (\`ops/launch-command-deck/data/state.json\`) for each contract drafted. Ensure the task cards reference the contract name and include acceptance criteria.
+4. **AFP Enumeration**: List every file that will be created, modified, or deleted in the contract.
+5. **Approval**: Inform the user that the Command Deck has been populated and the contracts are ready. Tell them they can request execution of a specific issue number or contract name.
+
+## Output
+- [ ] Drafted Contract file(s) in \`03_Contracts/active/\`.
+- [ ] Populated task cards in the Command Deck.
 `;
 }
 function renderContract(config) {

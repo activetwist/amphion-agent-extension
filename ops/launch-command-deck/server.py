@@ -173,11 +173,13 @@ class StateStore:
     def __init__(self, path: Path):
         self.path = path
         self._lock = threading.Lock()
+        self._last_mtime = None
         self._state = self._load_or_create()
 
     def _load_or_create(self) -> Dict[str, Any]:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         if self.path.exists():
+            self._last_mtime = self.path.stat().st_mtime
             with self.path.open("r", encoding="utf-8") as handle:
                 state = json.load(handle)
             normalize_state_orders(state)
@@ -199,9 +201,17 @@ class StateStore:
             json.dump(payload, handle, indent=2)
             handle.write("\n")
         tmp_path.replace(self.path)
+        self._last_mtime = self.path.stat().st_mtime
 
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
+            try:
+                if self.path.exists():
+                    current_mtime = self.path.stat().st_mtime
+                    if self._last_mtime is None or current_mtime > self._last_mtime:
+                        self._state = self._load_or_create()
+            except Exception:
+                pass
             return copy.deepcopy(self._state)
 
     def mutate(self, fn):

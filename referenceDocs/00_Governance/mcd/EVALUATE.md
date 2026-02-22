@@ -18,9 +18,9 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
 3. **Scoping**: Define the specific boundaries of the work. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine if new Architecture Primitives are required.
-5. **Card Update**: Update the Command Deck card with research findings and clear acceptance criteria.
+5. **HALT AND PRESENT**: You MUST stop execution here. Present your findings explicitly to the user. Do not write a contract yet.
+6. **PROMPT THE USER**: End your message with the exact string: *"Would you like to populate the Command Board or build a contract based on these findings?"*
 
 ## Output
-- [ ] Updated Command Deck card with Acceptance Criteria.
 - [ ] (Optional) New or revised Architecture Primitives in `02_Architecture/`.
-- [ ] Research findings documented in `04_Analysis/findings/`.
+- [ ] Research findings documented in `04_Analysis/findings/` and presented to the user.
