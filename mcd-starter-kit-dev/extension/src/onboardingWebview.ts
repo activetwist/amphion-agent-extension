@@ -460,7 +460,7 @@ export class OnboardingPanel {
         const stepDocs = document.getElementById('step-docs');
         const btnDocsDone = document.getElementById('btn-docs-done');
         const handoffComplete = document.getElementById('handoff-complete');
-        const btnCompleteOnboarding = document.getElementById('btn-launch-cd');
+        const btnLaunchCd = document.getElementById('btn-launch-cd');
         const btnLaunchCdManual = document.getElementById('btn-launch-cd-manual');
 
         if (document.getElementById('btn-submit-init')) {
@@ -561,11 +561,6 @@ export class OnboardingPanel {
                 e.target.style.borderColor = 'var(--mcd-border)';
             });
         });
-
-        const stepDocs = document.getElementById('step-docs');
-        const btnDocsDone = document.getElementById('btn-docs-done');
-        const handoffComplete = document.getElementById('handoff-complete');
-        const btnLaunchCd = document.getElementById('btn-launch-cd');
 
         if (btnDocsDone) {
             btnDocsDone.addEventListener('click', () => {
