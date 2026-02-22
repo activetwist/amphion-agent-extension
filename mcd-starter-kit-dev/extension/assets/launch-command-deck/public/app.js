@@ -21,6 +21,7 @@ const el = {
   btnCloneBoard: document.querySelector("#btnCloneBoard"),
   btnExportBoard: document.querySelector("#btnExportBoard"),
   btnImportBoard: document.querySelector("#btnImportBoard"),
+  btnReloadState: document.querySelector("#btnReloadState"),
 
   dashboardView: document.querySelector("#dashboardView"),
   boardView: document.querySelector("#boardView"),
@@ -58,7 +59,6 @@ const el = {
   cardTemplate: document.querySelector("#cardTemplate"),
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
-  btnThemeToggle: document.querySelector("#btnThemeToggle"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -233,6 +233,7 @@ function createCardNode(board, card) {
 
   node.querySelector("h4").textContent = card.title;
   node.querySelector(".description").textContent = card.description || "No description";
+  node.querySelector(".issue-badge").textContent = card.issueNumber || "—";
   node.querySelector(".owner").textContent = card.owner ? `@${card.owner}` : "";
   node.querySelector(".target-date").textContent = card.targetDate ? `Due ${formatDate(card.targetDate)}` : "";
 
@@ -576,14 +577,6 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
-  el.btnThemeToggle.addEventListener("click", () => {
-    const current = document.documentElement.getAttribute("data-theme") || "dark";
-    const next = current === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("mcd_theme", next);
-    el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
-  });
-
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
@@ -605,6 +598,11 @@ function registerEvents() {
     const board = getActiveBoard();
     if (!board) return;
     await api(`/api/boards/${board.id}/clone`, "POST", {});
+    await refresh();
+  });
+
+  el.btnReloadState.addEventListener("click", async () => {
+    await api("/api/reload", "POST", {});
     await refresh();
   });
 
@@ -720,25 +718,7 @@ function registerEvents() {
 
 async function bootstrap() {
   registerEvents();
-
-  const welcomeToast = document.getElementById("mcdWelcomeToast");
-  const btnDismissToast = document.getElementById("btnDismissToast");
-
-  if (!localStorage.getItem("mcd_welcome_shown") && welcomeToast) {
-    welcomeToast.style.display = "block";
-
-    const dismissToast = () => {
-      welcomeToast.style.display = "none";
-      localStorage.setItem("mcd_welcome_shown", "true");
-    };
-
-    btnDismissToast.addEventListener("click", dismissToast);
-    setTimeout(dismissToast, 15000);
-  }
-
   try {
-    const theme = localStorage.getItem("mcd_theme") || "dark";
-    el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
     await refresh();
   } catch (error) {
     alert(`Failed to load board: ${error.message}`);

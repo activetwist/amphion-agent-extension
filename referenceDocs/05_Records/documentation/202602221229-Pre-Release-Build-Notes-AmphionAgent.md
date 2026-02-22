@@ -17,6 +17,7 @@ What began as a simple "Starter Kit" has evolved into a comprehensive **Methodol
 ## 2. Technical Feature Catalog (Soup to Nuts)
 
 - **Adaptive 5-Step Wizard**: A custom TypeScript-driven flow that captures project metadata, environment config, and baseline versioning.
+v1.24.3 | Hotfix    | MCD Engine - Synced modernized Command Deck UI frontend files into extension scaffold templates
 v1.24.2 | Hotfix    | MCD Engine - Updated /board workflow logic to enforce issueNumber generation on direct task card writes
 v1.24.1 | Hotfix    | MCD Engine - Deployed missing BOARD.md template and added mtime check to Command Deck for automatic refresh sync
 v1.24.0 | Feat      | MCD Orchestration Engine Hardening (/board workflow added, strict halting enforced)
