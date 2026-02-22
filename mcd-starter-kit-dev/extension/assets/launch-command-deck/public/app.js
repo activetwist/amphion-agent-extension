@@ -58,6 +58,7 @@ const el = {
   cardTemplate: document.querySelector("#cardTemplate"),
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
+  btnThemeToggle: document.querySelector("#btnThemeToggle"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -575,6 +576,14 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
+  el.btnThemeToggle.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("mcd_theme", next);
+    el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+  });
+
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
@@ -728,6 +737,8 @@ async function bootstrap() {
   }
 
   try {
+    const theme = localStorage.getItem("mcd_theme") || "dark";
+    el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
     await refresh();
   } catch (error) {
     alert(`Failed to load board: ${error.message}`);

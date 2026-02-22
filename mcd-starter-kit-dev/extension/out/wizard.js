@@ -40,7 +40,7 @@ async function runWizard() {
     const projectName = await vscode.window.showInputBox({
         title: 'MCD Starter Kit (1/5)',
         prompt: 'Enter the Project Name',
-        placeHolder: 'e.g. Cymata',
+        placeHolder: 'e.g. Acme Platform',
         ignoreFocusOut: true,
         validateInput: (value) => {
             return value && value.trim().length > 0 ? null : 'Project name is required.';

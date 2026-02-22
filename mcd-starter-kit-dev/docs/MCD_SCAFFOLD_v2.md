@@ -5,7 +5,7 @@
 
 ## 1. Context Collection (Required)
 Before any file operations, collect:
-1. **Project Name** (example: `Cymata`)
+1. **Project Name** (example: `Acme Platform`)
 2. **Codename** (example: `Genesis`)
 3. **Initial Version** (default: `v0.01a`)
 4. **Git Preference** (`Local Only` OR `Remote/GitHub`)
