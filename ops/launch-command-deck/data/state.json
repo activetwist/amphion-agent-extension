@@ -7,7 +7,7 @@
       "id": "board_46736b188b",
       "name": "AmphionAgent Launch Command Deck",
       "codename": "AM",
-      "nextIssueNumber": 16,
+      "nextIssueNumber": 17,
       "description": "Command deck for AmphionAgent (BlackClaw) using MCD protocol.",
       "projectType": "standard",
       "createdAt": "2026-02-21T23:46:06Z",
@@ -169,6 +169,21 @@
           "createdAt": "2026-02-22T00:28:02Z",
           "updatedAt": "2026-02-22T00:42:10Z",
           "issueNumber": "AM-015"
+        },
+        {
+          "id": "card_49eab307",
+          "issueNumber": "AM-016",
+          "title": "Verify Command Deck Issue ID Rendering",
+          "description": "Test card to verify that the UI correctly renders the issueNumber badge on frontend clients.",
+          "acceptance": "- Issue number badge is visible on the card.\\n- Badge reads correctly.",
+          "milestoneId": "ms_dad9ed83f5",
+          "listId": "list_1b38384ac5",
+          "priority": "P0",
+          "owner": "",
+          "targetDate": "",
+          "order": 0,
+          "createdAt": "2026-02-22T21:24:36.638Z",
+          "updatedAt": "2026-02-22T21:24:36.639Z"
         }
       ]
     }
