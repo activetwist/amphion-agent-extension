@@ -166,22 +166,29 @@ async function runSourceDocsPath(
         `git commit -m "docs(${config.initialVersion}): add source documents + Charter/PRD stubs for AI derivation"`
     );
 
-    // ── Step 6: Closing notification with navigation shortcuts ───────────────
+    // ── Step 6: Guided Sequential Flow ───────────────────────────────────────
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
     const prdPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`);
 
-    const action = await vscode.window.showInformationMessage(
-        `✅ ${copiedFileNames.length} source doc(s) staged. Charter and PRD stubs are ready — open a stub, copy the Agent Prompt inside, and run it in your AI agent to complete the document.`,
-        'Open Charter',
-        'Open PRD'
+    // 1. Guide user to Charter
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
+
+    // Using modal: true for 'Show Prompt' so the user is forced to see/interact with it before moving on
+    const charterAction = await vscode.window.showInformationMessage(
+        `Step 1: Project Charter. Copy the Agent Prompt from the top of the file and paste it into your AI agent chat to derive the Charter from your source docs.`,
+        { modal: false },
+        'Next: High-Level PRD'
     );
 
-    if (action === 'Open Charter') {
-        const doc = await vscode.workspace.openTextDocument(charterPath);
-        await vscode.window.showTextDocument(doc);
-    } else if (action === 'Open PRD') {
-        const doc = await vscode.workspace.openTextDocument(prdPath);
-        await vscode.window.showTextDocument(doc);
+    if (charterAction === 'Next: High-Level PRD') {
+        // 2. Guide user to PRD
+        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prdPath));
+
+        await vscode.window.showInformationMessage(
+            `Step 2: High-Level PRD. Copy the Agent Prompt (which now includes cleanup instructions) and run it. The agent will finalize both files and remove all placeholder text.`,
+            { modal: false },
+            'Done'
+        );
     }
 }
 
