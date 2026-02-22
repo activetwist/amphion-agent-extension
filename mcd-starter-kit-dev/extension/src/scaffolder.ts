@@ -36,6 +36,28 @@ async function writeFile(root: vscode.Uri, relativePath: string, content: string
     await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
 }
 
+async function appendOrWriteFile(root: vscode.Uri, relativePath: string, content: string): Promise<void> {
+    const uri = vscode.Uri.joinPath(root, relativePath);
+    let existingContent = '';
+    const encoder = new TextEncoder();
+
+    try {
+        const fileData = await vscode.workspace.fs.readFile(uri);
+        existingContent = new TextDecoder().decode(fileData);
+    } catch (e) {
+        // File does not exist, existingContent remains empty
+    }
+
+    if (existingContent) {
+        if (!existingContent.includes('--- MCD Governance Core Rules ---')) {
+            const separator = '\n\n# --- MCD Governance Core Rules ---\n\n';
+            await vscode.workspace.fs.writeFile(uri, encoder.encode(existingContent + separator + content));
+        }
+    } else {
+        await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
+    }
+}
+
 async function createDir(root: vscode.Uri, relativePath: string): Promise<void> {
     const uri = vscode.Uri.joinPath(root, relativePath);
     await vscode.workspace.fs.createDirectory(uri);
@@ -126,7 +148,8 @@ export async function buildScaffold(
     // 5. Write Agent Adapters
     await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
     await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
-    await writeFile(root, '.cursorrules', renderCursorRules(config));
+    await appendOrWriteFile(root, '.cursorrules', renderCursorRules(config));
+    await appendOrWriteFile(root, '.clinerules', renderCursorRules(config));
 
     // 6. Write Antigravity Workflows
     const wfDir = '.agents/workflows';

@@ -63,7 +63,6 @@
           <button id="btnCloneBoard" class="btn">Clone Active</button>
           <button id="btnExportBoard" class="btn">Export JSON</button>
           <button id="btnImportBoard" class="btn">Import JSON</button>
-          <button id="btnReloadState" class="btn">Reload State</button>
 
           <input id="importFile" type="file" accept="application/json" hidden />
         </div>
@@ -265,13 +264,21 @@
       <h4></h4>
       <p class="description"></p>
       <footer>
-        <span class="issue-badge"></span>
-        <div style="flex: 1;"></div>
         <span class="owner"></span>
         <span class="target-date"></span>
       </footer>
     </article>
   </template>
+
+  <div id="mcdWelcomeToast" class="mcd-toast" style="display: none; position: fixed; bottom: 20px; right: 20px; background: var(--bg-1); border: 1px solid var(--accent); padding: 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; max-width: 320px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+      <h4 style="margin: 0; color: var(--accent); font-size: 1rem;">Welcome to MCD!</h4>
+      <button id="btnDismissToast" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; line-height: 1;">&times;</button>
+    </div>
+    <p style="margin: 0; font-size: 0.9rem; color: var(--text); line-height: 1.4;">
+      Explore your Command Deck, and visit the <strong>MCD Guide</strong> to learn more about how to ship faster with Micro-Contract Development.
+    </p>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>

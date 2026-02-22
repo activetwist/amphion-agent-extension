@@ -711,6 +711,22 @@ function registerEvents() {
 
 async function bootstrap() {
   registerEvents();
+
+  const welcomeToast = document.getElementById("mcdWelcomeToast");
+  const btnDismissToast = document.getElementById("btnDismissToast");
+
+  if (!localStorage.getItem("mcd_welcome_shown") && welcomeToast) {
+    welcomeToast.style.display = "block";
+
+    const dismissToast = () => {
+      welcomeToast.style.display = "none";
+      localStorage.setItem("mcd_welcome_shown", "true");
+    };
+
+    btnDismissToast.addEventListener("click", dismissToast);
+    setTimeout(dismissToast, 15000);
+  }
+
   try {
     await refresh();
   } catch (error) {
