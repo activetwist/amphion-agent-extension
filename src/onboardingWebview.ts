@@ -403,14 +403,20 @@ export class OnboardingPanel {
                 
                 <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
                     <div style="font-weight: 600; margin-bottom: 8px;">Step 1: Project Charter</div>
-                    <code id="charter-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); margin-bottom: 12px; font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
+                    <details style="margin-bottom: 12px;">
+                        <summary style="cursor: pointer; color: var(--vscode-textLink-foreground); font-size: 13px; margin-bottom: 8px;">View Prompt Payload</summary>
+                        <code id="charter-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
+                    </details>
                     <button id="btn-copy-charter" class="primary" style="width: 100%;">Copy Charter Prompt</button>
                 </div>
 
                 <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
                     <div style="font-weight: 600; margin-bottom: 8px;">Step 2: High-Level PRD</div>
                     <p style="font-size: 13px; color: #8b949e; margin-top: 0; margin-bottom: 8px;">Wait for the agent to finish writing the Charter before copying this prompt.</p>
-                    <code id="prd-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); margin-bottom: 12px; font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
+                    <details style="margin-bottom: 12px;">
+                        <summary style="cursor: pointer; color: var(--vscode-textLink-foreground); font-size: 13px; margin-bottom: 8px;">View Prompt Payload</summary>
+                        <code id="prd-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow-y: auto;"></code>
+                    </details>
                     <button id="btn-copy-prd" style="width: 100%;" disabled>Copy PRD Prompt</button>
                 </div>
 
