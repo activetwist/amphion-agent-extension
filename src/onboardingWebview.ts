@@ -407,7 +407,7 @@ export class OnboardingPanel {
                         /docs
                     </div>
                     <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type '/docs' in your Agent Chat to create your Charter and PRD from the materials you provided.</p>
-                    <button id="btn-docs-done" class="primary" style="width: 100%;">I've typed /docs</button>
+                    <button id="btn-docs-done" class="primary" style="width: 100%;">Agent Confirmed Documents.</button>
                 </div>
 
                 <div id="handoff-complete" style="display: none; text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--mcd-border);">
