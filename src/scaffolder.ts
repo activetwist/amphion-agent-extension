@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
+import { exec } from 'child_process';
 import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
@@ -193,9 +195,16 @@ export async function launchCommandDeck(root: vscode.Uri, config: ProjectConfig)
         );
     }
 
-    // Open browser after a short delay for the server to start
-    setTimeout(async () => {
-        const url = vscode.Uri.parse(`http://localhost:${config.port}`);
-        await vscode.env.openExternal(url);
+    const url = `http://localhost:${config.port}`;
+
+    setTimeout(() => {
+        const platform = os.platform();
+        if (platform === 'darwin') {
+            exec(`open ${url}`);
+        } else if (platform === 'win32') {
+            exec(`start ${url}`);
+        } else {
+            exec(`xdg-open ${url}`);
+        }
     }, 2500);
 }
