@@ -43,7 +43,7 @@ const child_process_1 = require("child_process");
 const guardrails_1 = require("./templates/guardrails");
 const playbook_1 = require("./templates/playbook");
 const commands_1 = require("./templates/commands");
-const adapters_1 = require("./templates/adapters");
+// Adapters and workflows are loaded dynamically in buildScaffold/deployWorkflows
 const DIRS = [
     'referenceDocs/00_Governance/mcd',
     'referenceDocs/01_Strategy',
@@ -56,6 +56,8 @@ const DIRS = [
     'referenceDocs/05_Records/chatLogs',
     'referenceDocs/05_Records/documentation/helperContext',
     '.agents/workflows',
+    '.cursor/rules',
+    '.windsurf/workflows',
     'ops',
 ];
 const CONFLICT_CHECK_DIRS = [
@@ -117,6 +119,18 @@ async function pathExists(root, relativePath) {
         return false;
     }
 }
+async function deployWorkflows(root, config) {
+    const commands = ['evaluate', 'contract', 'execute', 'closeout', 'charter', 'prd'];
+    const { renderAntigravityWorkflow, renderCursorRule, renderWindsurfWorkflow } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
+    for (const cmd of commands) {
+        // Antigravity
+        await writeFile(root, `.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, config));
+        // Cursor (.mdc for rules)
+        await writeFile(root, `.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, config));
+        // Windsurf
+        await writeFile(root, `.windsurf/workflows/${cmd}.md`, renderWindsurfWorkflow(cmd, config));
+    }
+}
 async function buildScaffold(root, config, extensionUri, initTerminal) {
     // --- Pre-flight: conflict detection ---
     const conflicts = [];
@@ -150,18 +164,13 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     await writeFile(root, `${mcdDir}/EXECUTE.md`, (0, commands_1.renderExecute)(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, (0, commands_1.renderCloseout)(config));
     // 5. Write Agent Adapters
-    await writeFile(root, 'CLAUDE.md', (0, adapters_1.renderClaudeMd)(config));
-    await writeFile(root, 'AGENTS.md', (0, adapters_1.renderAgentsMd)(config));
-    await appendOrWriteFile(root, '.cursorrules', (0, adapters_1.renderCursorRules)(config));
-    await appendOrWriteFile(root, '.clinerules', (0, adapters_1.renderCursorRules)(config));
-    // 6. Write Antigravity Workflows
-    const wfDir = '.agents/workflows';
-    await writeFile(root, `${wfDir}/evaluate.md`, (0, adapters_1.renderAntigravityWorkflow)('evaluate', config));
-    await writeFile(root, `${wfDir}/contract.md`, (0, adapters_1.renderAntigravityWorkflow)('contract', config));
-    await writeFile(root, `${wfDir}/execute.md`, (0, adapters_1.renderAntigravityWorkflow)('execute', config));
-    await writeFile(root, `${wfDir}/closeout.md`, (0, adapters_1.renderAntigravityWorkflow)('closeout', config));
-    await writeFile(root, `${wfDir}/charter.md`, (0, adapters_1.renderCharterWorkflow)(config));
-    await writeFile(root, `${wfDir}/prd.md`, (0, adapters_1.renderPrdWorkflow)(config));
+    const { renderClaudeMd, renderAgentsMd, renderCursorRules } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
+    await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
+    await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
+    await appendOrWriteFile(root, '.cursorrules', renderCursorRules(config));
+    await appendOrWriteFile(root, '.clinerules', renderCursorRules(config));
+    // 6. Deploy Multi-IDE Workflows
+    await deployWorkflows(root, config);
     // 7. Copy the bundled Command Deck into ops/
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
     const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');

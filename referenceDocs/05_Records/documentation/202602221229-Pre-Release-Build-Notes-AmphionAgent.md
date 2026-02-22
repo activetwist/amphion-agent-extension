@@ -1,7 +1,7 @@
-# Comprehensive Pre-Release Record: AmphionAgent (v1.21.2)
+# Comprehensive Pre-Release Record: AmphionAgent (v1.22.0)
 
 **Date:** 2026-02-22  
-**Build Version:** `1.21.2`  
+**Build Version:** `1.22.0`  
 **Status:** Pre-Release Baseline (LDSGv2 Evolution)  
 **Author:** Antigravity (Agentic AI)
 
@@ -45,7 +45,7 @@ The evolution of AmphionAgent reflects the transformative speed of agentic devel
 ### 3.1 Velocity Metrics
 | Metric | Value |
 | :--- | :--- |
-| **Total Releases** | 40 (v0.01a to v1.21.2) |
+| **Total Releases** | 41 (v0.01a to v1.22.0) |
 | **Micro-Contracts Executed** | 40+ |
 | **Calendar Time** | 2.5 Days |
 | **Simulated Manual Effort** | **~80 Senior Engineering Hours** |

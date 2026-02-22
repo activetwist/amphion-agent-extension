@@ -398,8 +398,8 @@ export class OnboardingPanel {
 
         <div id="agent-handoff-view" class="view">
             <div class="card">
-                <h3>AmphionAgent Onboarding Rails</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your project background is set. We've created specialized slash commands to build your strategy documents instantly.</p>
+                <h3>Universal Onboarding Rails</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your background is set. We've deployed slash commands to <b>.cursor/rules</b>, <b>.windsurf/workflows</b>, and <b>.agents/workflows</b> for instant strategy document derivation.</p>
                 
                 <div id="step-charter" class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 24px; border-radius: 12px; margin-bottom: 16px; text-align: center;">
                     <div style="color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;">Step 1</div>
@@ -407,7 +407,7 @@ export class OnboardingPanel {
                     <div style="background: var(--mcd-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--mcd-border); font-family: monospace; font-size: 16px; color: var(--mcd-accent); margin-bottom: 16px;">
                         /charter
                     </div>
-                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in your agent chat to derive the Charter from source materials.</p>
+                    <p style="font-size: 13px; color: #8b949e; margin-bottom: 20px;">Type the command in <b>Cursor</b>, <b>Windsurf</b>, or <b>Antigravity</b> to derive the Charter from source materials.</p>
                     <button id="btn-charter-done" class="primary" style="width: 100%;">I've typed /charter</button>
                 </div>
 
