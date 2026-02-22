@@ -79,7 +79,7 @@ class OnboardingPanel {
                     });
                     vscode.window.showInformationMessage(`✅ MCD project "${this._config.projectName}" initialized! The Command Deck is starting on port ${this._config.port}.`);
                     scaffoldComplete = true;
-                    this._update(); // re-render to show the strategy doc step
+                    this._panel.webview.postMessage({ command: 'scaffoldComplete' });
                     return;
                 case 'generateManual':
                     if (!scaffoldComplete)
@@ -399,6 +399,12 @@ class OnboardingPanel {
                     }
                 }
 
+                const btn = document.getElementById('btn-submit-init');
+                btn.disabled = true;
+                btn.innerText = 'Initializing...';
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+
                 vscode.postMessage({
                     command: 'startScaffold',
                     data: data
@@ -459,6 +465,7 @@ class OnboardingPanel {
                 data: data
             });
         });
+        }
 
         // Clear error styling on input
         document.querySelectorAll('input').forEach(input => {
@@ -466,6 +473,23 @@ class OnboardingPanel {
                 e.target.style.borderColor = 'var(--mcd-border)';
             });
         });
+
+        // Listen for messages from the extension
+        window.addEventListener('message', event => {
+            const message = event.data;
+            switch (message.command) {
+                case 'scaffoldComplete':
+                    if (initView && selectionView) {
+                        initView.classList.remove('active');
+                        // Small delay for smooth transition feel
+                        setTimeout(() => {
+                            selectionView.classList.add('active');
+                        }, 150);
+                    }
+                    break;
+            }
+        });
+
     </script>
 </body>
 </html>`;
