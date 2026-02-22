@@ -9,6 +9,7 @@ If the user says Yes, read each of the following files in \`referenceDocs/05_Rec
 ${fileListPrompt}
 
 Then, derive the content for every section marked \`*[Derive from source documents]*\` in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (including these agent blocks), ensuring the finalized documents are clean and professional.
+Finally, tell the user exactly this: 'The PRD and Strategy documents are complete! Please return to the MCD Onboarding WebUI and click "Complete & Launch Command Deck" to finish the onboarding process.'
 *(User: If your AI agent has not greeted you yet, mention this file in your agent chat to activate the flow.)*`;
 }
 
