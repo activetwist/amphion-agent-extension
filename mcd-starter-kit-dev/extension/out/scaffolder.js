@@ -38,6 +38,8 @@ exports.launchCommandDeck = launchCommandDeck;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const os = __importStar(require("os"));
+const child_process_1 = require("child_process");
 const guardrails_1 = require("./templates/guardrails");
 const playbook_1 = require("./templates/playbook");
 const commands_1 = require("./templates/commands");
@@ -172,10 +174,18 @@ async function launchCommandDeck(root, config) {
     else {
         serverTerminal.sendText(`python3 ops/launch-command-deck/server.py --port ${config.port}`);
     }
-    // Open browser after a short delay for the server to start
-    setTimeout(async () => {
-        const url = vscode.Uri.parse(`http://localhost:${config.port}`);
-        await vscode.env.openExternal(url);
+    const url = `http://localhost:${config.port}`;
+    setTimeout(() => {
+        const platform = os.platform();
+        if (platform === 'darwin') {
+            (0, child_process_1.exec)(`open ${url}`);
+        }
+        else if (platform === 'win32') {
+            (0, child_process_1.exec)(`start ${url}`);
+        }
+        else {
+            (0, child_process_1.exec)(`xdg-open ${url}`);
+        }
     }, 2500);
 }
 //# sourceMappingURL=scaffolder.js.map

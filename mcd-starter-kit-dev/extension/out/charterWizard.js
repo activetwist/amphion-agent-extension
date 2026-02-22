@@ -68,7 +68,9 @@ async function runManualPath(root, config, terminal, data) {
     terminal.sendText('git add referenceDocs/01_Strategy/');
     terminal.sendText(`git commit -m "docs(${config.initialVersion}): add Project Charter and High-Level PRD for ${config.codename}"`);
     vscode.window.showInformationMessage(`✅ Project Charter and PRD created in referenceDocs/01_Strategy/ and committed.`);
-    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Return to VS Code when you are ready to manage your work.', { modal: true }, 'Launch Command Deck');
+    const triggerPrompt = "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.";
+    await vscode.env.clipboard.writeText(triggerPrompt);
+    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Charter is open. We copied a trigger to your clipboard—paste it into your AI agent chat to begin. Launch Command Deck when you are finished.', { modal: true }, 'Launch Command Deck');
     if (action === 'Launch Command Deck') {
         await (0, scaffolder_1.launchCommandDeck)(root, config);
     }
@@ -116,7 +118,9 @@ async function runSourceDocsPath(root, config, terminal) {
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
     // Guide user to Charter unconditionally — the embedded agent block handles the rest
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Complete your Strategy Docs with your AI Agent, and return to VS Code when you are ready to manage your work.', { modal: true }, 'Launch Command Deck');
+    const triggerPrompt = "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.";
+    await vscode.env.clipboard.writeText(triggerPrompt);
+    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Charter is open. We copied a trigger to your clipboard—paste it into your AI agent chat to begin. Launch Command Deck when you are finished.', { modal: true }, 'Launch Command Deck');
     if (action === 'Launch Command Deck') {
         await (0, scaffolder_1.launchCommandDeck)(root, config);
     }
