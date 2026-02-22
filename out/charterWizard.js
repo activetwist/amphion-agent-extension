@@ -33,6 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.runManualPath = runManualPath;
+exports.runSourceDocsPath = runSourceDocsPath;
 exports.runCharterWizard = runCharterWizard;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
@@ -46,47 +48,20 @@ function nowTimestamp() {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
-async function prompt(title, step, promptText, placeholder) {
-    return vscode.window.showInputBox({
-        title: `MCD Charter & PRD (${step})`,
-        prompt: promptText,
-        placeHolder: placeholder,
-        ignoreFocusOut: true,
-        validateInput: (v) => (v && v.trim().length > 0 ? null : `${title} is required.`),
-    });
-}
-async function runManualPath(root, config, terminal) {
-    // ── Charter fields ──────────────────────────────────────────────────────
-    const targetUsers = await prompt('Target Users', '1/6', 'Who are the target users of this project?', 'e.g. Solo developers building with AI coding agents');
-    if (!targetUsers) {
-        return;
-    }
-    const problemStatement = await prompt('Problem Statement', '2/6', 'What problem does this project solve?', 'e.g. AI agents lack deterministic guardrails, causing scope creep and hallucination');
-    if (!problemStatement) {
-        return;
-    }
-    const coreValue = await prompt('Core Value Proposition', '3/6', 'What is the primary value this project delivers?', 'e.g. A contract-governed workflow that enforces deterministic engineering');
-    if (!coreValue) {
-        return;
-    }
-    const nonGoals = await prompt('Hard Non-Goals', '4/6', 'What is explicitly out of scope? (Use bullet points or sentences)', 'e.g. No multi-user support; No cloud hosting');
-    if (!nonGoals) {
-        return;
-    }
-    // ── PRD fields ───────────────────────────────────────────────────────────
-    const keyFeatures = await prompt('Key Features', '5/6', 'List the key features for this version, separated by commas', 'e.g. Scaffold generator, Kanban board, Contract management, Git traceability');
-    if (!keyFeatures) {
-        return;
-    }
-    const successMetric = await prompt('Success Metric', '6/6', 'How will you measure success for this version?', 'e.g. A new project can be initialized and tracked end-to-end in under 5 minutes');
-    if (!successMetric) {
-        return;
-    }
+async function runManualPath(root, config, terminal, data) {
     // ── Write documents ──────────────────────────────────────────────────────
     const timestamp = nowTimestamp();
     const encoder = new TextEncoder();
-    const charterData = { targetUsers, problemStatement, coreValue, nonGoals };
-    const prdData = { keyFeatures, successMetric };
+    const charterData = {
+        targetUsers: data.targetUsers,
+        problemStatement: data.problemStatement,
+        coreValue: data.coreValue,
+        nonGoals: data.nonGoals
+    };
+    const prdData = {
+        keyFeatures: data.keyFeatures,
+        successMetric: data.successMetric
+    };
     await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`), encoder.encode((0, charter_1.renderCharter)(config, charterData, timestamp)));
     await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`), encoder.encode((0, prd_1.renderPrd)(config, charterData, prdData, timestamp)));
     // ── Stage and commit ─────────────────────────────────────────────────────
@@ -106,10 +81,11 @@ async function runSourceDocsPath(root, config, terminal) {
             'All Files': ['*'],
         },
     });
-    // Graceful fallback: if operator cancels without selecting, run manual path
+    // Graceful fallback: if operator cancels without selecting, return to webview ideally
+    // For now, if cancelled, just abort gracefully.
     if (!selected || selected.length === 0) {
-        vscode.window.showInformationMessage('No files selected — switching to manual entry.');
-        return runManualPath(root, config, terminal);
+        vscode.window.showInformationMessage('Import cancelled.');
+        return;
     }
     // ── Step 2: Copy files to helperContext/ ─────────────────────────────────
     const helperContextDir = path.join(root.fsPath, 'referenceDocs', '05_Records', 'documentation', 'helperContext');
@@ -135,55 +111,40 @@ async function runSourceDocsPath(root, config, terminal) {
     // ── Step 6: Guided Sequential Flow ───────────────────────────────────────
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
     const prdPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`);
+    const fileListMarkdown = copiedFileNames.map(f => `- ${f}`).join('\n');
     // 1. Guide user to Charter
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-    await vscode.window.showInputBox({
-        title: 'Step 1: Project Charter Derivation',
-        prompt: 'Copy the prompt below and paste it into your AI agent chat to derive the Charter. Press Enter when derivation is complete.',
-        value: 'Read each file listed above in `referenceDocs/05_Records/documentation/helperContext/` and derive the content for every section marked `*[Derive from source documents]*`. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.',
-        ignoreFocusOut: true,
-    });
+    const charterPrompt = `Read each of the following files in referenceDocs/05_Records/documentation/helperContext/:\n${fileListMarkdown}\n\nDerive the content for every section marked *[Derive from source documents]* in the Project Charter. Populate each section directly from the source material. Do not add sections not already present in this document. Do not modify the Operating Constraints section.`;
+    let charterCopied = false;
+    while (!charterCopied) {
+        await vscode.env.clipboard.writeText(charterPrompt);
+        const action = await vscode.window.showInformationMessage('Step 1: Project Charter Prompt copied to clipboard! Paste it into your AI agent to derive the Charter. Click "Next" when derivation is complete.', { modal: true }, 'Copy Again', 'Next');
+        if (action === 'Next') {
+            charterCopied = true;
+        }
+        else if (action === undefined) {
+            return; // User cancelled the flow
+        }
+    }
     // 2. Guide user to PRD
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(prdPath));
-    await vscode.window.showInputBox({
-        title: 'Step 2: High-Level PRD Derivation',
-        prompt: 'Copy the prompt below and paste it into your AI agent chat. Press Enter when done.',
-        value: 'Read each file listed above in `referenceDocs/05_Records/documentation/helperContext/` and derive the content for every section marked `*[Derive from source documents]*`. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional.',
-        ignoreFocusOut: true,
-    });
+    const prdPrompt = `Read each of the following files in referenceDocs/05_Records/documentation/helperContext/:\n${fileListMarkdown}\n\nDerive the content for every section marked *[Derive from source documents]* in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional.`;
+    let prdCopied = false;
+    while (!prdCopied) {
+        await vscode.env.clipboard.writeText(prdPrompt);
+        const action = await vscode.window.showInformationMessage('Step 2: High-Level PRD Prompt copied to clipboard! Paste it into your AI agent. The agent will finalize both files.', { modal: true }, 'Copy Again', 'Done');
+        if (action === 'Done') {
+            prdCopied = true;
+        }
+        else if (action === undefined) {
+            return; // User cancelled the flow
+        }
+    }
     vscode.window.showInformationMessage('✅ BYO Docs derivation flow complete. You can now close the stubs and review the generated documents.');
 }
-async function runCharterWizard(root, config, terminal) {
-    // Offer the wizard — operator can skip entirely
-    const offer = await vscode.window.showInformationMessage(`Scaffold complete! Generate your Project Charter and PRD for "${config.projectName}" now?`, { modal: false }, 'Yes, let\'s go', 'Skip for now');
-    if (offer !== 'Yes, let\'s go') {
-        return;
-    }
-    // ── Branch question ───────────────────────────────────────────────────────
-    const sourcePick = await vscode.window.showQuickPick([
-        {
-            label: '$(file-text) Start from scratch',
-            description: 'Answer 6 questions to build the Charter and PRD',
-            detail: 'manual',
-        },
-        {
-            label: '$(folder-opened) Import source documents',
-            description: 'I have existing research, notes, or analysis to reference',
-            detail: 'source',
-        },
-    ], {
-        title: 'MCD Charter & PRD — How would you like to proceed?',
-        placeHolder: 'Select an approach',
-        ignoreFocusOut: true,
-    });
-    if (!sourcePick) {
-        return; // Cancelled
-    }
-    if (sourcePick.detail === 'source') {
-        await runSourceDocsPath(root, config, terminal);
-    }
-    else {
-        await runManualPath(root, config, terminal);
-    }
+const onboardingWebview_1 = require("./onboardingWebview");
+async function runCharterWizard(extensionUri, root, config, terminal) {
+    // Launch Webview natively!
+    onboardingWebview_1.OnboardingPanel.createOrShow(extensionUri, root, config, terminal);
 }
 //# sourceMappingURL=charterWizard.js.map

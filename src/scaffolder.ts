@@ -194,8 +194,8 @@ export async function buildScaffold(
         await vscode.env.openExternal(url);
     }, 2500);
 
-    // 9. Offer Charter + PRD wizard (opt-in, async — does not block server startup)
+    // 9. Open Webview for Charter + PRD wizard (async — does not block server startup)
     setTimeout(async () => {
-        await runCharterWizard(root, config, initTerminal);
+        await runCharterWizard(extensionUri, root, config, initTerminal);
     }, 3500);
 }
