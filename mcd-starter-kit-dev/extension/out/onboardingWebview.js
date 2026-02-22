@@ -94,7 +94,13 @@ class OnboardingPanel {
                     await (0, charterWizard_1.runSourceDocsPath)(root, this._config, this._terminal);
                     return;
                 case 'cancel':
+                    if (!scaffoldComplete)
+                        return;
                     this._panel.dispose();
+                    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Return to VS Code when you are ready to manage your work.', { modal: true }, 'Launch Command Deck');
+                    if (action === 'Launch Command Deck') {
+                        await (0, scaffolder_1.launchCommandDeck)(root, this._config);
+                    }
                     return;
             }
         }, null, this._disposables);

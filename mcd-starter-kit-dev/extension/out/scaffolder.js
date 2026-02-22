@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildScaffold = buildScaffold;
+exports.launchCommandDeck = launchCommandDeck;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
@@ -157,7 +158,9 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     }
     initTerminal.sendText('git add .');
     initTerminal.sendText(`git commit -m "chore(init): ${config.codename} scaffold - establish guardrails + command deck"`);
-    // 7. Start the Command Deck server (language-aware)
+    // (The Onboarding Webview handles the Charter/PRD continuation now. The Server start is deferred.)
+}
+async function launchCommandDeck(root, config) {
     const serverTerminal = vscode.window.createTerminal({
         name: `Command Deck :${config.port}`,
         cwd: root.fsPath,
@@ -169,11 +172,10 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     else {
         serverTerminal.sendText(`python3 ops/launch-command-deck/server.py --port ${config.port}`);
     }
-    // 8. Open browser after a short delay for the server to start
+    // Open browser after a short delay for the server to start
     setTimeout(async () => {
-        const url = vscode.Uri.parse(`http://127.0.0.1:${config.port}`);
+        const url = vscode.Uri.parse(`http://localhost:${config.port}`);
         await vscode.env.openExternal(url);
     }, 2500);
-    // (The Onboarding Webview handles the Charter/PRD continuation now)
 }
 //# sourceMappingURL=scaffolder.js.map

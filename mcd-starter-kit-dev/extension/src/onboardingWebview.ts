@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ProjectConfig } from './wizard';
 import { runManualPath, runSourceDocsPath } from './charterWizard';
-import { buildScaffold } from './scaffolder';
+import { buildScaffold, launchCommandDeck } from './scaffolder';
 
 export class OnboardingPanel {
     public static currentPanel: OnboardingPanel | undefined;
@@ -95,7 +95,17 @@ export class OnboardingPanel {
                         await runSourceDocsPath(root, this._config!, this._terminal!);
                         return;
                     case 'cancel':
+                        if (!scaffoldComplete) return;
                         this._panel.dispose();
+                        const action = await vscode.window.showInformationMessage(
+                            'MCD has initialized your project! The Command Deck kanban board will now launch in your browser. Return to VS Code when you are ready to manage your work.',
+                            { modal: true },
+                            'Launch Command Deck'
+                        );
+
+                        if (action === 'Launch Command Deck') {
+                            await launchCommandDeck(root, this._config!);
+                        }
                         return;
                 }
             },
