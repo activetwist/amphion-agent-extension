@@ -36,8 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const wizard_1 = require("./wizard");
-const scaffolder_1 = require("./scaffolder");
 function activate(context) {
     const disposable = vscode.commands.registerCommand('mcd.init', async () => {
         // Determine target workspace folder
@@ -47,23 +45,9 @@ function activate(context) {
             return;
         }
         const root = workspaceFolders[0].uri;
-        // Step 1: Run the onboarding wizard to collect project config
-        const config = await (0, wizard_1.runWizard)();
-        if (!config) {
-            // User cancelled at some point
-            return;
-        }
-        // Step 2: Build the scaffold
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `MCD: Initializing ${config.projectName}...`,
-            cancellable: false,
-        }, async (progress) => {
-            progress.report({ message: 'Writing scaffold directories...' });
-            await (0, scaffolder_1.buildScaffold)(root, config, context.extensionUri);
-            progress.report({ increment: 100, message: 'Done!' });
-        });
-        vscode.window.showInformationMessage(`✅ MCD project "${config.projectName}" initialized! The Command Deck is starting on port ${config.port}.`);
+        // Trigger the unified Webview flow
+        const { OnboardingPanel } = await Promise.resolve().then(() => __importStar(require('./onboardingWebview')));
+        OnboardingPanel.createOrShow(context.extensionUri, root);
     });
     context.subscriptions.push(disposable);
     // Show init prompt for workspaces that don't already have an MCD scaffold

@@ -41,7 +41,6 @@ const guardrails_1 = require("./templates/guardrails");
 const playbook_1 = require("./templates/playbook");
 const commands_1 = require("./templates/commands");
 const adapters_1 = require("./templates/adapters");
-const charterWizard_1 = require("./charterWizard");
 const DIRS = [
     'referenceDocs/00_Governance/mcd',
     'referenceDocs/01_Strategy',
@@ -94,7 +93,7 @@ async function pathExists(root, relativePath) {
         return false;
     }
 }
-async function buildScaffold(root, config, extensionUri) {
+async function buildScaffold(root, config, extensionUri, initTerminal) {
     // --- Pre-flight: conflict detection ---
     const conflicts = [];
     for (const dir of CONFLICT_CHECK_DIRS) {
@@ -109,6 +108,9 @@ async function buildScaffold(root, config, extensionUri) {
             return;
         }
     }
+    // Trigger the unified Webview flow
+    const { OnboardingPanel } = await Promise.resolve().then(() => __importStar(require('./onboardingWebview')));
+    OnboardingPanel.createOrShow(extensionUri, root);
     // 1. Create all directory structure
     for (const dir of DIRS) {
         await createDir(root, dir);
@@ -138,10 +140,7 @@ async function buildScaffold(root, config, extensionUri) {
     const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
     copyDirSync(deckSrc.fsPath, deckDest);
     // 5. Initialize the Command Deck board for this project
-    const initTerminal = vscode.window.createTerminal({
-        name: 'MCD Init',
-        cwd: root.fsPath,
-    });
+    // (initTerminal replaces the old internal instantiation)
     const initScript = path.join(root.fsPath, 'ops', 'launch-command-deck', 'scripts', 'init_command_deck.py');
     initTerminal.sendText(`python3 "${initScript}" --project-name "${config.projectName}" --codename "${config.codename}" --initial-version "${config.initialVersion}" --milestone-title "Version 0a Pre-Release" --seed-template scaffold`);
     // 6. Git: detect existing repo or initialize
@@ -175,9 +174,6 @@ async function buildScaffold(root, config, extensionUri) {
         const url = vscode.Uri.parse(`http://127.0.0.1:${config.port}`);
         await vscode.env.openExternal(url);
     }, 2500);
-    // 9. Open Webview for Charter + PRD wizard (async — does not block server startup)
-    setTimeout(async () => {
-        await (0, charterWizard_1.runCharterWizard)(extensionUri, root, config, initTerminal);
-    }, 3500);
+    // (The Onboarding Webview handles the Charter/PRD continuation now)
 }
 //# sourceMappingURL=scaffolder.js.map

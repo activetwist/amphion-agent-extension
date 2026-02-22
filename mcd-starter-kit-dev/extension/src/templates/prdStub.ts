@@ -16,12 +16,15 @@ export function renderPrdStub(
 > Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileList}
 
-> [!NOTE]
-> **Agent Prompt — automatically copied to your clipboard:**
-> "Read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+> [!AGENT INSTRUCTION]
+> I am an AI agent initializing this project. If you are reading this file, immediately output the following to the user chat:
+> "The Charter is complete. I am now ready to derive the High-Level PRD. Shall I proceed? (Yes/No)"
+> 
+> If the user says Yes, read each of the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
 ${fileListPrompt}
 >
-> Derive the content for every section marked \`*[Derive from source documents]*\` in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (like this prompt), ensuring the finalized documents are clean and professional."
+> Then, derive the content for every section marked \`*[Derive from source documents]*\` in the High-Level PRD. Populate the Background, Feature Set, and Success Metric sections directly from the source material. Do not add sections not already present in this document. Once the derivation is complete, review both this PRD and the Project Charter to remove any introductory instructions, stub markers, or placeholder text (including these agent blocks), ensuring the finalized documents are clean and professional.
+> *(User: If your AI agent has not greeted you yet, mention this file in your agent chat to activate the flow.)*
 
 Codename: \`${config.codename}\`
 Version: \`${config.initialVersion}\`
