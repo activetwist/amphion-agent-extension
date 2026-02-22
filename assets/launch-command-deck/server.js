@@ -78,10 +78,12 @@ function boardStatusLists() {
     }));
 }
 
-function emptyBoard(name, description = '') {
+function emptyBoard(name, description = '', codename = 'PRJ') {
     return {
         id: newId('board'),
         name,
+        codename: codename.toUpperCase().slice(0, 3),
+        nextIssueNumber: 1,
         description,
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -133,10 +135,16 @@ function seededLaunchBoard(name) {
         ['m4', 'Prepare release checklist and QA matrix', 'P1', 'Define go/no-go gates, metadata requirements, and test matrix.'],
     ];
 
+    const codename = 'AM';
+    board.codename = codename;
+    board.nextIssueNumber = taskSpecs.length + 1;
+
     taskSpecs.forEach(([msCode, title, priority, description], index) => {
         const listId = index === 0 ? activeId : backlogId;
+        const issueNumber = index + 1;
         board.cards.push({
             id: newId('card'),
+            issueNumber: `${codename}-${String(issueNumber).padStart(3, '0')}`,
             title,
             description,
             acceptance: '',
@@ -505,9 +513,10 @@ async function handlePost(req, res, route, store) {
             const name = String(body.name || '').trim();
             if (!name) return sendError(res, 'Board name is required');
             const description = String(body.description || '');
+            const codename = String(body.codename || 'PRJ').trim().toUpperCase().slice(0, 3);
             const seedTemplate = Boolean(body.seedTemplate);
             const state = store.mutate((s) => {
-                const board = seedTemplate ? seededLaunchBoard(name) : emptyBoard(name, description);
+                const board = seedTemplate ? seededLaunchBoard(name) : emptyBoard(name, description, codename);
                 if (seedTemplate && description) board.description = description;
                 s.boards.push(board);
                 s.activeBoardId = board.id;
@@ -595,8 +604,15 @@ async function handlePost(req, res, route, store) {
                 if (milestoneId && !board.milestones.some((m) => m.id === milestoneId)) {
                     throw new Error('Milestone does not exist on board');
                 }
+
+                const codename = board.codename || 'PRJ';
+                const nextNum = board.nextIssueNumber || 1;
+                const issueNumber = `${codename}-${String(nextNum).padStart(3, '0')}`;
+                board.nextIssueNumber = nextNum + 1;
+
                 board.cards.push({
                     id: newId('card'),
+                    issueNumber,
                     title: String(body.title).trim(),
                     description: String(body.description || ''),
                     acceptance: String(body.acceptance || ''),

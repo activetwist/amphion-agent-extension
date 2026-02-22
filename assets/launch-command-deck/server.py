@@ -77,10 +77,12 @@ def board_status_lists() -> List[Dict[str, Any]]:
     return lists
 
 
-def empty_board(name: str, description: str = "") -> Dict[str, Any]:
+def empty_board(name: str, description: str = "", codename: str = "PRJ") -> Dict[str, Any]:
     return {
         "id": new_id("board"),
         "name": name,
+        "codename": codename.upper()[:3],
+        "nextIssueNumber": 1,
         "description": description,
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
@@ -132,11 +134,17 @@ def seeded_launch_board(name: Optional[str] = None) -> Dict[str, Any]:
         ("m4", "Prepare release checklist and QA matrix", "P1", "Define go/no-go gates, metadata requirements, and test matrix."),
     ]
 
+    codename = "AM"
+    board["codename"] = codename
+    board["nextIssueNumber"] = len(task_specs) + 1
+
     for index, (ms_code, title, priority, description) in enumerate(task_specs):
         list_id = active_id if index == 0 else backlog_id
+        issue_number = index + 1
         board["cards"].append(
             {
                 "id": new_id("card"),
+                "issueNumber": f"{codename}-{issue_number:03d}",
                 "title": title,
                 "description": description,
                 "acceptance": "",
@@ -498,6 +506,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     self._send_error("Board name is required")
                     return
                 description = str(body.get("description") or "")
+                codename = str(body.get("codename") or "PRJ").strip().upper()[:3]
                 seed_template = bool(body.get("seedTemplate"))
 
                 def mutate(state):
@@ -505,7 +514,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         board = seeded_launch_board(name=name)
                         board["description"] = description or board["description"]
                     else:
-                        board = empty_board(name, description)
+                        board = empty_board(name, description, codename=codename)
                     state["boards"].append(board)
                     state["activeBoardId"] = board["id"]
 
@@ -618,9 +627,15 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     if milestone_id and not any(ms["id"] == milestone_id for ms in board["milestones"]):
                         raise KeyError("Milestone does not exist on board")
 
+                    codename = board.get("codename", "PRJ")
+                    next_num = board.get("nextIssueNumber", 1)
+                    issue_number = f"{codename}-{next_num:03d}"
+                    board["nextIssueNumber"] = next_num + 1
+
                     board["cards"].append(
                         {
                             "id": new_id("card"),
+                            "issueNumber": issue_number,
                             "title": str(body["title"]).strip(),
                             "description": str(body.get("description") or ""),
                             "acceptance": str(body.get("acceptance") or ""),
