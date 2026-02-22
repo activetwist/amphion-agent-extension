@@ -7,7 +7,7 @@
       "id": "board_46736b188b",
       "name": "AmphionAgent Launch Command Deck",
       "codename": "AM",
-      "nextIssueNumber": 17,
+      "nextIssueNumber": 18,
       "description": "Command deck for AmphionAgent (BlackClaw) using MCD protocol.",
       "projectType": "standard",
       "createdAt": "2026-02-21T23:46:06Z",
@@ -112,7 +112,7 @@
         },
         {
           "id": "card_v14_ai_derivation",
-          "title": "CT-017 \u00b7 v1.4 \u2014 AI Derivation Follow-Through",
+          "title": "CT-017 · v1.4 — AI Derivation Follow-Through",
           "description": "Close the UX gap in the source-documents wizard path. After stub Charter/PRD documents are written, the extension currently emits a passive notification with no actionable next step. This contract funds two improvements: (1) an embedded agent prompt directive block inside both stub templates, giving the AI agent explicit instructions when the file is opened; (2) an enhanced closing notification with 'Open Charter' and 'Open PRD' buttons that drop the operator directly into the stub document. Contract: CT-20260221-OPS-017.",
           "acceptance": "- Both stub templates contain a [!NOTE] agent prompt block after the [!IMPORTANT] alert.\\n- Prompt text is accurate and complete for both Charter and PRD variants.\\n- Closing notification includes 'Open Charter' and 'Open PRD' action buttons.\\n- Buttons open the correct timestamped file in the VS Code editor.\\n- Manual 6-prompt path is unaffected.\\n- TypeScript compiles with zero errors.\\n- package.json version is 1.4.0.",
           "milestoneId": "ms_dad9ed83f5",
@@ -127,7 +127,7 @@
         },
         {
           "id": "card_v15_command_files",
-          "title": "CT-018 \u00b7 v1.5 \u2014 Explicit MCD Command Files",
+          "title": "CT-018 · v1.5 — Explicit MCD Command Files",
           "description": "Scaffold four canonical MCD phase command files (EVALUATE.md, CONTRACT.md, EXECUTE.md, CLOSEOUT.md) into every new project under referenceDocs/00_Governance/commands/. Each file is a structured, agent-agnostic instruction brief with YAML frontmatter. Thin environment adapter files route from each IDE's native convention (Antigravity workflows, CLAUDE.md, AGENTS.md, .cursorrules) to the canonical definitions. Antigravity is the primary delivery target. Project name and codename are interpolated at scaffold time. Contract: CT-20260221-OPS-018.",
           "acceptance": "- All four command files written to referenceDocs/00_Governance/commands/ on scaffold.\\n- Each file has correct YAML frontmatter and all four sections (When, Inputs, Instructions, Output).\\n- .agents/workflows/ contains four routing workflow files.\\n- CLAUDE.md written to project root with MCD routing table.\\n- AGENTS.md written to project root.\\n- .cursorrules written to project root.\\n- No existing scaffold files overwritten.\\n- TypeScript compiles with zero errors.\\n- package.json version is 1.5.0.",
           "milestoneId": "ms_dad9ed83f5",
@@ -142,9 +142,9 @@
         },
         {
           "id": "card_v16_issue_numbers",
-          "title": "CT-019 \u00b7 v1.6 \u2014 Deterministic Issue Numbers on Cards",
-          "description": "Add a persistent, human-readable issue number to every Kanban card. Scheme: {PREFIX}-{NNN} (e.g., AM-001) where PREFIX is the first 2 uppercase chars of the board codename and NNN is a zero-padded board-scoped counter that never reuses numbers after deletion. Displayed bottom-left of each card as a muted monospace badge. Priority badges (P0/P1/P2) are preserved unchanged. Change spans: state.json schema (issueNumber on cards, nextIssueNumber on board), server.py + server.js (auto-assign on card creation), app.js + styles.css + index.html (render badge), init_command_deck.py (seed cards get AM-001/002/003). Existing cards without issueNumber display '\u2014'. Contract: CT-20260221-OPS-019.",
-          "acceptance": "- New cards receive correctly formatted issueNumber (e.g., AM-004).\\n- Badge visible in bottom-left of each card.\\n- Pre-migration cards display '\u2014' without error.\\n- Priority badge unchanged in position, style, and behavior.\\n- nextIssueNumber increments correctly; never reused after deletion.\\n- Cloned boards inherit source counter and issue numbers.\\n- init_command_deck.py seeds AM-001/002/003 and sets nextIssueNumber: 4.\\n- Both server.py and server.js implement identical behavior.\\n- Both ops/ and extension/assets/ Command Deck copies updated.\\n- package.json version is 1.6.0.",
+          "title": "CT-019 · v1.6 — Deterministic Issue Numbers on Cards",
+          "description": "Add a persistent, human-readable issue number to every Kanban card. Scheme: {PREFIX}-{NNN} (e.g., AM-001) where PREFIX is the first 2 uppercase chars of the board codename and NNN is a zero-padded board-scoped counter that never reuses numbers after deletion. Displayed bottom-left of each card as a muted monospace badge. Priority badges (P0/P1/P2) are preserved unchanged. Change spans: state.json schema (issueNumber on cards, nextIssueNumber on board), server.py + server.js (auto-assign on card creation), app.js + styles.css + index.html (render badge), init_command_deck.py (seed cards get AM-001/002/003). Existing cards without issueNumber display '—'. Contract: CT-20260221-OPS-019.",
+          "acceptance": "- New cards receive correctly formatted issueNumber (e.g., AM-004).\\n- Badge visible in bottom-left of each card.\\n- Pre-migration cards display '—' without error.\\n- Priority badge unchanged in position, style, and behavior.\\n- nextIssueNumber increments correctly; never reused after deletion.\\n- Cloned boards inherit source counter and issue numbers.\\n- init_command_deck.py seeds AM-001/002/003 and sets nextIssueNumber: 4.\\n- Both server.py and server.js implement identical behavior.\\n- Both ops/ and extension/assets/ Command Deck copies updated.\\n- package.json version is 1.6.0.",
           "milestoneId": "ms_dad9ed83f5",
           "listId": "list_5c158d96b9",
           "priority": "P2",
@@ -157,9 +157,9 @@
         },
         {
           "id": "card_v17_hot_reload",
-          "title": "CT-020 \u00b7 v1.7 \u2014 Server State Hot-Reload",
+          "title": "CT-020 · v1.7 — Server State Hot-Reload",
           "description": "Eliminate the need to restart the Command Deck server when state.json is modified externally (by an AI agent, direct file edit, or future toolchain integration). Add a POST /api/reload endpoint that forces the server to re-read state.json from disk and replace its in-memory state without a process restart. Also adds a 'Reload State' button to the sidebar Utilities section. Both server.py and server.js must implement the endpoint identically. Applies to both ops/ and extension/assets/ copies. Contract: CT-20260221-OPS-020.",
-          "acceptance": "- POST /api/reload returns {ok: true, state: ...} with freshly read disk state.\\n- External writes to state.json are visible after reload with no server restart.\\n- Reload State button appears in sidebar Utilities and triggers a full board refresh.\\n- Reload is thread-safe \u2014 concurrent requests during reload do not corrupt state.\\n- Both server.py and server.js implement identical behavior.\\n- Both ops/ and extension/assets/ copies updated.\\n- package.json version is 1.7.0.",
+          "acceptance": "- POST /api/reload returns {ok: true, state: ...} with freshly read disk state.\\n- External writes to state.json are visible after reload with no server restart.\\n- Reload State button appears in sidebar Utilities and triggers a full board refresh.\\n- Reload is thread-safe — concurrent requests during reload do not corrupt state.\\n- Both server.py and server.js implement identical behavior.\\n- Both ops/ and extension/assets/ copies updated.\\n- package.json version is 1.7.0.",
           "milestoneId": "ms_dad9ed83f5",
           "listId": "list_5c158d96b9",
           "priority": "P2",
@@ -184,6 +184,21 @@
           "order": 0,
           "createdAt": "2026-02-22T21:24:36.638Z",
           "updatedAt": "2026-02-22T21:24:36.639Z"
+        },
+        {
+          "id": "card_0b132429",
+          "issueNumber": "AM-017",
+          "title": "Verify Command Deck Auto-Reload (Hot Replacement)",
+          "description": "Test card to verify that the app.js background polling architecture seamlessly fetches and re-renders the DOM upon detecting an mtime mutation, without requiring a manual browser refresh.",
+          "acceptance": "- QA card appears on the board natively without manual intervention.\\n- No console polling errors.\\n- Issue number badge behaves normally.",
+          "milestoneId": "ms_dad9ed83f5",
+          "listId": "list_1b38384ac5",
+          "priority": "P0",
+          "owner": "",
+          "targetDate": "",
+          "order": 1,
+          "createdAt": "2026-02-22T21:42:14.797Z",
+          "updatedAt": "2026-02-22T21:42:14.797Z"
         }
       ]
     }

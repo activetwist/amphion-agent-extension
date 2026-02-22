@@ -6,6 +6,8 @@ const state = {
   },
   dragCardId: "",
   currentView: localStorage.getItem("mcd_current_view") || "board",
+  lastVersion: null,
+  pollInterval: null,
 };
 
 const el = {
@@ -423,6 +425,12 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+
+  try {
+    const vRes = await api("/api/state/version");
+    state.lastVersion = vRes.version;
+  } catch (e) { }
+
   render();
 }
 
@@ -716,10 +724,26 @@ function registerEvents() {
   });
 }
 
+function startPolling() {
+  if (state.pollInterval) clearInterval(state.pollInterval);
+  state.pollInterval = setInterval(async () => {
+    try {
+      const vRes = await api("/api/state/version");
+      if (vRes.ok && vRes.version && state.lastVersion && vRes.version !== state.lastVersion) {
+        console.log("State mutation detected. Hot reloading...");
+        await refresh();
+      }
+    } catch (e) {
+      // fail silently
+    }
+  }, 2000);
+}
+
 async function bootstrap() {
   registerEvents();
   try {
     await refresh();
+    startPolling();
   } catch (error) {
     alert(`Failed to load board: ${error.message}`);
   }
