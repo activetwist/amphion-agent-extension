@@ -42,7 +42,6 @@ const charter_1 = require("./templates/charter");
 const prd_1 = require("./templates/prd");
 const charterStub_1 = require("./templates/charterStub");
 const prdStub_1 = require("./templates/prdStub");
-const scaffolder_1 = require("./scaffolder");
 function nowTimestamp() {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -68,12 +67,12 @@ async function runManualPath(root, config, terminal, data) {
     terminal.sendText('git add referenceDocs/01_Strategy/');
     terminal.sendText(`git commit -m "docs(${config.initialVersion}): add Project Charter and High-Level PRD for ${config.codename}"`);
     vscode.window.showInformationMessage(`✅ Project Charter and PRD created in referenceDocs/01_Strategy/ and committed.`);
-    const triggerPrompt = "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.";
-    await vscode.env.clipboard.writeText(triggerPrompt);
-    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Charter is open. We copied a trigger to your clipboard—paste it into your AI agent chat to begin. Launch Command Deck when you are finished.', { modal: true }, 'Launch Command Deck');
-    if (action === 'Launch Command Deck') {
-        await (0, scaffolder_1.launchCommandDeck)(root, config);
-    }
+    const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
+    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
+    return {
+        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
+        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the PRD file and derive the High-Level PRD."
+    };
 }
 async function runSourceDocsPath(root, config, terminal) {
     // ── Step 1: File picker ──────────────────────────────────────────────────
@@ -118,11 +117,9 @@ async function runSourceDocsPath(root, config, terminal) {
     const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
     // Guide user to Charter unconditionally — the embedded agent block handles the rest
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath));
-    const triggerPrompt = "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.";
-    await vscode.env.clipboard.writeText(triggerPrompt);
-    const action = await vscode.window.showInformationMessage('MCD has initialized your project! The Charter is open. We copied a trigger to your clipboard—paste it into your AI agent chat to begin. Launch Command Deck when you are finished.', { modal: true }, 'Launch Command Deck');
-    if (action === 'Launch Command Deck') {
-        await (0, scaffolder_1.launchCommandDeck)(root, config);
-    }
+    return {
+        charterPrompt: "Please read the [!AGENT INSTRUCTION] block in this file and derive the Project Charter.",
+        prdPrompt: "Now that the Charter is complete, please read the [!AGENT INSTRUCTION] block in the HIGH_LEVEL_PRD.md file to derive the product requirements."
+    };
 }
 //# sourceMappingURL=charterWizard.js.map

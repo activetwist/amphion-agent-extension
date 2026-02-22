@@ -84,14 +84,16 @@ class OnboardingPanel {
                 case 'generateManual':
                     if (!scaffoldComplete)
                         return;
-                    this._panel.dispose();
-                    await (0, charterWizard_1.runManualPath)(root, this._config, this._terminal, message.data);
+                    const manualPrompts = await (0, charterWizard_1.runManualPath)(root, this._config, this._terminal, message.data);
+                    this._panel.webview.postMessage({ command: 'handoffReady', data: manualPrompts });
                     return;
                 case 'importDocs':
                     if (!scaffoldComplete)
                         return;
-                    this._panel.dispose();
-                    await (0, charterWizard_1.runSourceDocsPath)(root, this._config, this._terminal);
+                    const importPrompts = await (0, charterWizard_1.runSourceDocsPath)(root, this._config, this._terminal);
+                    if (importPrompts) {
+                        this._panel.webview.postMessage({ command: 'handoffReady', data: importPrompts });
+                    }
                     return;
                 case 'cancel':
                     if (!scaffoldComplete)
@@ -101,6 +103,13 @@ class OnboardingPanel {
                     if (action === 'Launch Command Deck') {
                         await (0, scaffolder_1.launchCommandDeck)(root, this._config);
                     }
+                    return;
+                case 'copyToClipboard':
+                    await vscode.env.clipboard.writeText(message.text);
+                    return;
+                case 'launchCommandDeck':
+                    this._panel.dispose();
+                    await (0, scaffolder_1.launchCommandDeck)(root, this._config);
                     return;
             }
         }, null, this._disposables);
@@ -375,6 +384,32 @@ class OnboardingPanel {
                 <button id="btn-submit-manual" class="primary" style="flex: 0 1 auto; padding-left: 40px; padding-right: 40px;">Generate Strategy Artifacts</button>
             </div>
         </div>
+
+        <div id="agent-handoff-view" class="view">
+            <div class="card">
+                <h3>Agent Strategy Handoff</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your project files are ready. Follow these steps to generate your Project Charter and PRD with your AI Agent.</p>
+                
+                <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Step 1: Project Charter</div>
+                    <code id="charter-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); margin-bottom: 12px; font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap;"></code>
+                    <button id="btn-copy-charter" class="primary" style="width: 100%;">Copy Charter Prompt</button>
+                </div>
+
+                <div class="step-card" style="background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Step 2: High-Level PRD</div>
+                    <p style="font-size: 13px; color: #8b949e; margin-top: 0; margin-bottom: 8px;">Wait for the agent to finish writing the Charter before copying this prompt.</p>
+                    <code id="prd-prompt-display" style="display: block; background: var(--mcd-bg); padding: 12px; border-radius: 4px; border: 1px solid var(--mcd-border); margin-bottom: 12px; font-family: monospace; font-size: 12px; color: var(--mcd-text); white-space: pre-wrap;"></code>
+                    <button id="btn-copy-prd" style="width: 100%;" disabled>Copy PRD Prompt</button>
+                </div>
+
+                <div id="handoff-complete" style="display: none; text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--mcd-border);">
+                    <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Started!</h3>
+                    <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Review your documents with the agent. When you're ready, launch the Command Deck to track your work.</p>
+                    <button id="btn-launch-cd" class="primary" style="width: 100%;">Complete & Launch Command Deck</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -384,6 +419,17 @@ class OnboardingPanel {
         const initView = document.getElementById('init-view');
         const selectionView = document.getElementById('selection-view');
         const manualView = document.getElementById('manual-view');
+        const handoffView = document.getElementById('agent-handoff-view');
+
+        const charterPromptDisplay = document.getElementById('charter-prompt-display');
+        const prdPromptDisplay = document.getElementById('prd-prompt-display');
+        const btnCopyCharter = document.getElementById('btn-copy-charter');
+        const btnCopyPrd = document.getElementById('btn-copy-prd');
+        const handoffComplete = document.getElementById('handoff-complete');
+        const btnLaunchCd = document.getElementById('btn-launch-cd');
+
+        let charterPromptText = '';
+        let prdPromptText = '';
 
         // Note: The visibility of init vs selection is driven by the state injected during HTML generation
 
@@ -440,6 +486,10 @@ class OnboardingPanel {
 
         if (document.getElementById('btn-action-import')) {
             document.getElementById('btn-action-import').addEventListener('click', () => {
+                const btn = document.getElementById('btn-action-import');
+                btn.innerText = 'Importing...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
                 vscode.postMessage({ command: 'importDocs' });
             });
         }
@@ -466,6 +516,11 @@ class OnboardingPanel {
                 }
             }
 
+            const btn = document.getElementById('btn-submit-manual');
+            btn.innerText = 'Generating...';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+
             vscode.postMessage({
                 command: 'generateManual',
                 data: data
@@ -480,6 +535,35 @@ class OnboardingPanel {
             });
         });
 
+        if (btnCopyCharter) {
+            btnCopyCharter.addEventListener('click', () => {
+                vscode.postMessage({ command: 'copyToClipboard', text: charterPromptText });
+                btnCopyCharter.innerText = '✅ Charter Prompt Copied!';
+                btnCopyCharter.style.backgroundColor = '#238636';
+                btnCopyCharter.disabled = true;
+                
+                btnCopyPrd.disabled = false;
+                btnCopyPrd.classList.add('primary');
+            });
+        }
+
+        if (btnCopyPrd) {
+            btnCopyPrd.addEventListener('click', () => {
+                vscode.postMessage({ command: 'copyToClipboard', text: prdPromptText });
+                btnCopyPrd.innerText = '✅ PRD Prompt Copied!';
+                btnCopyPrd.style.backgroundColor = '#238636';
+                btnCopyPrd.disabled = true;
+
+                handoffComplete.style.display = 'block';
+            });
+        }
+
+        if (btnLaunchCd) {
+            btnLaunchCd.addEventListener('click', () => {
+                vscode.postMessage({ command: 'launchCommandDeck' });
+            });
+        }
+
         // Listen for messages from the extension
         window.addEventListener('message', event => {
             const message = event.data;
@@ -492,6 +576,17 @@ class OnboardingPanel {
                             selectionView.classList.add('active');
                         }, 150);
                     }
+                    break;
+                case 'handoffReady':
+                    charterPromptText = message.data.charterPrompt;
+                    prdPromptText = message.data.prdPrompt;
+                    
+                    charterPromptDisplay.innerText = charterPromptText;
+                    prdPromptDisplay.innerText = prdPromptText;
+
+                    if (manualView) manualView.classList.remove('active');
+                    if (selectionView) selectionView.classList.remove('active');
+                    handoffView.classList.add('active');
                     break;
             }
         });
