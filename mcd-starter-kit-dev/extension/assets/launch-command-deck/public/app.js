@@ -46,6 +46,7 @@ const el = {
   btnAddList: document.querySelector("#btnAddList"),
   cardDialog: document.querySelector("#cardDialog"),
   cardDialogTitle: document.querySelector("#cardDialogTitle"),
+  cardDialogIssueNumber: document.querySelector("#cardDialogIssueNumber"),
   cardForm: document.querySelector("#cardForm"),
   cardId: document.querySelector("#cardId"),
   cardTitle: document.querySelector("#cardTitle"),
@@ -61,6 +62,7 @@ const el = {
   cardTemplate: document.querySelector("#cardTemplate"),
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
+  btnThemeToggle: document.querySelector("#btnThemeToggle"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -372,6 +374,10 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardOwner.value = card.owner || "";
     el.cardDescription.value = card.description || "";
     el.cardAcceptance.value = card.acceptance || "";
+    if (el.cardDialogIssueNumber) {
+      el.cardDialogIssueNumber.textContent = card.issueNumber || "—";
+      el.cardDialogIssueNumber.classList.remove("is-hidden");
+    }
     el.btnDeleteCard.style.display = "inline-block";
   } else {
     const fallbackListId = defaultListId || sorted(board.lists)[0]?.id || "";
@@ -385,6 +391,10 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardOwner.value = "";
     el.cardDescription.value = "";
     el.cardAcceptance.value = "";
+    if (el.cardDialogIssueNumber) {
+      el.cardDialogIssueNumber.textContent = "—";
+      el.cardDialogIssueNumber.classList.add("is-hidden");
+    }
     el.btnDeleteCard.style.display = "none";
   }
 
@@ -585,6 +595,16 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
+  if (el.btnThemeToggle) {
+    el.btnThemeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("mcd_theme", next);
+      el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+    });
+  }
+
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
@@ -741,6 +761,10 @@ function startPolling() {
 
 async function bootstrap() {
   registerEvents();
+  if (el.btnThemeToggle) {
+    const theme = localStorage.getItem("mcd_theme") || "dark";
+    el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+  }
   try {
     await refresh();
     startPolling();

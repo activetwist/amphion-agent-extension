@@ -34,6 +34,7 @@
   --btn-primary-text: #ffffff;
   --btn-danger-bg: linear-gradient(180deg, #672236, #451322);
   --btn-danger-border: #b0455a;
+  --btn-danger-text: #ffffff;
 
   --badge-ms-bg: transparent;
   --badge-ms-border: #4ca6dd;
@@ -92,10 +93,11 @@ html[data-theme="light"] {
   --btn-primary-text: #ffffff;
   --btn-danger-bg: #e11d48;
   --btn-danger-border: #e11d48;
+  --btn-danger-text: #ffffff;
 
   --badge-ms-bg: #f1f5f9;
   --badge-ms-border: #94a3b8;
-  --badge-ms-text: #475569;
+  --badge-ms-text: #334155;
 
   --badge-p0-bg: #fee2e2;
   --badge-p0-border: #ef4444;
@@ -480,6 +482,13 @@ textarea {
   color: var(--badge-ms-text);
 }
 
+.issue-badge {
+  font-family: var(--font);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  opacity: 1;
+}
+
 .priority-p0 {
   color: var(--badge-p0-text);
   background: var(--badge-p0-bg);
@@ -526,7 +535,7 @@ textarea {
 .btn.danger {
   border-color: var(--btn-danger-border);
   background: var(--btn-danger-bg);
-  color: var(--btn-primary-text);
+  color: var(--btn-danger-text);
 }
 
 .card-dialog {
@@ -547,6 +556,28 @@ textarea {
 
 .card-dialog h3 {
   margin: 0;
+}
+
+.card-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dialog-issue-badge {
+  font-family: var(--font);
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  background: var(--bg-1);
+  line-height: 1.2;
+}
+
+.dialog-issue-badge.is-hidden {
+  visibility: hidden;
 }
 
 .grid-two {

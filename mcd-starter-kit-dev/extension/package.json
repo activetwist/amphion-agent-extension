@@ -3,8 +3,17 @@
     "displayName": "AmphionAgent",
     "description": "Initialize a full Micro-Contract Development (MCD) project scaffold with a single command.",
     "version": "1.25.0",
+    "license": "Proprietary",
     "icon": "icon.png",
-    "publisher": "stanton-brooks",
+    "publisher": "active-twist",
+    "author": {
+        "name": "Stanton Brooks / Active Twist Consulting Group, LLC",
+        "url": "https://linkedin.com/in/stanton-brooks"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/activetwist/amphion-agent-extension.git"
+    },
     "engines": {
         "vscode": "^1.85.0"
     },

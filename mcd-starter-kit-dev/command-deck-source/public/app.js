@@ -6,6 +6,8 @@ const state = {
   },
   dragCardId: "",
   currentView: localStorage.getItem("mcd_current_view") || "board",
+  lastVersion: null,
+  pollInterval: null,
 };
 
 const el = {
@@ -21,6 +23,7 @@ const el = {
   btnCloneBoard: document.querySelector("#btnCloneBoard"),
   btnExportBoard: document.querySelector("#btnExportBoard"),
   btnImportBoard: document.querySelector("#btnImportBoard"),
+  btnReloadState: document.querySelector("#btnReloadState"),
 
   dashboardView: document.querySelector("#dashboardView"),
   boardView: document.querySelector("#boardView"),
@@ -43,6 +46,7 @@ const el = {
   btnAddList: document.querySelector("#btnAddList"),
   cardDialog: document.querySelector("#cardDialog"),
   cardDialogTitle: document.querySelector("#cardDialogTitle"),
+  cardDialogIssueNumber: document.querySelector("#cardDialogIssueNumber"),
   cardForm: document.querySelector("#cardForm"),
   cardId: document.querySelector("#cardId"),
   cardTitle: document.querySelector("#cardTitle"),
@@ -233,6 +237,7 @@ function createCardNode(board, card) {
 
   node.querySelector("h4").textContent = card.title;
   node.querySelector(".description").textContent = card.description || "No description";
+  node.querySelector(".issue-badge").textContent = card.issueNumber || "—";
   node.querySelector(".owner").textContent = card.owner ? `@${card.owner}` : "";
   node.querySelector(".target-date").textContent = card.targetDate ? `Due ${formatDate(card.targetDate)}` : "";
 
@@ -369,6 +374,10 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardOwner.value = card.owner || "";
     el.cardDescription.value = card.description || "";
     el.cardAcceptance.value = card.acceptance || "";
+    if (el.cardDialogIssueNumber) {
+      el.cardDialogIssueNumber.textContent = card.issueNumber || "—";
+      el.cardDialogIssueNumber.classList.remove("is-hidden");
+    }
     el.btnDeleteCard.style.display = "inline-block";
   } else {
     const fallbackListId = defaultListId || sorted(board.lists)[0]?.id || "";
@@ -382,6 +391,10 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardOwner.value = "";
     el.cardDescription.value = "";
     el.cardAcceptance.value = "";
+    if (el.cardDialogIssueNumber) {
+      el.cardDialogIssueNumber.textContent = "—";
+      el.cardDialogIssueNumber.classList.add("is-hidden");
+    }
     el.btnDeleteCard.style.display = "none";
   }
 
@@ -422,6 +435,10 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+  try {
+    const vRes = await api("/api/state/version");
+    state.lastVersion = vRes.version;
+  } catch (e) { }
   render();
 }
 
@@ -576,13 +593,15 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
-  el.btnThemeToggle.addEventListener("click", () => {
-    const current = document.documentElement.getAttribute("data-theme") || "dark";
-    const next = current === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("mcd_theme", next);
-    el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
-  });
+  if (el.btnThemeToggle) {
+    el.btnThemeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("mcd_theme", next);
+      el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+    });
+  }
 
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
@@ -605,6 +624,11 @@ function registerEvents() {
     const board = getActiveBoard();
     if (!board) return;
     await api(`/api/boards/${board.id}/clone`, "POST", {});
+    await refresh();
+  });
+
+  el.btnReloadState.addEventListener("click", async () => {
+    await api("/api/reload", "POST", {});
     await refresh();
   });
 
@@ -718,28 +742,30 @@ function registerEvents() {
   });
 }
 
+function startPolling() {
+  if (state.pollInterval) clearInterval(state.pollInterval);
+  state.pollInterval = setInterval(async () => {
+    try {
+      const vRes = await api("/api/state/version");
+      if (vRes.ok && vRes.version && state.lastVersion && vRes.version !== state.lastVersion) {
+        console.log("State mutation detected. Hot reloading...");
+        await refresh();
+      }
+    } catch (e) {
+      // fail silently
+    }
+  }, 2000);
+}
+
 async function bootstrap() {
   registerEvents();
-
-  const welcomeToast = document.getElementById("mcdWelcomeToast");
-  const btnDismissToast = document.getElementById("btnDismissToast");
-
-  if (!localStorage.getItem("mcd_welcome_shown") && welcomeToast) {
-    welcomeToast.style.display = "block";
-
-    const dismissToast = () => {
-      welcomeToast.style.display = "none";
-      localStorage.setItem("mcd_welcome_shown", "true");
-    };
-
-    btnDismissToast.addEventListener("click", dismissToast);
-    setTimeout(dismissToast, 15000);
-  }
-
-  try {
+  if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
     el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+  }
+  try {
     await refresh();
+    startPolling();
   } catch (error) {
     alert(`Failed to load board: ${error.message}`);
   }
