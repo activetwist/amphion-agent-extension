@@ -1,5 +1,7 @@
 const state = {
   data: null,
+  charts: [],
+  selectedChartId: "",
   filters: {
     milestoneId: "",
     search: "",
@@ -26,6 +28,7 @@ const el = {
   btnReloadState: document.querySelector("#btnReloadState"),
 
   dashboardView: document.querySelector("#dashboardView"),
+  chartsView: document.querySelector("#chartsView"),
   boardView: document.querySelector("#boardView"),
   guideView: document.querySelector("#guideView"),
   guideContent: document.querySelector("#guideContent"),
@@ -37,6 +40,12 @@ const el = {
   docDialog: document.querySelector("#docDialog"),
   docDialogTitle: document.querySelector("#docDialogTitle"),
   docDialogContent: document.querySelector("#docDialogContent"),
+  chartsList: document.querySelector("#chartsList"),
+  chartsListEmpty: document.querySelector("#chartsListEmpty"),
+  chartsPanel: document.querySelector("#chartsPanel"),
+  chartsPanelTitle: document.querySelector("#chartsPanelTitle"),
+  chartsPanelContent: document.querySelector("#chartsPanelContent"),
+  btnCloseChartsPanel: document.querySelector("#btnCloseChartsPanel"),
 
   importFile: document.querySelector("#importFile"),
   btnSaveBoard: document.querySelector("#btnSaveBoard"),
@@ -78,6 +87,120 @@ async function api(path, method = "GET", body = null) {
     throw new Error(reason);
   }
   return payload;
+}
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+function configureMermaidTheme() {
+  if (!window.mermaid) return;
+  const isLight = getCurrentTheme() === "light";
+  window.mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    themeVariables: isLight
+      ? {
+          background: "#ffffff",
+          primaryTextColor: "#0f172a",
+          secondaryTextColor: "#334155",
+          lineColor: "#475569",
+          primaryColor: "#f8fafc",
+          primaryBorderColor: "#94a3b8",
+          clusterBorder: "#94a3b8",
+        }
+      : {
+          background: "#0f2131",
+          primaryTextColor: "#e9f5ff",
+          secondaryTextColor: "#c5deef",
+          lineColor: "#8bb4cf",
+          primaryColor: "#13283a",
+          primaryBorderColor: "#5a7d97",
+          clusterBorder: "#5a7d97",
+        },
+  });
+}
+
+function renderMermaidBlocks(container) {
+  if (!window.mermaid || !container) return;
+  const nodes = container.querySelectorAll(".language-mermaid");
+  if (!nodes.length) return;
+  configureMermaidTheme();
+  nodes.forEach((node) => node.removeAttribute("data-processed"));
+  if (typeof window.mermaid.run === "function") {
+    window.mermaid.run({ nodes });
+  } else {
+    window.mermaid.init(undefined, nodes);
+  }
+}
+
+function loadChartsFromState() {
+  const raw = state.data && Array.isArray(state.data.charts) ? state.data.charts : [];
+  state.charts = raw
+    .filter((item) => item && typeof item.id === "string" && typeof item.title === "string")
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description || "",
+      markdown: item.markdown || "",
+    }));
+}
+
+function setChartsPanelOpen(isOpen) {
+  if (!el.chartsPanel) return;
+  el.chartsPanel.classList.toggle("is-open", isOpen);
+}
+
+function renderChartsPreview() {
+  const selected = state.charts.find((item) => item.id === state.selectedChartId) || null;
+  if (!selected) {
+    if (el.chartsPanelTitle) el.chartsPanelTitle.textContent = "Chart Preview";
+    if (el.chartsPanelContent) {
+      el.chartsPanelContent.innerHTML = "Select a chart from the left to preview it.";
+    }
+    setChartsPanelOpen(false);
+    return;
+  }
+
+  if (el.chartsPanelTitle) el.chartsPanelTitle.textContent = selected.title;
+  if (el.chartsPanelContent) {
+    if (window.marked && selected.markdown) {
+      el.chartsPanelContent.innerHTML = window.marked.parse(selected.markdown);
+      renderMermaidBlocks(el.chartsPanelContent);
+    } else {
+      const desc = selected.description || "No chart preview content available.";
+      el.chartsPanelContent.textContent = desc;
+    }
+  }
+  setChartsPanelOpen(true);
+}
+
+function renderCharts() {
+  if (!el.chartsList || !el.chartsListEmpty) return;
+  el.chartsList.innerHTML = "";
+
+  if (!state.charts.length) {
+    el.chartsListEmpty.style.display = "block";
+    state.selectedChartId = "";
+    renderChartsPreview();
+    return;
+  }
+
+  el.chartsListEmpty.style.display = "none";
+  for (const chart of state.charts) {
+    const button = document.createElement("button");
+    button.className = `chart-item ${chart.id === state.selectedChartId ? "active" : ""}`;
+    button.type = "button";
+    button.dataset.chartId = chart.id;
+    button.innerHTML = `<strong>${chart.title}</strong><span>${chart.description || "Chart artifact"}</span>`;
+    button.addEventListener("click", () => {
+      state.selectedChartId = chart.id;
+      renderCharts();
+    });
+    el.chartsList.appendChild(button);
+  }
+
+  renderChartsPreview();
 }
 
 function getActiveBoard() {
@@ -435,6 +558,10 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+  loadChartsFromState();
+  if (state.selectedChartId && !state.charts.some((item) => item.id === state.selectedChartId)) {
+    state.selectedChartId = "";
+  }
 
   try {
     const vRes = await api("/api/state/version");
@@ -458,11 +585,15 @@ function render() {
 
   el.boardView.style.display = "none";
   el.dashboardView.style.display = "none";
+  el.chartsView.style.display = "none";
   el.guideView.style.display = "none";
 
   if (state.currentView === "dashboard") {
     el.dashboardView.style.display = "block";
     renderDashboard();
+  } else if (state.currentView === "charts") {
+    el.chartsView.style.display = "grid";
+    renderCharts();
   } else if (state.currentView === "guide") {
     el.guideView.style.display = "block";
     renderGuide();
@@ -478,9 +609,7 @@ async function renderGuide() {
     const res = await api("/api/docs/playbook");
     if (window.marked) {
       el.guideContent.innerHTML = window.marked.parse(res.content);
-      if (window.mermaid) {
-        window.mermaid.init(undefined, el.guideContent.querySelectorAll('.language-mermaid'));
-      }
+      renderMermaidBlocks(el.guideContent);
     } else {
       el.guideContent.innerHTML = `<pre style="white-space:pre-wrap; font-family:var(--font);">${res.content}</pre>`;
     }
@@ -546,9 +675,7 @@ async function showDocument(docId, title) {
     const res = await api(`/api/docs/${docId}`);
     if (window.marked) {
       el.docDialogContent.innerHTML = window.marked.parse(res.content);
-      if (window.mermaid) {
-        window.mermaid.init(undefined, el.docDialogContent.querySelectorAll('.language-mermaid'));
-      }
+      renderMermaidBlocks(el.docDialogContent);
     } else {
       el.docDialogContent.innerHTML = `<pre style="white-space:pre-wrap; font-family:var(--font);">${res.content}</pre>`;
     }
@@ -602,6 +729,17 @@ function registerEvents() {
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("mcd_theme", next);
       el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+      configureMermaidTheme();
+      if (state.currentView === "guide") {
+        renderMermaidBlocks(el.guideContent);
+      }
+      if (state.currentView === "charts") {
+        // Rebuild preview from source markdown before Mermaid render.
+        renderChartsPreview();
+      }
+      if (el.docDialog.open) {
+        renderMermaidBlocks(el.docDialogContent);
+      }
     });
   }
 
@@ -742,6 +880,13 @@ function registerEvents() {
     el.cardDialog.close();
     await refresh();
   });
+
+  if (el.btnCloseChartsPanel) {
+    el.btnCloseChartsPanel.addEventListener("click", () => {
+      state.selectedChartId = "";
+      renderCharts();
+    });
+  }
 }
 
 function startPolling() {
@@ -765,6 +910,7 @@ async function bootstrap() {
     const theme = localStorage.getItem("mcd_theme") || "dark";
     el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
   }
+  configureMermaidTheme();
   try {
     await refresh();
     startPolling();
