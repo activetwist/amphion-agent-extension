@@ -98,9 +98,9 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 3. Ensure an active contract exists in \`03_Contracts/active/\` before performing any \`EXECUTE\` actions.
 4. Maintain deterministic naming for all artifacts and records.
 
-## Product Owner Experience
+## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
-2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Owner to read the cards and track progress.
+2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Manager to read the cards and track progress.
 `;
 }
 
@@ -126,9 +126,9 @@ Before performing any task, the agent must identify the current phase and load t
 
 **Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 
-## Product Owner Experience
+## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
-2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Owner to read the cards and track progress.
+2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Manager to read the cards and track progress.
 `;
 }
 
@@ -145,9 +145,9 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 - Use \`Mermaid.js\` for all architecture diagrams.
 - Prefix all new documents with a \`YYYYMMDDHHMM-\` timestamp.
 
-## Product Owner Experience
+## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
-2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Owner to read the cards and track progress.
+2. **Observability**: Always write detailed stories (cards) to the Command Deck board (\`ops/launch-command-deck/data/state.json\`) alongside your evaluations and contracts. This allows the Product Manager to read the cards and track progress.
 
 ### Command Shortcuts
 - **Evaluate**: Refer to \`referenceDocs/00_Governance/mcd/EVALUATE.md\`

@@ -7,3 +7,4 @@ src/**
 **/*.map
 out/test/**
 node_modules/**
+*.vsix

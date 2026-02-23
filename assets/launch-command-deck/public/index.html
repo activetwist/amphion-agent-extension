@@ -10,6 +10,10 @@
     (function () {
       var view = localStorage.getItem("mcd_current_view") || "board";
       document.documentElement.setAttribute('data-current-view', view);
+      var theme = localStorage.getItem("mcd_theme") || "dark";
+      if (theme === "light") {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
     })();
   </script>
   <style>
@@ -42,6 +46,7 @@
         </nav>
       </div>
       <div>
+        <button id="btnThemeToggle" class="btn" style="margin-right: 8px;">☀️ Light Mode</button>
         <button id="btnNewBoard" class="btn primary">New Board</button>
       </div>
     </header>
@@ -206,7 +211,10 @@
 
   <dialog id="cardDialog" class="card-dialog">
     <form id="cardForm" method="dialog">
-      <h3 id="cardDialogTitle">Task</h3>
+      <div class="card-dialog-header">
+        <h3 id="cardDialogTitle">Task</h3>
+        <span id="cardDialogIssueNumber" class="dialog-issue-badge is-hidden">—</span>
+      </div>
       <input id="cardId" type="hidden" />
 
       <label>Title

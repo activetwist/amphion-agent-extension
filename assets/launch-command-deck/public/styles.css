@@ -3,16 +3,72 @@
   --bg-1: #0f1d2a;
   --bg-2: #16293c;
   --panel: #102231cc;
+  --panel-bg: #0b1a26cc;
+  --board-item-bg: #14293bcc;
+  --milestone-item-bg: #132637;
+  --toolbar-bg: #102131cc;
+  --input-bg: #0b1d2b;
+  --column-bg: #112738;
+  --progress-track-bg: #0a1622;
+  --card-border: #39576f;
+  --card-bg: linear-gradient(180deg, #17344a, #122b3f);
+  --card-hover-border: #4f89ae;
+  --card-hover-bg: linear-gradient(180deg, #1b3d56, #143247);
+  --card-meta: #8bb4cf;
+  --btn-bg: #153249;
+  --dialog-bg: #0f2131;
+  --app-bg:
+    radial-gradient(1200px 600px at 20% -10%, #1f4364 0%, transparent 70%),
+    radial-gradient(800px 500px at 110% 110%, #124c46 0%, transparent 70%),
+    linear-gradient(180deg, var(--bg-2), var(--bg-0));
   --line: #2f4e66;
   --text: #e9f5ff;
   --text-dim: #a8c3d8;
+  --text-on-accent: #09121a;
+  --badge-ms-bg: transparent;
+  --badge-ms-border: #4ca6dd;
+  --badge-ms-text: #aee7ff;
   --accent: #14f195;
   --accent-2: #39d0ff;
   --danger: #ff5e78;
   --warning: #ffca57;
+  --btn-primary-text: #ffffff;
+  --btn-danger-text: #ffffff;
   --radius: 4px;
   --shadow: 0 20px 30px rgb(0 0 0 / 0.2);
   --font: "IBM Plex Mono", "SF Mono", "Menlo", monospace;
+}
+
+html[data-theme="light"] {
+  --bg-0: #f8fafc;
+  --bg-1: #f1f5f9;
+  --bg-2: #e2e8f0;
+  --panel: #ffffffcc;
+  --panel-bg: #ffffff;
+  --board-item-bg: #ffffff;
+  --milestone-item-bg: #f8fafc;
+  --toolbar-bg: #f1f5f9cc;
+  --input-bg: #ffffff;
+  --column-bg: #f1f5f9;
+  --progress-track-bg: #e2e8f0;
+  --card-border: #cbd5e1;
+  --card-bg: #ffffff;
+  --card-hover-border: #94a3b8;
+  --card-hover-bg: #f8fafc;
+  --card-meta: #64748b;
+  --btn-bg: #e2e8f0;
+  --dialog-bg: #ffffff;
+  --line: #cbd5e1;
+  --text: #0f172a;
+  --text-dim: #475569;
+  --text-on-accent: #ffffff;
+  --badge-ms-bg: #f1f5f9;
+  --badge-ms-border: #94a3b8;
+  --badge-ms-text: #334155;
+  --accent: #1e293b;
+  --accent-2: #334155;
+  --danger: #e11d48;
+  --app-bg: var(--bg-0);
 }
 
 * {
@@ -26,10 +82,7 @@ body {
   height: 100%;
   font-family: var(--font);
   color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 20% -10%, #1f4364 0%, transparent 70%),
-    radial-gradient(800px 500px at 110% 110%, #124c46 0%, transparent 70%),
-    linear-gradient(180deg, var(--bg-2), var(--bg-0));
+  background: var(--app-bg);
 }
 
 button,
@@ -89,7 +142,7 @@ textarea {
 
 .nav-tab.active {
   background: var(--accent);
-  color: var(--bg-0);
+  color: var(--text-on-accent);
   font-weight: bold;
 }
 
@@ -118,7 +171,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px;
-  background: #0b1a26cc;
+  background: var(--panel-bg);
 }
 
 .panel h2 {
@@ -134,7 +187,7 @@ textarea {
 
 .board-item {
   border: 1px solid var(--line);
-  background: #14293bcc;
+  background: var(--board-item-bg);
   color: var(--text);
   border-radius: var(--radius);
   padding: 8px 10px;
@@ -156,7 +209,7 @@ textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 8px;
-  background: #132637;
+  background: var(--milestone-item-bg);
 }
 
 .milestone-item header {
@@ -170,7 +223,7 @@ textarea {
   width: 100%;
   height: 8px;
   border-radius: var(--radius);
-  background: #0a1622;
+  background: var(--progress-track-bg);
   overflow: hidden;
 }
 
@@ -211,7 +264,7 @@ textarea {
   padding: 8px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: #0b1d2b;
+  background: var(--input-bg);
 }
 
 .board-description {
@@ -221,7 +274,7 @@ textarea {
   border-radius: var(--radius);
   border: 1px solid var(--line);
   padding: 8px;
-  background: #0b1d2b;
+  background: var(--input-bg);
 }
 
 .header-actions {
@@ -236,7 +289,7 @@ textarea {
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
-  background: #102131cc;
+  background: var(--toolbar-bg);
   flex-wrap: wrap;
 }
 
@@ -260,7 +313,7 @@ select,
 textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #08131e;
+  background: var(--input-bg);
   padding: 7px 8px;
 }
 
@@ -281,7 +334,7 @@ textarea {
 .column {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #112738;
+  background: var(--column-bg);
   display: grid;
   grid-template-rows: auto 1fr auto;
   min-height: 0;
@@ -322,9 +375,9 @@ textarea {
 }
 
 .card {
-  border: 1px solid #39576f;
+  border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, #17344a, #122b3f);
+  background: var(--card-bg);
   padding: 10px;
   display: grid;
   gap: 9px;
@@ -333,8 +386,8 @@ textarea {
 }
 
 .card:hover {
-  border-color: #4f89ae;
-  background: linear-gradient(180deg, #1b3d56, #143247);
+  border-color: var(--card-hover-border);
+  background: var(--card-hover-bg);
   transform: translateY(-1px);
 }
 
@@ -362,7 +415,7 @@ textarea {
 .card .owner,
 .card .target-date {
   font-size: 0.74rem;
-  color: #8bb4cf;
+  color: var(--card-meta);
 }
 
 .milestone-badge,
@@ -374,14 +427,15 @@ textarea {
 }
 
 .milestone-badge {
-  border-color: #4ca6dd;
-  color: #aee7ff;
+  background: var(--badge-ms-bg);
+  border-color: var(--badge-ms-border);
+  color: var(--badge-ms-text);
 }
 .issue-badge {
   font-family: var(--font);
   font-size: 0.72rem;
   color: var(--text-dim);
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .priority-p0 {
@@ -410,7 +464,7 @@ textarea {
 
 .btn {
   border: 1px solid var(--line);
-  background: #153249;
+  background: var(--btn-bg);
   border-radius: var(--radius);
   padding: 7px 10px;
   cursor: pointer;
@@ -423,18 +477,20 @@ textarea {
 .btn.primary {
   border-color: #35be95;
   background: linear-gradient(180deg, #0b7258, #0f4d48);
+  color: var(--btn-primary-text);
 }
 
 .btn.danger {
   border-color: #b0455a;
   background: linear-gradient(180deg, #672236, #451322);
+  color: var(--btn-danger-text);
 }
 
 .card-dialog {
   width: min(760px, 95vw);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #0f2131;
+  background: var(--dialog-bg);
   color: var(--text);
   box-shadow: var(--shadow);
 }
@@ -448,6 +504,28 @@ textarea {
 
 .card-dialog h3 {
   margin: 0;
+}
+
+.card-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dialog-issue-badge {
+  font-family: var(--font);
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  background: var(--bg-1);
+  line-height: 1.2;
+}
+
+.dialog-issue-badge.is-hidden {
+  visibility: hidden;
 }
 
 .grid-two {
