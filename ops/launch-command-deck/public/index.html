@@ -18,17 +18,26 @@
   </script>
   <style>
     html[data-current-view="dashboard"] #boardView,
+    html[data-current-view="dashboard"] #chartsView,
     html[data-current-view="dashboard"] #guideView {
       display: none !important;
     }
 
     html[data-current-view="guide"] #boardView,
-    html[data-current-view="guide"] #dashboardView {
+    html[data-current-view="guide"] #dashboardView,
+    html[data-current-view="guide"] #chartsView {
       display: none !important;
     }
 
     html[data-current-view="board"] #dashboardView,
+    html[data-current-view="board"] #chartsView,
     html[data-current-view="board"] #guideView {
+      display: none !important;
+    }
+
+    html[data-current-view="charts"] #boardView,
+    html[data-current-view="charts"] #dashboardView,
+    html[data-current-view="charts"] #guideView {
       display: none !important;
     }
   </style>
@@ -42,6 +51,7 @@
         <nav class="nav-tabs" id="navTabs">
           <button class="nav-tab active" data-view="board">Board</button>
           <button class="nav-tab" data-view="dashboard">Dashboard</button>
+          <button class="nav-tab" data-view="charts">Charts</button>
           <button class="nav-tab" data-view="guide">MCD Guide</button>
         </nav>
       </div>
@@ -120,6 +130,31 @@
       </div>
     </main>
 
+    <main id="chartsView" class="workspace charts-view" style="display: none; padding: 20px; overflow: hidden;">
+      <header class="charts-header">
+        <div>
+          <h2 style="margin: 0; font-size: 1.4rem;">Charts Library</h2>
+          <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">Select a chart to open it in the preview panel.</div>
+        </div>
+      </header>
+      <section class="charts-layout">
+        <section class="panel charts-list-panel">
+          <h2>Available Charts</h2>
+          <div id="chartsList" class="charts-list"></div>
+          <div id="chartsListEmpty" class="empty-state" style="display: none;">No charts found yet. Generated charts will appear here.</div>
+        </section>
+        <aside id="chartsPanel" class="panel charts-preview-panel">
+          <div class="charts-preview-header">
+            <h2 id="chartsPanelTitle">Chart Preview</h2>
+            <button id="btnCloseChartsPanel" class="btn">Dismiss</button>
+          </div>
+          <div id="chartsPanelContent" class="markdown-body charts-preview-content">
+            Select a chart from the left to preview it.
+          </div>
+        </aside>
+      </section>
+    </main>
+
     <main id="guideView" class="workspace" style="display: none; padding: 20px; overflow-y: auto;">
       <header
         style="border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
@@ -128,7 +163,7 @@
           MCD?</button>
       </header>
       <div id="guideContent" class="markdown-body"
-        style="font-family: sans-serif; font-size: 0.95rem; line-height: 1.5; color: #d0e8fc; max-width: 900px;">
+        style="font-family: sans-serif; font-size: 0.95rem; line-height: 1.5; color: var(--text); max-width: 900px;">
         Loading playbook...
       </div>
     </main>
@@ -175,7 +210,7 @@
         <button value="close" class="btn">Close</button>
       </header>
       <div id="docDialogContent" class="markdown-body"
-        style="overflow-y: auto; flex: 1; font-family: sans-serif; font-size: 0.9rem; line-height: 1.5; color: #d0e8fc;">
+        style="overflow-y: auto; flex: 1; font-family: sans-serif; font-size: 0.9rem; line-height: 1.5; color: var(--text);">
         Loading...</div>
     </form>
   </dialog>

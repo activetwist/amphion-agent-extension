@@ -246,6 +246,8 @@ The methodology has been validated across a portfolio of projects spanning multi
 
 - The MCD Starter Kit itself — a VS Code extension with a TypeScript extension layer, dual server backends in Python and Node.js, a full Vanilla JS frontend application, git integration, and file system operations — was built using MCD. The methodology governed the construction of its own distribution tool.
 
+- In this AmphionAgent build cycle, a novice operator working with MCD and an agentic IDE delivered the extension in a measured **9h 50m 32s** of active development time (**9.8422 hours**, approximately 10 hours), using deterministic git-sessionized accounting documented in `202602221932-BUILD_GIT_TIME_ACCOUNTING_EVAL.md`.
+
 - Projects spanning PHP, Swift, Rust, Python, JavaScript, TypeScript, and SQL have all been governed by the same methodology, demonstrating that MCD is stack-agnostic. The governance operates at the process layer, not the implementation layer.
 
 Across all MCD-governed projects: zero defects on external compliance audits, zero rollbacks due to scope drift, and extraordinary development velocity — not despite the governance overhead, but because of it.
