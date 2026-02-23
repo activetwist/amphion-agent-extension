@@ -728,7 +728,7 @@ function registerEvents() {
       const next = current === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("mcd_theme", next);
-      el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+      el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
       configureMermaidTheme();
       if (state.currentView === "guide") {
         renderMermaidBlocks(el.guideContent);
@@ -908,7 +908,7 @@ async function bootstrap() {
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
-    el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+    el.btnThemeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
   }
   configureMermaidTheme();
   try {

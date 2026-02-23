@@ -7,7 +7,10 @@ const state = {
     search: "",
   },
   dragCardId: "",
-  currentView: localStorage.getItem("mcd_current_view") || "board",
+  currentView: (() => {
+    const saved = localStorage.getItem("mcd_current_view");
+    return saved === "wiki" ? "board" : (saved || "board");
+  })(),
   lastVersion: null,
   pollInterval: null,
 };
@@ -72,6 +75,8 @@ const el = {
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
+
+  btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -101,23 +106,23 @@ function configureMermaidTheme() {
     theme: "base",
     themeVariables: isLight
       ? {
-          background: "#ffffff",
-          primaryTextColor: "#0f172a",
-          secondaryTextColor: "#334155",
-          lineColor: "#475569",
-          primaryColor: "#f8fafc",
-          primaryBorderColor: "#94a3b8",
-          clusterBorder: "#94a3b8",
-        }
+        background: "#ffffff",
+        primaryTextColor: "#0f172a",
+        secondaryTextColor: "#334155",
+        lineColor: "#475569",
+        primaryColor: "#f8fafc",
+        primaryBorderColor: "#94a3b8",
+        clusterBorder: "#94a3b8",
+      }
       : {
-          background: "#0f2131",
-          primaryTextColor: "#e9f5ff",
-          secondaryTextColor: "#c5deef",
-          lineColor: "#8bb4cf",
-          primaryColor: "#13283a",
-          primaryBorderColor: "#5a7d97",
-          clusterBorder: "#5a7d97",
-        },
+        background: "#0f2131",
+        primaryTextColor: "#e9f5ff",
+        secondaryTextColor: "#c5deef",
+        lineColor: "#8bb4cf",
+        primaryColor: "#13283a",
+        primaryBorderColor: "#5a7d97",
+        clusterBorder: "#5a7d97",
+      },
   });
 }
 
@@ -558,6 +563,7 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+
   loadChartsFromState();
   if (state.selectedChartId && !state.charts.some((item) => item.id === state.selectedChartId)) {
     state.selectedChartId = "";
@@ -700,7 +706,8 @@ function download(filename, text) {
 function registerEvents() {
   el.navTabs.forEach(tab => {
     tab.addEventListener("click", (e) => {
-      state.currentView = e.target.dataset.view;
+      const nextView = e.target.dataset.view;
+      state.currentView = nextView === "wiki" ? "board" : nextView;
       localStorage.setItem("mcd_current_view", state.currentView);
       document.documentElement.setAttribute('data-current-view', state.currentView);
       render();
@@ -722,43 +729,12 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
-  if (el.btnThemeToggle) {
-    el.btnThemeToggle.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
-      const next = current === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("mcd_theme", next);
-      el.btnThemeToggle.textContent = next === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
-      configureMermaidTheme();
-      if (state.currentView === "guide") {
-        renderMermaidBlocks(el.guideContent);
-      }
-      if (state.currentView === "charts") {
-        // Rebuild preview from source markdown before Mermaid render.
-        renderChartsPreview();
-      }
-      if (el.docDialog.open) {
-        renderMermaidBlocks(el.docDialogContent);
-      }
-    });
-  }
-
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
   });
 
-  el.btnNewBoard.addEventListener("click", async () => {
-    const name = prompt("Board name");
-    if (!name || !name.trim()) return;
-    const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
-    await api("/api/boards", "POST", {
-      name: name.trim(),
-      description: "",
-      seedTemplate: useTemplate,
-    });
-    await refresh();
-  });
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 
   el.btnCloneBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
@@ -887,6 +863,10 @@ function registerEvents() {
       renderCharts();
     });
   }
+
+  if (el.btnThemeToggle) el.btnThemeToggle.onclick = toggleTheme;
+  if (el.btnToggleSidebar) el.btnToggleSidebar.onclick = toggleSidebar;
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 }
 
 function startPolling() {
@@ -904,11 +884,61 @@ function startPolling() {
   }, 2000);
 }
 
+async function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mcd_theme", next);
+  el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
+
+  configureMermaidTheme();
+  if (state.currentView === "guide") {
+    renderMermaidBlocks(el.guideContent);
+  }
+  if (state.currentView === "charts") {
+    renderChartsPreview();
+  }
+  if (el.docDialog && el.docDialog.open) {
+    renderMermaidBlocks(el.docDialogContent);
+  }
+}
+
+async function createNewBoard() {
+  const name = prompt("Board name");
+  if (!name || !name.trim()) return;
+  const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
+  await api("/api/boards", "POST", {
+    name: name.trim(),
+    description: "",
+    seedTemplate: useTemplate,
+  });
+  await refresh();
+}
+
+function toggleSidebar() {
+  const isCollapsed = document.documentElement.getAttribute("data-sidebar-collapsed") === "true";
+  const nextState = !isCollapsed;
+  if (nextState) {
+    document.documentElement.setAttribute("data-sidebar-collapsed", "true");
+    el.btnToggleSidebar.textContent = "»";
+  } else {
+    document.documentElement.removeAttribute("data-sidebar-collapsed");
+    el.btnToggleSidebar.textContent = "«";
+  }
+  localStorage.setItem("mcd_sidebar_collapsed", nextState);
+}
+
 async function bootstrap() {
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
-    el.btnThemeToggle.textContent = theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode";
+    el.btnThemeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
+  }
+  if (localStorage.getItem("mcd_theme") === "light") {
+    el.btnThemeToggle.textContent = "Dark Mode";
+  }
+  if (localStorage.getItem("mcd_sidebar_collapsed") === "true") {
+    el.btnToggleSidebar.textContent = "»";
   }
   configureMermaidTheme();
   try {

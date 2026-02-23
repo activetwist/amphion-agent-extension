@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-current-view="board">
 
 <head>
   <meta charset="utf-8" />
@@ -9,44 +9,27 @@
   <script>
     (function () {
       var view = localStorage.getItem("mcd_current_view") || "board";
+      if (view === "wiki") {
+        view = "board";
+        localStorage.setItem("mcd_current_view", "board");
+      }
       document.documentElement.setAttribute('data-current-view', view);
       var theme = localStorage.getItem("mcd_theme") || "dark";
       if (theme === "light") {
         document.documentElement.setAttribute('data-theme', 'light');
       }
+      var collapsed = localStorage.getItem("mcd_sidebar_collapsed") === "true";
+      if (collapsed) {
+        document.documentElement.setAttribute('data-sidebar-collapsed', 'true');
+      }
     })();
   </script>
-  <style>
-    html[data-current-view="dashboard"] #boardView,
-    html[data-current-view="dashboard"] #chartsView,
-    html[data-current-view="dashboard"] #guideView {
-      display: none !important;
-    }
-
-    html[data-current-view="guide"] #boardView,
-    html[data-current-view="guide"] #dashboardView,
-    html[data-current-view="guide"] #chartsView {
-      display: none !important;
-    }
-
-    html[data-current-view="board"] #dashboardView,
-    html[data-current-view="board"] #chartsView,
-    html[data-current-view="board"] #guideView {
-      display: none !important;
-    }
-
-    html[data-current-view="charts"] #boardView,
-    html[data-current-view="charts"] #dashboardView,
-    html[data-current-view="charts"] #guideView {
-      display: none !important;
-    }
-  </style>
 </head>
 
 <body>
   <div class="app-shell">
     <header class="global-header">
-      <div style="display: flex; align-items: center; gap: 20px;">
+      <div class="global-header-main">
         <h1>Command Deck</h1>
         <nav class="nav-tabs" id="navTabs">
           <button class="nav-tab active" data-view="board">Board</button>
@@ -55,13 +38,16 @@
           <button class="nav-tab" data-view="guide">MCD Guide</button>
         </nav>
       </div>
-      <div>
-        <button id="btnThemeToggle" class="btn" style="margin-right: 8px;">☀️ Light Mode</button>
+      <div class="global-header-actions">
+        <button id="btnThemeToggle" class="btn btn-theme-toggle">Light Mode</button>
         <button id="btnNewBoard" class="btn primary">New Board</button>
       </div>
     </header>
 
     <aside class="sidebar">
+      <header class="sidebar-header">
+        <button id="btnToggleSidebar" class="btn-sidebar-toggle" title="Toggle Sidebar">«</button>
+      </header>
       <section class="panel">
         <h2>Boards</h2>
         <div id="boardList" class="board-list"></div>
@@ -85,63 +71,64 @@
       </section>
     </aside>
 
-    <main id="dashboardView" class="workspace" style="display: none; padding: 20px; overflow-y: auto;">
-      <header style="border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px;">
-        <h2 style="margin: 0; font-size: 1.4rem;">Project Dashboard</h2>
-        <div id="dashboardPhase" style="color: var(--accent); font-size: 0.9rem; margin-top: 4px;">Active Phase:
+    <main id="dashboardView" class="workspace view-surface workspace-scroll">
+      <header class="view-header">
+        <h2 class="view-title">Project Dashboard</h2>
+        <div id="dashboardPhase" class="dashboard-phase">Active Phase:
           Reading...</div>
       </header>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div class="split-grid">
         <!-- Vitals & Metrics -->
-        <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="stack-panel">
           <section class="panel">
             <h2>Milestone Burn-down</h2>
             <div id="dashboardBurndown">Loading...</div>
           </section>
           <section class="panel">
             <h2>Blockers</h2>
-            <div id="dashboardBlockers" style="color: var(--danger); font-size: 0.85rem;">None</div>
+            <div id="dashboardBlockers" class="dashboard-blockers">None</div>
           </section>
           <section class="panel">
             <h2>Domain Metrics</h2>
-            <div id="dashboardMetrics" style="font-size: 0.85rem; color: var(--text-dim);">Loading project type...</div>
+            <div id="dashboardMetrics" class="dashboard-metrics">Loading project type...</div>
           </section>
         </div>
 
         <!-- Library & Traceability -->
-        <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="stack-panel">
           <section class="panel">
             <h2>Core Reference Library</h2>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div class="doc-button-row">
               <button class="btn btn-doc" data-doc="charter">Project Charter</button>
               <button class="btn btn-doc" data-doc="prd">PRD</button>
               <button class="btn btn-doc" data-doc="guardrails">Guardrails</button>
-              <button class="btn btn-doc" data-doc="contract" style="border-color: var(--accent);">Active
+              <button class="btn btn-doc btn-doc-contract" data-doc="contract">Active
                 Contract</button>
             </div>
           </section>
           <section class="panel">
             <h2>Traceability Feed (Git)</h2>
-            <pre id="dashboardGitLog"
-              style="font-size: 0.75rem; color: var(--text-dim); margin: 0; white-space: pre-wrap; word-break: break-all;">Loading...</pre>
+            <pre id="dashboardGitLog" class="traceability-log">Loading...</pre>
           </section>
         </div>
       </div>
     </main>
 
-    <main id="chartsView" class="workspace charts-view" style="display: none; padding: 20px; overflow: hidden;">
+    <main id="chartsView" class="workspace charts-view view-surface view-no-scroll">
       <header class="charts-header">
         <div>
-          <h2 style="margin: 0; font-size: 1.4rem;">Charts Library</h2>
-          <div style="font-size: 0.85rem; color: var(--text-dim); margin-top: 4px;">Select a chart to open it in the preview panel.</div>
+          <h2 class="view-title">Charts Library</h2>
+          <div class="charts-subtitle">Select a chart to open it in the
+            preview panel.</div>
         </div>
       </header>
       <section class="charts-layout">
         <section class="panel charts-list-panel">
           <h2>Available Charts</h2>
           <div id="chartsList" class="charts-list"></div>
-          <div id="chartsListEmpty" class="empty-state" style="display: none;">No charts found yet. Generated charts will appear here.</div>
+          <div id="chartsListEmpty" class="empty-state charts-empty">No charts found yet. Generated charts
+            will appear here.</div>
         </section>
         <aside id="chartsPanel" class="panel charts-preview-panel">
           <div class="charts-preview-header">
@@ -155,15 +142,13 @@
       </section>
     </main>
 
-    <main id="guideView" class="workspace" style="display: none; padding: 20px; overflow-y: auto;">
-      <header
-        style="border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="margin: 0; font-size: 1.4rem;">MCD Methodology Playbook</h2>
-        <button id="btnWhyMcd" class="btn" style="background: var(--bg-2); border: 1px solid var(--line);">Why
+    <main id="guideView" class="workspace view-surface workspace-scroll">
+      <header class="view-header view-header-split">
+        <h2 class="view-title">MCD Methodology Playbook</h2>
+        <button id="btnWhyMcd" class="btn btn-ghost-surface">Why
           MCD?</button>
       </header>
-      <div id="guideContent" class="markdown-body"
-        style="font-family: sans-serif; font-size: 0.95rem; line-height: 1.5; color: var(--text); max-width: 900px;">
+      <div id="guideContent" class="markdown-body guide-content">
         Loading playbook...
       </div>
     </main>
@@ -202,43 +187,41 @@
     </main>
   </div>
 
-  <dialog id="docDialog" class="card-dialog" style="width: min(860px, 95vw); max-height: 90vh;">
-    <form method="dialog" style="display: flex; flex-direction: column; height: 100%;">
-      <header
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px;">
-        <h3 id="docDialogTitle" style="margin: 0;">Document</h3>
+  <dialog id="docDialog" class="card-dialog doc-dialog">
+    <form method="dialog" class="doc-dialog-form">
+      <header class="modal-header">
+        <h3 id="docDialogTitle" class="modal-title">Document</h3>
         <button value="close" class="btn">Close</button>
       </header>
-      <div id="docDialogContent" class="markdown-body"
-        style="overflow-y: auto; flex: 1; font-family: sans-serif; font-size: 0.9rem; line-height: 1.5; color: var(--text);">
+      <div id="docDialogContent" class="markdown-body doc-dialog-content">
         Loading...</div>
     </form>
   </dialog>
 
   <!-- Why MCD Modal -->
-  <dialog id="whyMcdDialog" class="card-dialog" style="max-width: 600px; padding: 24px;">
+  <dialog id="whyMcdDialog" class="card-dialog why-dialog">
     <form method="dialog">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0; font-size: 1.3rem;">Why MCD?</h2>
+      <div class="modal-header why-header">
+        <h2 class="why-title">Why MCD?</h2>
         <button value="close" class="btn">Close</button>
       </div>
     </form>
-    <div style="font-family: var(--font); font-size: 0.95rem; line-height: 1.6; color: var(--text);">
-      <p style="margin-bottom: 16px;">The <strong>Micro-Contract Development (MCD)</strong> methodology was forged for
+    <div class="why-dialog-body">
+      <p class="why-paragraph">The <strong>Micro-Contract Development (MCD)</strong> methodology was forged for
         solo operators collaborating with advanced AI agents. It trades raw conversational speed for systemic
         determinism.</p>
 
-      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Constraint is Freedom</h3>
-      <p style="margin-bottom: 16px;">By severely limiting what an AI agent can do without explicit permission, the
+      <h3 class="why-section-title">Constraint is Freedom</h3>
+      <p class="why-paragraph">By severely limiting what an AI agent can do without explicit permission, the
         operator guarantees that the architecture remains entirely under their control. No phantom files are generated,
         and no scope creep occurs without a formalized contract.</p>
 
-      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Total Observability</h3>
-      <p style="margin-bottom: 16px;">Every decision, rollback, and feature deployment is captured as a semantic,
+      <h3 class="why-section-title">Total Observability</h3>
+      <p class="why-paragraph">Every decision, rollback, and feature deployment is captured as a semantic,
         human-readable artifact. The operator never has to wonder <em>what</em> an AI agent changed while working on a
         complex feature.</p>
 
-      <h3 style="margin-top: 24px; margin-bottom: 8px; color: var(--accent);">Deterministic Engineering</h3>
+      <h3 class="why-section-title">Deterministic Engineering</h3>
       <p>Contracts act as both absolute instruction sets for the machine and historical ledgers for human operators,
         eliminating "black box" code drift and making the software's evolution totally replayable.</p>
     </div>
@@ -309,15 +292,15 @@
       <p class="description"></p>
       <footer>
         <span class="issue-badge"></span>
-        <div style="flex: 1;"></div>
+        <div class="spacer"></div>
         <span class="owner"></span>
         <span class="target-date"></span>
       </footer>
     </article>
   </template>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/mermaid.min.js"></script>
   <script src="/app.js" defer></script>
 </body>
 
