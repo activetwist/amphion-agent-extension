@@ -2,6 +2,12 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.5] - 2026-02-24
+
+### Changed
+- Rebranded IDE Dashboard to "Amphion Agent Controls" to establish a functional distinction between the IDE command interface and the browser-based collaboration platform ("Amphion Command Deck").
+- Updated panel titles, HTML titles, and primary headers within the VS Code UI.
+
 ## [1.28.4] - 2026-02-24
 
 ### Changed
