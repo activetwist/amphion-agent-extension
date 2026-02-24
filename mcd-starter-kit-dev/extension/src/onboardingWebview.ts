@@ -2,6 +2,30 @@ import * as vscode from 'vscode';
 import { ProjectConfig } from './wizard';
 import { runManualPath, runSourceDocsPath } from './charterWizard';
 import { buildScaffold, launchCommandDeck } from './scaffolder';
+import { FoundationState } from './foundation/foundationSchema';
+import { InitMode } from './onboarding/initMode';
+
+interface GuidedSubmissionData {
+    targetUsers: string[];
+    targetUsersOther: string;
+    targetSuccess: string;
+    problemTypes: string[];
+    painfulStep: string;
+    reduces: string[];
+    increases: string[];
+    coreValue: string;
+    doNotInclude: string[];
+    explicitNonGoal: string;
+    targetVersion: string;
+    rawFeatures: string;
+    metricType: string;
+    metricTarget: string;
+    metricHorizon: string;
+    deploy: string;
+    dataStore: string;
+    security: string[];
+    openQs: string;
+}
 
 export class OnboardingPanel {
     public static currentPanel: OnboardingPanel | undefined;
@@ -96,40 +120,46 @@ export class OnboardingPanel {
                             this._panel.webview.postMessage({ command: 'handoffReady', data: importPrompts });
                         }
                         return;
-                    case 'startGuided':
-                        if (!scaffoldComplete) return;
-                        this._panel.dispose();
+                    case 'submitGuided':
+                        if (!scaffoldComplete || !this._config || !this._terminal) return;
                         try {
-                            const { runGuidedWizard } = await import('./onboarding/guidedWizard');
                             const { writeFoundationJson } = await import('./foundation/foundationWriter');
                             const { renderCharterFromFoundation } = await import('./templates/charterFromFoundation');
                             const { renderPrdFromFoundation } = await import('./templates/prdFromFoundation');
                             const { promptPostInitReview } = await import('./postInit/postInitPrompt');
 
-                            const foundationState = await runGuidedWizard(this._config!);
-                            if (foundationState) {
-                                await writeFoundationJson(root, foundationState);
-
-                                const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-                                const encoder = new TextEncoder();
-
-                                await vscode.workspace.fs.writeFile(
-                                    vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
-                                    encoder.encode(renderCharterFromFoundation(foundationState, timestamp))
-                                );
-
-                                await vscode.workspace.fs.writeFile(
-                                    vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
-                                    encoder.encode(renderPrdFromFoundation(foundationState, timestamp))
-                                );
-
-                                this._terminal!.sendText('git add referenceDocs/');
-                                this._terminal!.sendText(`git commit -m "docs(${this._config!.initialVersion}): generate SIP-1 foundation + artifacts"`);
-
-                                await promptPostInitReview(root, this._config!);
-                            } else {
-                                vscode.window.showInformationMessage('Guided Init aborted.');
+                            const guidedSubmission = this._asGuidedSubmissionData(message.data);
+                            if (!guidedSubmission) {
+                                vscode.window.showErrorMessage('Guided onboarding payload was invalid.');
+                                return;
                             }
+
+                            const foundationState = this._buildGuidedFoundationState(guidedSubmission);
+                            this._panel.dispose();
+
+                            const wrote = await writeFoundationJson(root, foundationState);
+                            if (!wrote) {
+                                vscode.window.showInformationMessage('Guided Init aborted.');
+                                return;
+                            }
+
+                            const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+                            const encoder = new TextEncoder();
+
+                            await vscode.workspace.fs.writeFile(
+                                vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
+                                encoder.encode(renderCharterFromFoundation(foundationState, timestamp))
+                            );
+
+                            await vscode.workspace.fs.writeFile(
+                                vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
+                                encoder.encode(renderPrdFromFoundation(foundationState, timestamp))
+                            );
+
+                            this._terminal.sendText('git add referenceDocs/');
+                            this._terminal.sendText(`git commit -m "docs(${this._config.initialVersion}): generate SIP-1 foundation + artifacts"`);
+
+                            await promptPostInitReview(root, this._config);
                         } catch (e) {
                             console.error('Guided Init error', e);
                             vscode.window.showErrorMessage('Failed to complete Guided Init.');
@@ -171,6 +201,111 @@ export class OnboardingPanel {
                 x.dispose();
             }
         }
+    }
+
+    private _asGuidedSubmissionData(value: unknown): GuidedSubmissionData | undefined {
+        if (!value || typeof value !== 'object') {
+            return undefined;
+        }
+
+        const data = value as Record<string, unknown>;
+
+        const toString = (input: unknown): string => typeof input === 'string' ? input : '';
+        const toStringArray = (input: unknown): string[] =>
+            Array.isArray(input) ? input.filter((item): item is string => typeof item === 'string') : [];
+
+        return {
+            targetUsers: toStringArray(data.targetUsers),
+            targetUsersOther: toString(data.targetUsersOther),
+            targetSuccess: toString(data.targetSuccess),
+            problemTypes: toStringArray(data.problemTypes),
+            painfulStep: toString(data.painfulStep),
+            reduces: toStringArray(data.reduces),
+            increases: toStringArray(data.increases),
+            coreValue: toString(data.coreValue),
+            doNotInclude: toStringArray(data.doNotInclude),
+            explicitNonGoal: toString(data.explicitNonGoal),
+            targetVersion: toString(data.targetVersion),
+            rawFeatures: toString(data.rawFeatures),
+            metricType: toString(data.metricType),
+            metricTarget: toString(data.metricTarget),
+            metricHorizon: toString(data.metricHorizon),
+            deploy: toString(data.deploy),
+            dataStore: toString(data.dataStore),
+            security: toStringArray(data.security),
+            openQs: toString(data.openQs),
+        };
+    }
+
+    private _buildGuidedFoundationState(data: GuidedSubmissionData): FoundationState {
+        const cleanArray = (items: string[]): string[] =>
+            items.map((item) => item.trim()).filter((item) => item.length > 0);
+
+        const cleanedTargetUsers = cleanArray(data.targetUsers);
+        const targetUsersOther = data.targetUsersOther.trim();
+        const targetUsers = cleanedTargetUsers.includes('Other')
+            ? cleanedTargetUsers.filter((user) => user !== 'Other').concat(targetUsersOther ? [targetUsersOther] : [])
+            : cleanedTargetUsers;
+
+        const features = data.rawFeatures
+            .split(',')
+            .map((feature) => feature.trim())
+            .filter((feature) => feature.length > 0)
+            .slice(0, 5);
+
+        const openQuestions = data.openQs.trim().length > 0
+            ? data.openQs.split(',').map((q) => q.trim()).filter((q) => q.length > 0)
+            : [];
+
+        const now = new Date().toISOString();
+
+        return {
+            schemaVersion: 'sip-1',
+            createdAt: now,
+            updatedAt: now,
+            initMode: InitMode.Guided,
+            project: {
+                name: this._config?.projectName ?? 'Unknown Project',
+                codename: this._config?.codename ?? 'UNKNOWN',
+                version: data.targetVersion.trim(),
+                repoType: 'new'
+            },
+            actors: {
+                primaryBuilder: 'solo',
+                roles: ['developer']
+            },
+            product: {
+                targetUsers: targetUsers.concat(`Success Profile: ${data.targetSuccess.trim()}`),
+                problemStatement: `Pain points: ${cleanArray(data.problemTypes).join(', ')}. Most painful step: ${data.painfulStep.trim()}`,
+                coreValueProposition: `Reduces: ${cleanArray(data.reduces).join(', ')}. Increases: ${cleanArray(data.increases).join(', ')}. Core: ${data.coreValue.trim()}`,
+                hardNonGoals: cleanArray(data.doNotInclude).concat(`Explicitly excluded: ${data.explicitNonGoal.trim()}`),
+                keyFeatures: features,
+                successMetric: {
+                    type: data.metricType.trim(),
+                    definition: data.metricType.trim(),
+                    target: data.metricTarget.trim(),
+                    timeHorizon: data.metricHorizon.trim()
+                }
+            },
+            constraints: {
+                deployment: data.deploy.trim(),
+                data: data.dataStore.trim(),
+                security: cleanArray(data.security),
+                performance: [],
+                outOfScope: [],
+                ai: {
+                    usesAI: false,
+                    providers: [],
+                    multiModel: false,
+                    safetyNotes: []
+                }
+            },
+            notes: {
+                openQuestions,
+                assumptions: [],
+                risks: []
+            }
+        };
     }
 
     private _update() {
@@ -477,6 +612,195 @@ export class OnboardingPanel {
             </div>
         </div>
 
+        <div id="guided-view" class="view">
+            <div class="card">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px;">
+                    <span style="font-size: 24px;">🧭</span>
+                    <h3 style="margin: 0;">Guided Onboarding (SIP-1)</h3>
+                </div>
+
+                <!-- A. Target Users -->
+                <h4 style="margin: 24px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">A. Target Users</h4>
+                <div class="form-group">
+                    <label>1. Who uses this?</label>
+                    <select id="guidedTargetUsers" multiple style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px; height: 120px;">
+                        <option value="Individual consumer">Individual consumer</option>
+                        <option value="Small team (2–10)">Small team (2–10)</option>
+                        <option value="Org team (10–100)">Org team (10–100)</option>
+                        <option value="Enterprise">Enterprise</option>
+                        <option value="Public/no login">Public/no login</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <span class="hint">Hold Cmd/Ctrl to select multiple.</span>
+                </div>
+                <div class="form-group" id="guidedTargetUsersOtherGroup" style="display: none;">
+                    <label>Please specify "Other" target users:</label>
+                    <input type="text" id="guidedTargetUsersOther" placeholder="e.g. Freelance Accountants">
+                </div>
+                <div class="form-group">
+                    <label>2. What does a successful user look like?</label>
+                    <input type="text" id="guidedTargetSuccess" placeholder="e.g. An independent contractor who invoices clients in under 5 minutes.">
+                </div>
+
+                <!-- B. Problem Statement -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">B. Problem Statement</h4>
+                <div class="form-group">
+                    <label>3. What happens today without this?</label>
+                    <select id="guidedProblemTypes" multiple style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px; height: 120px;">
+                        <option value="manual work">manual work</option>
+                        <option value="spreadsheets">spreadsheets</option>
+                        <option value="tool switching">tool switching</option>
+                        <option value="copying/pasting">copying/pasting</option>
+                        <option value="slow approvals">slow approvals</option>
+                        <option value="errors/rework">errors/rework</option>
+                        <option value="other">other</option>
+                    </select>
+                    <span class="hint">Hold Cmd/Ctrl to select multiple.</span>
+                </div>
+                <div class="form-group">
+                    <label>4. What is the most painful step?</label>
+                    <input type="text" id="guidedPainfulStep" placeholder="e.g. Re-entering invoice data from PDF into accounting software.">
+                </div>
+
+                <!-- C. Core Value Proposition -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">C. Core Value Proposition</h4>
+                <div style="display: flex; gap: 16px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>5. This reduces...</label>
+                        <select id="guidedReduces" multiple style="width: 100%; height: 120px; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                            <option value="time">time</option>
+                            <option value="errors">errors</option>
+                            <option value="cost">cost</option>
+                            <option value="cognitive load">cognitive load</option>
+                            <option value="tool switching">tool switching</option>
+                            <option value="other">other</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>6. This increases...</label>
+                        <select id="guidedIncreases" multiple style="width: 100%; height: 120px; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                            <option value="speed">speed</option>
+                            <option value="visibility">visibility</option>
+                            <option value="accuracy">accuracy</option>
+                            <option value="automation">automation</option>
+                            <option value="revenue">revenue</option>
+                            <option value="other">other</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>7. One-sentence value statement</label>
+                    <input type="text" id="guidedCoreValue" placeholder="e.g. A one-click tool that turns profiles into PDFs">
+                </div>
+
+                <!-- D. Hard Non-Goals -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">D. Hard Non-Goals</h4>
+                <div class="form-group">
+                    <label>8. Do not include in v1</label>
+                    <select id="guidedDoNotInclude" multiple style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px; height: 140px;">
+                        <option value="payments">payments</option>
+                        <option value="auth/login">auth/login</option>
+                        <option value="multi-user collaboration">multi-user collaboration</option>
+                        <option value="mobile app">mobile app</option>
+                        <option value="analytics/telemetry">analytics/telemetry</option>
+                        <option value="marketplace/plugins">marketplace/plugins</option>
+                        <option value="AI features">AI features</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>9. What is explicitly NOT a goal?</label>
+                    <input type="text" id="guidedExplicitNonGoal" placeholder="e.g. We are not building a marketplace.">
+                </div>
+
+                <!-- E. Key Features -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">E. Key Features</h4>
+                <div class="form-group">
+                    <label>10. Current Target Version</label>
+                    <input type="text" id="guidedTargetVersion" value="${initialVersion}">
+                </div>
+                <div class="form-group">
+                    <label>11. List up to 5 must-have features</label>
+                    <input type="text" id="guidedRawFeatures" placeholder="e.g. PDF generation, Stripe integration, Email notifications">
+                    <span class="hint">Comma separated.</span>
+                </div>
+
+                <!-- F. Success Metric -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">F. Success Metric</h4>
+                <div class="form-group">
+                    <label>12. What event proves this worked?</label>
+                    <select id="guidedMetricType" style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                        <option value="shipped to production">shipped to production</option>
+                        <option value="first real user">first real user</option>
+                        <option value="first paying user">first paying user</option>
+                        <option value="replaces an existing tool">replaces an existing tool</option>
+                        <option value="saves time">saves time</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>13. Define the metric target</label>
+                    <input type="text" id="guidedMetricTarget" placeholder="e.g. $100 MRR, 10 signups, 50% faster completion">
+                </div>
+                <div class="form-group">
+                    <label>14. Time horizon</label>
+                    <select id="guidedMetricHorizon" style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                        <option value="7 days">7 days</option>
+                        <option value="30 days">30 days</option>
+                        <option value="90 days">90 days</option>
+                        <option value="6 months">6 months</option>
+                        <option value="12 months">12 months</option>
+                    </select>
+                </div>
+
+                <!-- G. Constraints -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">G. Constraints</h4>
+                <div class="form-group">
+                    <label>15. Deployment target</label>
+                    <select id="guidedDeploy" style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                        <option value="local-only">local-only</option>
+                        <option value="shared hosting">shared hosting</option>
+                        <option value="VPS">VPS</option>
+                        <option value="cloud">cloud</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>16. Data storage</label>
+                    <select id="guidedDataStore" style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px;">
+                        <option value="file-based">file-based</option>
+                        <option value="SQLite">SQLite</option>
+                        <option value="MySQL">MySQL</option>
+                        <option value="Postgres">Postgres</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>17. Security stance</label>
+                    <select id="guidedSecurity" multiple style="width: 100%; padding: 8px; background: var(--mcd-bg); border: 1px solid var(--mcd-border); color: var(--mcd-text); border-radius: 6px; height: 100px;">
+                        <option value="no telemetry">no telemetry</option>
+                        <option value="encrypted secrets">encrypted secrets</option>
+                        <option value="audit logs">audit logs</option>
+                        <option value="role-based permissions">role-based permissions</option>
+                        <option value="other">other</option>
+                    </select>
+                </div>
+
+                <!-- H. Wrap up -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">H. Notes</h4>
+                <div class="form-group">
+                    <label>18. Open questions (optional)</label>
+                    <input type="text" id="guidedOpenQs" placeholder="e.g. Which VPS provider? Stripe vs LemonSqueezy?">
+                    <span class="hint">Comma separated.</span>
+                </div>
+            </div>
+
+            <div class="footer-buttons">
+                <button id="btn-back-guided" style="flex: 0 1 auto;">← Back</button>
+                <button id="btn-submit-guided" class="primary" style="flex: 0 1 auto; padding-left: 40px; padding-right: 40px;">Generate Strategy Artifacts</button>
+            </div>
+        </div>
+
         <div id="agent-handoff-view" class="view">
             <div class="card">
                 <h3>Universal Onboarding Rails</h3>
@@ -518,6 +842,7 @@ export class OnboardingPanel {
         const initView = document.getElementById('init-view');
         const selectionView = document.getElementById('selection-view');
         const manualView = document.getElementById('manual-view');
+        const guidedView = document.getElementById('guided-view');
         const handoffView = document.getElementById('agent-handoff-view');
         const manualSuccessView = document.getElementById('manual-success-view');
 
@@ -526,6 +851,45 @@ export class OnboardingPanel {
         const handoffComplete = document.getElementById('handoff-complete');
         const btnLaunchCd = document.getElementById('btn-launch-cd');
         const btnLaunchCdManual = document.getElementById('btn-launch-cd-manual');
+
+        const getInputValue = (id) => {
+            const element = document.getElementById(id);
+            return element ? element.value.trim() : '';
+        };
+
+        const getSelectedValues = (id) => {
+            const element = document.getElementById(id);
+            if (!element) return [];
+            return Array.from(element.selectedOptions).map((option) => option.value);
+        };
+
+        const markInvalid = (id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.borderColor = '#fa4549';
+            }
+        };
+
+        const clearInvalid = (id) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.borderColor = 'var(--mcd-border)';
+            }
+        };
+
+        if (document.getElementById('guidedTargetUsers')) {
+            document.getElementById('guidedTargetUsers').addEventListener('change', (e) => {
+                const options = Array.from(e.target.selectedOptions).map((opt) => opt.value);
+                const otherGroup = document.getElementById('guidedTargetUsersOtherGroup');
+                if (options.includes('Other')) {
+                    otherGroup.style.display = 'block';
+                } else {
+                    otherGroup.style.display = 'none';
+                    clearInvalid('guidedTargetUsersOther');
+                }
+                clearInvalid('guidedTargetUsers');
+            });
+        }
 
         if (document.getElementById('btn-submit-init')) {
             document.getElementById('btn-submit-init').addEventListener('click', () => {
@@ -569,17 +933,21 @@ export class OnboardingPanel {
 
         if (document.getElementById('btn-show-guided')) {
             document.getElementById('btn-show-guided').addEventListener('click', () => {
-                const btn = document.getElementById('btn-show-guided');
-                btn.innerText = 'Starting...';
-                btn.disabled = true;
-                btn.style.opacity = '0.7';
-                vscode.postMessage({ command: 'startGuided' });
+                selectionView.classList.remove('active');
+                guidedView.classList.add('active');
             });
         }
 
         if (document.getElementById('btn-back-manual')) {
             document.getElementById('btn-back-manual').addEventListener('click', () => {
                 manualView.classList.remove('active');
+                selectionView.classList.add('active');
+            });
+        }
+
+        if (document.getElementById('btn-back-guided')) {
+            document.getElementById('btn-back-guided').addEventListener('click', () => {
+                guidedView.classList.remove('active');
                 selectionView.classList.add('active');
             });
         }
@@ -632,8 +1000,106 @@ export class OnboardingPanel {
             });
         }
 
+        if (document.getElementById('btn-submit-guided')) {
+            document.getElementById('btn-submit-guided').addEventListener('click', () => {
+                const targetUsers = getSelectedValues('guidedTargetUsers');
+                const problemTypes = getSelectedValues('guidedProblemTypes');
+                const reduces = getSelectedValues('guidedReduces');
+                const increases = getSelectedValues('guidedIncreases');
+                const doNotInclude = getSelectedValues('guidedDoNotInclude');
+                const security = getSelectedValues('guidedSecurity');
+                const targetUsersOther = getInputValue('guidedTargetUsersOther');
+
+                const data = {
+                    targetUsers,
+                    targetUsersOther,
+                    targetSuccess: getInputValue('guidedTargetSuccess'),
+                    problemTypes,
+                    painfulStep: getInputValue('guidedPainfulStep'),
+                    reduces,
+                    increases,
+                    coreValue: getInputValue('guidedCoreValue'),
+                    doNotInclude,
+                    explicitNonGoal: getInputValue('guidedExplicitNonGoal'),
+                    targetVersion: getInputValue('guidedTargetVersion'),
+                    rawFeatures: getInputValue('guidedRawFeatures'),
+                    metricType: document.getElementById('guidedMetricType').value,
+                    metricTarget: getInputValue('guidedMetricTarget'),
+                    metricHorizon: document.getElementById('guidedMetricHorizon').value,
+                    deploy: document.getElementById('guidedDeploy').value,
+                    dataStore: document.getElementById('guidedDataStore').value,
+                    security,
+                    openQs: getInputValue('guidedOpenQs')
+                };
+
+                let invalid = false;
+                const requiredMultiSelects = [
+                    { id: 'guidedTargetUsers', value: targetUsers },
+                    { id: 'guidedProblemTypes', value: problemTypes },
+                    { id: 'guidedReduces', value: reduces },
+                    { id: 'guidedIncreases', value: increases },
+                    { id: 'guidedDoNotInclude', value: doNotInclude },
+                    { id: 'guidedSecurity', value: security }
+                ];
+
+                requiredMultiSelects.forEach((entry) => {
+                    if (!entry.value.length) {
+                        markInvalid(entry.id);
+                        invalid = true;
+                    } else {
+                        clearInvalid(entry.id);
+                    }
+                });
+
+                const requiredInputs = [
+                    'guidedTargetSuccess',
+                    'guidedPainfulStep',
+                    'guidedCoreValue',
+                    'guidedExplicitNonGoal',
+                    'guidedTargetVersion',
+                    'guidedRawFeatures',
+                    'guidedMetricTarget'
+                ];
+
+                requiredInputs.forEach((id) => {
+                    if (!getInputValue(id)) {
+                        markInvalid(id);
+                        invalid = true;
+                    } else {
+                        clearInvalid(id);
+                    }
+                });
+
+                if (targetUsers.includes('Other') && !targetUsersOther) {
+                    markInvalid('guidedTargetUsersOther');
+                    invalid = true;
+                }
+
+                if (invalid) {
+                    return;
+                }
+
+                const btn = document.getElementById('btn-submit-guided');
+                btn.innerText = 'Generating...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'not-allowed';
+
+                vscode.postMessage({
+                    command: 'submitGuided',
+                    data: data
+                });
+            });
+        }
+
         document.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', (e) => {
+                e.target.style.borderColor = 'var(--mcd-border)';
+            });
+        });
+
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', (e) => {
                 e.target.style.borderColor = 'var(--mcd-border)';
             });
         });
