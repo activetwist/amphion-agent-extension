@@ -311,6 +311,40 @@ export class OnboardingPanel {
             color: #8b949e;
             margin-top: 4px;
         }
+
+        .option-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--mcd-border);
+        }
+
+        .option-row:last-child {
+            border-bottom: none;
+        }
+
+        .option-row-content {
+            flex: 1;
+            text-align: left;
+        }
+
+        .option-row-content h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+        }
+
+        .option-row button {
+            flex: 0 0 auto;
+            min-width: 220px;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+        }
         
         .footer-buttons {
             display: flex;
@@ -368,22 +402,30 @@ export class OnboardingPanel {
                 <h3>How would you like to build your Strategy?</h3>
                 <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Choose an approach to generate your Project Charter and High-Level PRD.</p>
                 
-                <div class="button-group" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                    <button id="btn-show-manual" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
-                        <span style="font-size: 24px;">⚡</span>
-                        <span>Fast Onboarding</span>
-                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">I understand Product Management language very well, and I already know how to define and measure my project success.</span>
-                    </button>
-                    <button id="btn-show-guided" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
-                        <span style="font-size: 24px;">🧭</span>
-                        <span>Guided Onboarding</span>
-                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">Answer a series of guided questions with easy descriptions to help you build the strategic documents for your project.</span>
-                    </button>
-                    <button id="btn-action-import" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
-                        <span style="font-size: 24px;">📂</span>
-                        <span>Import Docs</span>
-                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">I have a project charter and product requirements document already, and I would like to import them to initialize the project.</span>
-                    </button>
+                <div class="option-list">
+                    <div class="option-row">
+                        <div class="option-row-content">
+                            <h4>1. Fast Onboard</h4>
+                            <p class="hint">I understand Product Management language very well, and I already know how to define and measure my project success.</p>
+                        </div>
+                        <button id="btn-show-manual">⚡ Start Fast Onboarding</button>
+                    </div>
+
+                    <div class="option-row">
+                        <div class="option-row-content">
+                            <h4>2. Guided Onboarding (Recommended)</h4>
+                            <p class="hint">Answer a series of guided questions with easy descriptions to help you build the strategic documents for your project.</p>
+                        </div>
+                        <button id="btn-show-guided">🧭 Start Guided Walkthrough</button>
+                    </div>
+
+                    <div class="option-row">
+                        <div class="option-row-content">
+                            <h4>Import My Own Documents</h4>
+                            <p class="hint">I have a project charter and product requirements document already, and I would like to import them to initialize the project.</p>
+                        </div>
+                        <button id="btn-action-import">📂 Import my Documents</button>
+                    </div>
                 </div>
             </div>
             
