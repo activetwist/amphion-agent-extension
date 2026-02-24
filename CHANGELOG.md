@@ -10,6 +10,7 @@ All notable changes to this extension are documented in this file.
 - Added styled CTA link buttons in the modal for:
   - `https://activetwist.com`
   - `https://www.linkedin.com/in/stantonbrooks/`
+- Added root-level `.gitignore` and `.env` pattern for secure local secret management.
 
 ### Changed
 - Backfilled release notes to capture the prior local UI/branding workstream completed before this slice, including:
