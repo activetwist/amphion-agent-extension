@@ -47,7 +47,7 @@ class CommandDeckDashboard {
             CommandDeckDashboard.currentPanel._panel.reveal(column);
             return;
         }
-        const panel = vscode.window.createWebviewPanel('mcdDashboard', 'Amphion Command Deck', column || vscode.ViewColumn.One, {
+        const panel = vscode.window.createWebviewPanel('mcdDashboard', 'Amphion Agent Controls', column || vscode.ViewColumn.One, {
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'assets')],
             retainContextWhenHidden: true
@@ -179,7 +179,7 @@ class CommandDeckDashboard {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amphion Command Deck</title>
+    <title>Amphion Agent Controls</title>
     <style>
         :root {
             --mcd-bg: #0d1117;
@@ -301,7 +301,7 @@ class CommandDeckDashboard {
 <body>
     <div class="container">
         <header style="text-align: left; margin-bottom: 16px;">
-            <h1>Amphion Command Deck</h1>
+            <h1>Amphion Agent Controls</h1>
             <p class="subtitle">AI Development Orchestrator Phase Transitions</p>
         </header>
 
