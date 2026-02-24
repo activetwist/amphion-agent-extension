@@ -21,4 +21,4 @@ Before performing any task, the agent must identify the current phase and load t
 
 ## Product Owner Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
-2. **Observability**: Always write detailed stories (cards) to the Command Deck board (`ops/launch-command-deck/data/state.json`) alongside your evaluations and contracts. This allows the Product Owner to read the cards and track progress.
+2. **Observability**: Always keep the Command Deck updated by creating cards in the Command Deck so you can monitor progress. (/board)

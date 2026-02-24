@@ -7,6 +7,7 @@ import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
 import { renderEvaluate, renderBoard, renderContract, renderExecute, renderCloseout } from './templates/commands';
+import { generateMermaidExampleTemplate } from './templates/mermaidExample';
 // Adapters and workflows are loaded dynamically in buildScaffold/deployWorkflows
 
 
@@ -142,11 +143,30 @@ export async function buildScaffold(
         await createDir(root, dir);
     }
 
+    // 1.5 Write config context
+    await writeFile(
+        root,
+        'ops/amphion.json',
+        JSON.stringify({
+            port: config.port,
+            serverLang: config.serverLang,
+            codename: config.codename,
+            projectName: config.projectName
+        }, null, 2)
+    );
+
     // 2. Write GUARDRAILS.md
     await writeFile(
         root,
         'referenceDocs/00_Governance/GUARDRAILS.md',
         renderGuardrails(config)
+    );
+
+    // 2.5 Write Example Architecture Chart
+    await writeFile(
+        root,
+        'referenceDocs/02_Architecture/EXAMPLE_MARKETING_IA.md',
+        generateMermaidExampleTemplate(config.codename)
     );
 
     // 3. Write MCD_PLAYBOOK.md
@@ -224,19 +244,17 @@ export async function launchCommandDeck(root: vscode.Uri, config: ProjectConfig)
     });
     serverTerminal.show();
 
-    if (config.serverLang === 'node') {
-        serverTerminal.sendText(
-            `node ops/launch-command-deck/server.js --port ${config.port}`
-        );
-    } else {
-        serverTerminal.sendText(
-            `python3 ops/launch-command-deck/server.py --port ${config.port}`
-        );
-    }
+    serverTerminal.sendText(
+        `python3 ops/launch-command-deck/server.py --port ${config.port}`
+    );
 
     const url = `http://localhost:${config.port}`;
 
     setTimeout(() => {
+        // Launch the internal IDE dashboard
+        vscode.commands.executeCommand('mcd.openDashboard');
+
+        // Also open the browser Command Deck
         const platform = os.platform();
         if (platform === 'darwin') {
             exec(`open ${url}`);

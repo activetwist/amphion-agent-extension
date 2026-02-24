@@ -1,11 +1,16 @@
 const state = {
   data: null,
+  charts: [],
+  selectedChartId: "",
   filters: {
     milestoneId: "",
     search: "",
   },
   dragCardId: "",
-  currentView: localStorage.getItem("mcd_current_view") || "board",
+  currentView: (() => {
+    const saved = localStorage.getItem("mcd_current_view");
+    return saved === "wiki" ? "board" : (saved || "board");
+  })(),
   lastVersion: null,
   pollInterval: null,
 };
@@ -26,6 +31,7 @@ const el = {
   btnReloadState: document.querySelector("#btnReloadState"),
 
   dashboardView: document.querySelector("#dashboardView"),
+  chartsView: document.querySelector("#chartsView"),
   boardView: document.querySelector("#boardView"),
   guideView: document.querySelector("#guideView"),
   guideContent: document.querySelector("#guideContent"),
@@ -37,6 +43,12 @@ const el = {
   docDialog: document.querySelector("#docDialog"),
   docDialogTitle: document.querySelector("#docDialogTitle"),
   docDialogContent: document.querySelector("#docDialogContent"),
+  chartsList: document.querySelector("#chartsList"),
+  chartsListEmpty: document.querySelector("#chartsListEmpty"),
+  chartsPanel: document.querySelector("#chartsPanel"),
+  chartsPanelTitle: document.querySelector("#chartsPanelTitle"),
+  chartsPanelContent: document.querySelector("#chartsPanelContent"),
+  btnCloseChartsPanel: document.querySelector("#btnCloseChartsPanel"),
 
   importFile: document.querySelector("#importFile"),
   btnSaveBoard: document.querySelector("#btnSaveBoard"),
@@ -63,6 +75,8 @@ const el = {
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
+
+  btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -78,6 +92,295 @@ async function api(path, method = "GET", body = null) {
     throw new Error(reason);
   }
   return payload;
+}
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+function configureMermaidTheme() {
+  if (!window.mermaid) return;
+  const isLight = getCurrentTheme() === "light";
+  window.mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    themeVariables: isLight
+      ? {
+        background: "#ffffff",
+        primaryTextColor: "#0f172a",
+        secondaryTextColor: "#334155",
+        lineColor: "#475569",
+        primaryColor: "#f8fafc",
+        primaryBorderColor: "#94a3b8",
+        clusterBorder: "#94a3b8",
+      }
+      : {
+        background: "#0f2131",
+        primaryTextColor: "#e9f5ff",
+        secondaryTextColor: "#c5deef",
+        lineColor: "#8bb4cf",
+        primaryColor: "#13283a",
+        primaryBorderColor: "#5a7d97",
+        clusterBorder: "#5a7d97",
+      },
+  });
+}
+
+const MERMAID_VIEWPORT_CLASS = "mcd-mermaid-viewport";
+const MERMAID_CONTROLS_CLASS = "mcd-mermaid-controls";
+const MERMAID_MIN_SCALE = 0.4;
+const MERMAID_MAX_SCALE = 3;
+const MERMAID_BUTTON_ZOOM_FACTOR = 1.18;
+const MERMAID_WHEEL_SENSITIVITY = 0.0014;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function applyMermaidTransform(controller) {
+  const svg = controller.svg;
+  if (!svg || !svg.isConnected) return;
+  svg.style.transformOrigin = "0 0";
+  svg.style.transform = `translate(${controller.tx}px, ${controller.ty}px) scale(${controller.scale})`;
+}
+
+function mermaidZoomAtPoint(controller, host, x, y, nextScale) {
+  const targetScale = clamp(nextScale, MERMAID_MIN_SCALE, MERMAID_MAX_SCALE);
+  if (Math.abs(targetScale - controller.scale) < 0.0001) return;
+  const localX = (x - controller.tx) / controller.scale;
+  const localY = (y - controller.ty) / controller.scale;
+  controller.scale = targetScale;
+  controller.tx = x - localX * targetScale;
+  controller.ty = y - localY * targetScale;
+  applyMermaidTransform(controller);
+  host.dataset.mcdScale = targetScale.toFixed(2);
+}
+
+function resetMermaidTransform(controller, host) {
+  controller.scale = 1;
+  controller.tx = 0;
+  controller.ty = 0;
+  applyMermaidTransform(controller);
+  host.dataset.mcdScale = "1.00";
+}
+
+function ensureMermaidControls(host, controller) {
+  let controls = host.querySelector(`:scope > .${MERMAID_CONTROLS_CLASS}`);
+  if (controls) return;
+
+  controls = document.createElement("div");
+  controls.className = MERMAID_CONTROLS_CLASS;
+  controls.innerHTML = `
+    <button type="button" data-mermaid-control="zoom-out" aria-label="Zoom out">-</button>
+    <button type="button" data-mermaid-control="reset" aria-label="Reset zoom">Reset</button>
+    <button type="button" data-mermaid-control="zoom-in" aria-label="Zoom in">+</button>
+  `;
+
+  controls.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-mermaid-control]");
+    if (!button || !controller.svg || !controller.svg.isConnected) return;
+    const rect = host.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const action = button.dataset.mermaidControl;
+
+    if (action === "zoom-in") {
+      mermaidZoomAtPoint(controller, host, centerX, centerY, controller.scale * MERMAID_BUTTON_ZOOM_FACTOR);
+      return;
+    }
+    if (action === "zoom-out") {
+      mermaidZoomAtPoint(controller, host, centerX, centerY, controller.scale / MERMAID_BUTTON_ZOOM_FACTOR);
+      return;
+    }
+    resetMermaidTransform(controller, host);
+  });
+
+  host.appendChild(controls);
+}
+
+function bindMermaidInteractions(host, controller) {
+  const state = {
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startTx: 0,
+    startTy: 0,
+  };
+
+  host.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest(`.${MERMAID_CONTROLS_CLASS}`)) return;
+    if (!controller.svg || !controller.svg.isConnected) return;
+    state.pointerId = event.pointerId;
+    state.startX = event.clientX;
+    state.startY = event.clientY;
+    state.startTx = controller.tx;
+    state.startTy = controller.ty;
+    host.classList.add("is-panning");
+    if (host.setPointerCapture) host.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  host.addEventListener("pointermove", (event) => {
+    if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+    controller.tx = state.startTx + (event.clientX - state.startX);
+    controller.ty = state.startTy + (event.clientY - state.startY);
+    applyMermaidTransform(controller);
+  });
+
+  const endPan = (event) => {
+    if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+    if (host.hasPointerCapture && host.hasPointerCapture(event.pointerId)) {
+      host.releasePointerCapture(event.pointerId);
+    }
+    state.pointerId = null;
+    host.classList.remove("is-panning");
+  };
+
+  host.addEventListener("pointerup", endPan);
+  host.addEventListener("pointercancel", endPan);
+  host.addEventListener("lostpointercapture", () => {
+    state.pointerId = null;
+    host.classList.remove("is-panning");
+  });
+
+  host.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.target.closest(`.${MERMAID_CONTROLS_CLASS}`)) return;
+      if (!controller.svg || !controller.svg.isConnected) return;
+      const rect = host.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const zoomFactor = Math.exp(-event.deltaY * MERMAID_WHEEL_SENSITIVITY);
+      mermaidZoomAtPoint(controller, host, x, y, controller.scale * zoomFactor);
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+}
+
+function attachMermaidPanZoom(container) {
+  if (!container) return;
+  const svgNodes = container.querySelectorAll(".language-mermaid svg, .mermaid svg, svg[id^='mermaid-']");
+  svgNodes.forEach((svg) => {
+    const host = svg.closest(".language-mermaid, .mermaid") || svg.parentElement;
+    if (!host) return;
+    host.classList.add(MERMAID_VIEWPORT_CLASS);
+
+    if (host.__mcdMermaidController) {
+      host.__mcdMermaidController.svg = svg;
+      applyMermaidTransform(host.__mcdMermaidController);
+      return;
+    }
+
+    const controller = {
+      svg,
+      scale: 1,
+      tx: 0,
+      ty: 0,
+    };
+    host.__mcdMermaidController = controller;
+    ensureMermaidControls(host, controller);
+    bindMermaidInteractions(host, controller);
+    resetMermaidTransform(controller, host);
+  });
+}
+
+function scheduleMermaidPanZoomAttach(container) {
+  if (!container) return;
+  requestAnimationFrame(() => attachMermaidPanZoom(container));
+}
+
+function renderMermaidBlocks(container) {
+  if (!window.mermaid || !container) return;
+  const nodes = container.querySelectorAll(".language-mermaid");
+  if (!nodes.length) return;
+  configureMermaidTheme();
+  nodes.forEach((node) => node.removeAttribute("data-processed"));
+  const attachInteractions = () => scheduleMermaidPanZoomAttach(container);
+  if (typeof window.mermaid.run === "function") {
+    const renderPromise = window.mermaid.run({ nodes });
+    if (renderPromise && typeof renderPromise.then === "function") {
+      renderPromise.then(attachInteractions).catch((error) => {
+        console.warn("Mermaid render failed:", error);
+      });
+    } else {
+      attachInteractions();
+    }
+  } else {
+    window.mermaid.init(undefined, nodes);
+    attachInteractions();
+  }
+}
+
+function loadChartsFromState() {
+  const raw = state.data && Array.isArray(state.data.charts) ? state.data.charts : [];
+  state.charts = raw
+    .filter((item) => item && typeof item.id === "string" && typeof item.title === "string")
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description || "",
+      markdown: item.markdown || "",
+    }));
+}
+
+function setChartsPanelOpen(isOpen) {
+  if (!el.chartsPanel) return;
+  el.chartsPanel.classList.toggle("is-open", isOpen);
+}
+
+function renderChartsPreview() {
+  const selected = state.charts.find((item) => item.id === state.selectedChartId) || null;
+  if (!selected) {
+    if (el.chartsPanelTitle) el.chartsPanelTitle.textContent = "Chart Preview";
+    if (el.chartsPanelContent) {
+      el.chartsPanelContent.innerHTML = "Select a chart from the left to preview it.";
+    }
+    setChartsPanelOpen(false);
+    return;
+  }
+
+  if (el.chartsPanelTitle) el.chartsPanelTitle.textContent = selected.title;
+  if (el.chartsPanelContent) {
+    if (window.marked && selected.markdown) {
+      el.chartsPanelContent.innerHTML = window.marked.parse(selected.markdown);
+      renderMermaidBlocks(el.chartsPanelContent);
+    } else {
+      const desc = selected.description || "No chart preview content available.";
+      el.chartsPanelContent.textContent = desc;
+    }
+  }
+  setChartsPanelOpen(true);
+}
+
+function renderCharts() {
+  if (!el.chartsList || !el.chartsListEmpty) return;
+  el.chartsList.innerHTML = "";
+
+  if (!state.charts.length) {
+    el.chartsListEmpty.style.display = "block";
+    state.selectedChartId = "";
+    renderChartsPreview();
+    return;
+  }
+
+  el.chartsListEmpty.style.display = "none";
+  for (const chart of state.charts) {
+    const button = document.createElement("button");
+    button.className = `chart-item ${chart.id === state.selectedChartId ? "active" : ""}`;
+    button.type = "button";
+    button.dataset.chartId = chart.id;
+    button.innerHTML = `<strong>${chart.title}</strong><span>${chart.description || "Chart artifact"}</span>`;
+    button.addEventListener("click", () => {
+      state.selectedChartId = chart.id;
+      renderCharts();
+    });
+    el.chartsList.appendChild(button);
+  }
+
+  renderChartsPreview();
 }
 
 function getActiveBoard() {
@@ -435,10 +738,17 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+
+  loadChartsFromState();
+  if (state.selectedChartId && !state.charts.some((item) => item.id === state.selectedChartId)) {
+    state.selectedChartId = "";
+  }
+
   try {
     const vRes = await api("/api/state/version");
     state.lastVersion = vRes.version;
   } catch (e) { }
+
   render();
 }
 
@@ -456,11 +766,15 @@ function render() {
 
   el.boardView.style.display = "none";
   el.dashboardView.style.display = "none";
+  el.chartsView.style.display = "none";
   el.guideView.style.display = "none";
 
   if (state.currentView === "dashboard") {
     el.dashboardView.style.display = "block";
     renderDashboard();
+  } else if (state.currentView === "charts") {
+    el.chartsView.style.display = "grid";
+    renderCharts();
   } else if (state.currentView === "guide") {
     el.guideView.style.display = "block";
     renderGuide();
@@ -476,9 +790,7 @@ async function renderGuide() {
     const res = await api("/api/docs/playbook");
     if (window.marked) {
       el.guideContent.innerHTML = window.marked.parse(res.content);
-      if (window.mermaid) {
-        window.mermaid.init(undefined, el.guideContent.querySelectorAll('.language-mermaid'));
-      }
+      renderMermaidBlocks(el.guideContent);
     } else {
       el.guideContent.innerHTML = `<pre style="white-space:pre-wrap; font-family:var(--font);">${res.content}</pre>`;
     }
@@ -544,9 +856,7 @@ async function showDocument(docId, title) {
     const res = await api(`/api/docs/${docId}`);
     if (window.marked) {
       el.docDialogContent.innerHTML = window.marked.parse(res.content);
-      if (window.mermaid) {
-        window.mermaid.init(undefined, el.docDialogContent.querySelectorAll('.language-mermaid'));
-      }
+      renderMermaidBlocks(el.docDialogContent);
     } else {
       el.docDialogContent.innerHTML = `<pre style="white-space:pre-wrap; font-family:var(--font);">${res.content}</pre>`;
     }
@@ -571,7 +881,8 @@ function download(filename, text) {
 function registerEvents() {
   el.navTabs.forEach(tab => {
     tab.addEventListener("click", (e) => {
-      state.currentView = e.target.dataset.view;
+      const nextView = e.target.dataset.view;
+      state.currentView = nextView === "wiki" ? "board" : nextView;
       localStorage.setItem("mcd_current_view", state.currentView);
       document.documentElement.setAttribute('data-current-view', state.currentView);
       render();
@@ -593,32 +904,12 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
-  if (el.btnThemeToggle) {
-    el.btnThemeToggle.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
-      const next = current === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("mcd_theme", next);
-      el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
-    });
-  }
-
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
   });
 
-  el.btnNewBoard.addEventListener("click", async () => {
-    const name = prompt("Board name");
-    if (!name || !name.trim()) return;
-    const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
-    await api("/api/boards", "POST", {
-      name: name.trim(),
-      description: "",
-      seedTemplate: useTemplate,
-    });
-    await refresh();
-  });
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 
   el.btnCloneBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
@@ -740,6 +1031,17 @@ function registerEvents() {
     el.cardDialog.close();
     await refresh();
   });
+
+  if (el.btnCloseChartsPanel) {
+    el.btnCloseChartsPanel.addEventListener("click", () => {
+      state.selectedChartId = "";
+      renderCharts();
+    });
+  }
+
+  if (el.btnThemeToggle) el.btnThemeToggle.onclick = toggleTheme;
+  if (el.btnToggleSidebar) el.btnToggleSidebar.onclick = toggleSidebar;
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 }
 
 function startPolling() {
@@ -757,12 +1059,63 @@ function startPolling() {
   }, 2000);
 }
 
+async function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mcd_theme", next);
+  el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
+
+  configureMermaidTheme();
+  if (state.currentView === "guide") {
+    renderMermaidBlocks(el.guideContent);
+  }
+  if (state.currentView === "charts") {
+    renderChartsPreview();
+  }
+  if (el.docDialog && el.docDialog.open) {
+    renderMermaidBlocks(el.docDialogContent);
+  }
+}
+
+async function createNewBoard() {
+  const name = prompt("Board name");
+  if (!name || !name.trim()) return;
+  const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
+  await api("/api/boards", "POST", {
+    name: name.trim(),
+    description: "",
+    seedTemplate: useTemplate,
+  });
+  await refresh();
+}
+
+function toggleSidebar() {
+  const isCollapsed = document.documentElement.getAttribute("data-sidebar-collapsed") === "true";
+  const nextState = !isCollapsed;
+  if (nextState) {
+    document.documentElement.setAttribute("data-sidebar-collapsed", "true");
+    el.btnToggleSidebar.textContent = "»";
+  } else {
+    document.documentElement.removeAttribute("data-sidebar-collapsed");
+    el.btnToggleSidebar.textContent = "«";
+  }
+  localStorage.setItem("mcd_sidebar_collapsed", nextState);
+}
+
 async function bootstrap() {
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
     el.btnThemeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
   }
+  if (localStorage.getItem("mcd_theme") === "light") {
+    el.btnThemeToggle.textContent = "Dark Mode";
+  }
+  if (localStorage.getItem("mcd_sidebar_collapsed") === "true") {
+    el.btnToggleSidebar.textContent = "»";
+  }
+  configureMermaidTheme();
   try {
     await refresh();
     startPolling();

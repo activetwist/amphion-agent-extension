@@ -622,6 +622,64 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   max-width: 900px;
 }
 
+.mcd-mermaid-viewport {
+  position: relative;
+  display: block;
+  margin: var(--space-2) 0;
+  min-height: 220px;
+  max-height: 560px;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mcd-mermaid-viewport.is-panning {
+  cursor: grabbing;
+}
+
+.mcd-mermaid-viewport > svg {
+  display: block;
+  max-width: none !important;
+  height: auto;
+  will-change: transform;
+  transition: transform var(--motion-fast);
+}
+
+.mcd-mermaid-viewport.is-panning > svg {
+  transition: none;
+}
+
+.mcd-mermaid-controls {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.mcd-mermaid-controls button {
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-panel) 90%, transparent);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  min-width: 32px;
+  line-height: 1.2;
+}
+
+.mcd-mermaid-controls button:hover {
+  background: color-mix(in srgb, var(--surface-elevated) 90%, transparent);
+}
+
 .workspace-header {
   display: flex;
   justify-content: space-between;

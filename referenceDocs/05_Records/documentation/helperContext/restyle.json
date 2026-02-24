@@ -1,0 +1,184 @@
+{
+  "style_name": "Command Deck Unified Operational System",
+  "design_intent": "A disciplined, layered intelligence interface that balances modern SaaS clarity with tactical precision across light and dark modes.",
+  "shared_principles": {
+    "no_heavy_borders": true,
+    "use_tonal_separation_over_lines": true,
+    "consistent_8px_spacing_system": true,
+    "clear_elevation_hierarchy": true,
+    "accent_restraint": true,
+    "operational_not_playful": true,
+    "mono_limited_to_code_areas": true
+  },
+
+  "elevation_model": {
+    "level_0_canvas": "application background",
+    "level_1_surface": "panels, sidebars",
+    "level_2_cards": "cards, kanban tasks, metric panels",
+    "level_3_interactive": "hover, drag state",
+    "card_radius": "10-12px",
+    "shadow_light": "0 2px 6px rgba(0,0,0,0.05)",
+    "shadow_dark": "0 4px 12px rgba(0,0,0,0.25)"
+  },
+
+  "light_mode": {
+    "color_system": {
+      "canvas_background": "#F4F6F9",
+      "panel_background": "#FFFFFF",
+      "column_background": "#F9FAFB",
+      "card_background": "#FFFFFF",
+      "border_subtle": "#E8ECF1",
+      "divider_soft": "#F0F2F5",
+      "text_primary": "#111827",
+      "text_secondary": "#4B5563",
+      "text_muted": "#9CA3AF",
+      "accent_primary": "#2563EB",
+      "accent_success": "#16A34A",
+      "accent_warning": "#D97706",
+      "accent_danger": "#DC2626",
+      "focus_ring": "rgba(37,99,235,0.35)"
+    },
+
+    "surface_rules": {
+      "avoid_pure_white_canvas": true,
+      "columns_have_tonal_shift": true,
+      "cards_have_subtle_shadow": true,
+      "reduce_border_contrast": true
+    },
+
+    "component_guidelines": {
+      "buttons": {
+        "primary": "filled accent_primary",
+        "secondary": "light tonal gray fill",
+        "ghost": "no fill, subtle hover",
+        "destructive": "soft red fill with darker red text"
+      },
+      "kanban": {
+        "column_background": "#F9FAFB",
+        "card_shadow": "shadow_light",
+        "drag_outline": "accent_primary"
+      },
+      "tables": {
+        "row_separator": "divider_soft",
+        "hover_background": "#F9FAFB",
+        "avoid_strong_grid_lines": true
+      },
+      "badges": {
+        "priority_p0": {
+          "background": "#FEE2E2",
+          "text": "#991B1B"
+        },
+        "success": {
+          "background": "#DCFCE7",
+          "text": "#166534"
+        }
+      }
+    }
+  },
+
+  "dark_mode": {
+    "color_system": {
+      "canvas_background": "#0F141B",
+      "panel_background": "#131A24",
+      "column_background": "#16202B",
+      "card_background": "#18202C",
+      "elevated_surface": "#1E2735",
+      "border_subtle": "rgba(255,255,255,0.06)",
+      "divider_soft": "rgba(255,255,255,0.04)",
+      "text_primary": "#E6EDF6",
+      "text_secondary": "rgba(230,237,246,0.65)",
+      "text_muted": "rgba(230,237,246,0.45)",
+      "accent_primary": "#3AA0FF",
+      "accent_success": "#34D399",
+      "accent_warning": "#FFB454",
+      "accent_danger": "#FF5C7C",
+      "focus_ring": "rgba(58,160,255,0.45)"
+    },
+
+    "surface_rules": {
+      "avoid_flat_panels": true,
+      "use_layered_tonal_depth": true,
+      "minimize_visible_borders": true,
+      "cards_have_soft_elevation": true
+    },
+
+    "component_guidelines": {
+      "buttons": {
+        "primary": "filled accent_primary",
+        "secondary": "tonal surface fill",
+        "ghost": "no fill, hover lift",
+        "destructive": "filled accent_danger"
+      },
+      "kanban": {
+        "column_background": "#16202B",
+        "card_shadow": "shadow_dark",
+        "drag_glow": "subtle accent_primary glow"
+      },
+      "tables": {
+        "row_separator": "divider_soft",
+        "hover_background": "#1E2735",
+        "avoid_strong_grid_lines": true
+      },
+      "badges": {
+        "priority_p0": {
+          "background": "#3B0D15",
+          "text": "#FF8A9E"
+        },
+        "success": {
+          "background": "#0F2F24",
+          "text": "#6EE7B7"
+        }
+      }
+    }
+  },
+
+  "accent_governance": {
+    "primary_accent_usage": [
+      "active_navigation",
+      "primary_actions",
+      "selected_tabs",
+      "drag_state"
+    ],
+    "success_reserved_for": [
+      "progress",
+      "completed_state",
+      "positive_metrics"
+    ],
+    "danger_reserved_for": [
+      "destructive_actions",
+      "critical_alerts"
+    ],
+    "avoid_multi_accent_noise": true
+  },
+
+  "typography": {
+    "primary_font": "Modern Geometric Sans",
+    "mono_scope": [
+      "traceability_feed",
+      "code_blocks",
+      "id_labels"
+    ],
+    "heading_weight": 600,
+    "metric_weight": 600,
+    "body_weight": 400,
+    "reduce_full_black_in_light_mode": true,
+    "avoid_pure_white_text_in_dark_mode": true
+  },
+
+  "interaction_rules": {
+    "hover_shift": "translateY(-1px)",
+    "transition_duration": "120-180ms ease",
+    "focus_visible": true,
+    "consistent_button_heights": true,
+    "consistent_padding_scale": true
+  },
+
+  "overall_mood": [
+    "disciplined",
+    "modern",
+    "operational",
+    "calm",
+    "controlled",
+    "intelligent"
+  ]
+}

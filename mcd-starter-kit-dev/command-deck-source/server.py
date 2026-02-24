@@ -77,10 +77,12 @@ def board_status_lists() -> List[Dict[str, Any]]:
     return lists
 
 
-def empty_board(name: str, description: str = "") -> Dict[str, Any]:
+def empty_board(name: str, description: str = "", codename: str = "PRJ") -> Dict[str, Any]:
     return {
         "id": new_id("board"),
         "name": name,
+        "codename": codename.upper()[:3],
+        "nextIssueNumber": 1,
         "description": description,
         "createdAt": now_iso(),
         "updatedAt": now_iso(),
@@ -132,11 +134,17 @@ def seeded_launch_board(name: Optional[str] = None) -> Dict[str, Any]:
         ("m4", "Prepare release checklist and QA matrix", "P1", "Define go/no-go gates, metadata requirements, and test matrix."),
     ]
 
+    codename = "AM"
+    board["codename"] = codename
+    board["nextIssueNumber"] = len(task_specs) + 1
+
     for index, (ms_code, title, priority, description) in enumerate(task_specs):
         list_id = active_id if index == 0 else backlog_id
+        issue_number = index + 1
         board["cards"].append(
             {
                 "id": new_id("card"),
+                "issueNumber": f"{codename}-{issue_number:03d}",
                 "title": title,
                 "description": description,
                 "acceptance": "",
@@ -165,11 +173,13 @@ class StateStore:
     def __init__(self, path: Path):
         self.path = path
         self._lock = threading.Lock()
+        self._last_mtime = None
         self._state = self._load_or_create()
 
     def _load_or_create(self) -> Dict[str, Any]:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         if self.path.exists():
+            self._last_mtime = self.path.stat().st_mtime
             with self.path.open("r", encoding="utf-8") as handle:
                 state = json.load(handle)
             normalize_state_orders(state)
@@ -191,9 +201,17 @@ class StateStore:
             json.dump(payload, handle, indent=2)
             handle.write("\n")
         tmp_path.replace(self.path)
+        self._last_mtime = self.path.stat().st_mtime
 
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
+            try:
+                if self.path.exists():
+                    current_mtime = self.path.stat().st_mtime
+                    if self._last_mtime is None or current_mtime > self._last_mtime:
+                        self._state = self._load_or_create()
+            except Exception:
+                pass
             return copy.deepcopy(self._state)
 
     def mutate(self, fn):
@@ -202,6 +220,11 @@ class StateStore:
             normalize_state_orders(self._state)
             self._state["updatedAt"] = now_iso()
             self._write(self._state)
+            return copy.deepcopy(self._state)
+
+    def reload(self) -> Dict[str, Any]:
+        with self._lock:
+            self._state = self._load_or_create()
             return copy.deepcopy(self._state)
 
 
@@ -391,6 +414,16 @@ class KanbanHandler(BaseHTTPRequestHandler):
             raise ValueError("JSON body must be an object")
         return body
 
+    def _read_raw(self) -> bytes:
+        try:
+            raw_length = self.headers.get("Content-Length", "0")
+            content_length = int(raw_length)
+        except ValueError:
+            raise ValueError("Invalid content length")
+        if content_length <= 0:
+            return b""
+        return self.rfile.read(content_length)
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Allow", "GET,POST,PATCH,DELETE,OPTIONS")
@@ -406,6 +439,12 @@ class KanbanHandler(BaseHTTPRequestHandler):
 
         if route == "/api/state":
             self._send_json({"ok": True, "state": STORE.snapshot()})
+            return
+
+        if route == "/api/state/version":
+            with STORE._lock:
+                version = STORE._last_mtime
+            self._send_json({"ok": True, "version": version})
             return
 
         if route.startswith("/api/docs/"):
@@ -468,9 +507,6 @@ class KanbanHandler(BaseHTTPRequestHandler):
             except Exception:
                 self._send_json({"ok": True, "log": "Git not initialized or available"})
             return
-
-
-
         if route.startswith("/api/"):
             self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
             return
@@ -480,6 +516,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         route = parsed.path
+
         try:
             body = self._read_json()
         except ValueError as exc:
@@ -493,6 +530,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     self._send_error("Board name is required")
                     return
                 description = str(body.get("description") or "")
+                codename = str(body.get("codename") or "PRJ").strip().upper()[:3]
                 seed_template = bool(body.get("seedTemplate"))
 
                 def mutate(state):
@@ -500,7 +538,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         board = seeded_launch_board(name=name)
                         board["description"] = description or board["description"]
                     else:
-                        board = empty_board(name, description)
+                        board = empty_board(name, description, codename=codename)
                     state["boards"].append(board)
                     state["activeBoardId"] = board["id"]
 
@@ -613,9 +651,15 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     if milestone_id and not any(ms["id"] == milestone_id for ms in board["milestones"]):
                         raise KeyError("Milestone does not exist on board")
 
+                    codename = board.get("codename", "PRJ")
+                    next_num = board.get("nextIssueNumber", 1)
+                    issue_number = f"{codename}-{next_num:03d}"
+                    board["nextIssueNumber"] = next_num + 1
+
                     board["cards"].append(
                         {
                             "id": new_id("card"),
+                            "issueNumber": issue_number,
                             "title": str(body["title"]).strip(),
                             "description": str(body.get("description") or ""),
                             "acceptance": str(body.get("acceptance") or ""),
@@ -656,7 +700,10 @@ class KanbanHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "state": state})
                 return
 
-
+            if route == "/api/reload":
+                state = STORE.reload()
+                self._send_json({"ok": True, "state": state})
+                return
 
             self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
         except KeyError as exc:
@@ -842,8 +889,9 @@ class KanbanHandler(BaseHTTPRequestHandler):
         if not sanitized:
             sanitized = "index.html"
         fs_path = (PUBLIC_DIR / unquote(sanitized)).resolve()
+        in_scope = str(fs_path).startswith(str(PUBLIC_DIR.resolve()))
 
-        if not str(fs_path).startswith(str(PUBLIC_DIR.resolve())) or not fs_path.exists() or fs_path.is_dir():
+        if not in_scope or not fs_path.exists() or fs_path.is_dir():
             self.send_error(HTTPStatus.NOT_FOUND)
             return
 

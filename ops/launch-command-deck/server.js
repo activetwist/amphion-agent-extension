@@ -468,9 +468,13 @@ function readBody(req) {
 function serveStatic(res, route) {
     let sanitized = decodeURIComponent(route).replace(/^\/+/, '');
     if (!sanitized) sanitized = 'index.html';
-    const fsPath = path.resolve(PUBLIC_DIR, sanitized);
 
-    if (!fsPath.startsWith(path.resolve(PUBLIC_DIR)) || !fs.existsSync(fsPath) || fs.statSync(fsPath).isDirectory()) {
+    const fsPath = path.resolve(PUBLIC_DIR, sanitized);
+    if (!fsPath.startsWith(path.resolve(PUBLIC_DIR))) {
+        res.writeHead(403); res.end('Forbidden'); return;
+    }
+
+    if (!fs.existsSync(fsPath) || fs.statSync(fsPath).isDirectory()) {
         res.writeHead(404);
         res.end('Not Found');
         return;
@@ -648,29 +652,15 @@ async function handlePost(req, res, route, store) {
             return sendJson(res, { ok: true, state });
         }
 
-        // POST /api/cards/:id/move
-        if (route.endsWith('/move') && route.startsWith('/api/cards/')) {
-            const cardId = route.split('/')[3];
-            const listId = String(body.listId || '');
-            if (!listId) return sendError(res, 'listId is required');
-            const state = store.mutate((s) => {
-                const { board, item } = findCard(s, cardId);
-                if (!board.lists.some((l) => l.id === listId)) throw new Error('Target list not found');
-                item.listId = listId;
-                item.order = maxOrder(board.cards, listId);
-                item.updatedAt = nowIso();
-                board.updatedAt = nowIso();
-            });
-            return sendJson(res, { ok: true, state });
-        }
-
         // POST /api/reload
         if (route === '/api/reload') {
             const state = store.reload();
             return sendJson(res, { ok: true, state });
         }
 
-        sendError(res, 'Route not found', 404);
+        if (route.startsWith('/api/')) {
+            return sendError(res, 'Route not found', 404);
+        }
     } catch (e) {
         sendError(res, e.message, 404);
     }
@@ -750,7 +740,9 @@ async function handlePatch(req, res, route, store) {
     }
 }
 
-function handleDelete(req, res, route, store) {
+async function handleDelete(req, res, route, store) {
+    let body = {};
+    try { body = await readBody(req) || {}; } catch (e) { /* ignore */ }
     try {
         // DELETE /api/boards/:id
         if (route.startsWith('/api/boards/')) {
@@ -803,18 +795,9 @@ function handleDelete(req, res, route, store) {
             return sendJson(res, { ok: true, state });
         }
 
-        // DELETE /api/cards/:id
-        if (route.startsWith('/api/cards/')) {
-            const cardId = route.split('/')[3];
-            const state = store.mutate((s) => {
-                const { board } = findCard(s, cardId);
-                board.cards = board.cards.filter((c) => c.id !== cardId);
-                board.updatedAt = nowIso();
-            });
-            return sendJson(res, { ok: true, state });
+        if (route.startsWith('/api/')) {
+            return sendError(res, 'Route not found', 404);
         }
-
-        sendError(res, 'Route not found', 404);
     } catch (e) {
         sendError(res, e.message, 404);
     }

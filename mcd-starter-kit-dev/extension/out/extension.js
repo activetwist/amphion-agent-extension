@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const commandDeckDashboard_1 = require("./commandDeckDashboard");
 function activate(context) {
     const disposable = vscode.commands.registerCommand('mcd.init', async () => {
         // Determine target workspace folder
@@ -49,14 +50,18 @@ function activate(context) {
         const { OnboardingPanel } = await Promise.resolve().then(() => __importStar(require('./onboardingWebview')));
         OnboardingPanel.createOrShow(context.extensionUri, root);
     });
-    context.subscriptions.push(disposable);
+    const dashboardDisposable = vscode.commands.registerCommand('mcd.openDashboard', () => {
+        commandDeckDashboard_1.CommandDeckDashboard.createOrShow(context.extensionUri);
+    });
+    context.subscriptions.push(disposable, dashboardDisposable);
     // Show init prompt for workspaces that don't already have an MCD scaffold
     const folders = vscode.workspace.workspaceFolders;
     if (folders && folders.length > 0) {
         const root = folders[0].uri;
         const refDocsUri = vscode.Uri.joinPath(root, 'referenceDocs');
         vscode.workspace.fs.stat(refDocsUri).then(() => {
-            // referenceDocs exists — MCD scaffold already present, don't prompt
+            // referenceDocs exists — MCD scaffold already present, auto-open dashboard
+            vscode.commands.executeCommand('mcd.openDashboard');
         }, () => {
             // referenceDocs does not exist — offer initialization
             vscode.window

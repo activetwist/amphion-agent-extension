@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { buildScaffold } from './scaffolder';
+import { CommandDeckDashboard } from './commandDeckDashboard';
 
 export function activate(context: vscode.ExtensionContext) {
     const disposable = vscode.commands.registerCommand('mcd.init', async () => {
@@ -19,7 +20,11 @@ export function activate(context: vscode.ExtensionContext) {
         OnboardingPanel.createOrShow(context.extensionUri, root);
     });
 
-    context.subscriptions.push(disposable);
+    const dashboardDisposable = vscode.commands.registerCommand('mcd.openDashboard', () => {
+        CommandDeckDashboard.createOrShow(context.extensionUri);
+    });
+
+    context.subscriptions.push(disposable, dashboardDisposable);
 
     // Show init prompt for workspaces that don't already have an MCD scaffold
     const folders = vscode.workspace.workspaceFolders;
@@ -28,7 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
         const refDocsUri = vscode.Uri.joinPath(root, 'referenceDocs');
         vscode.workspace.fs.stat(refDocsUri).then(
             () => {
-                // referenceDocs exists — MCD scaffold already present, don't prompt
+                // referenceDocs exists — MCD scaffold already present, auto-open dashboard
+                vscode.commands.executeCommand('mcd.openDashboard');
             },
             () => {
                 // referenceDocs does not exist — offer initialization

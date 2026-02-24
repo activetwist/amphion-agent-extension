@@ -414,6 +414,16 @@ class KanbanHandler(BaseHTTPRequestHandler):
             raise ValueError("JSON body must be an object")
         return body
 
+    def _read_raw(self) -> bytes:
+        try:
+            raw_length = self.headers.get("Content-Length", "0")
+            content_length = int(raw_length)
+        except ValueError:
+            raise ValueError("Invalid content length")
+        if content_length <= 0:
+            return b""
+        return self.rfile.read(content_length)
+
     def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(HTTPStatus.NO_CONTENT)
         self.send_header("Allow", "GET,POST,PATCH,DELETE,OPTIONS")
@@ -497,9 +507,6 @@ class KanbanHandler(BaseHTTPRequestHandler):
             except Exception:
                 self._send_json({"ok": True, "log": "Git not initialized or available"})
             return
-
-
-
         if route.startswith("/api/"):
             self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
             return
@@ -509,6 +516,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         route = parsed.path
+
         try:
             body = self._read_json()
         except ValueError as exc:
@@ -881,8 +889,9 @@ class KanbanHandler(BaseHTTPRequestHandler):
         if not sanitized:
             sanitized = "index.html"
         fs_path = (PUBLIC_DIR / unquote(sanitized)).resolve()
+        in_scope = str(fs_path).startswith(str(PUBLIC_DIR.resolve()))
 
-        if not str(fs_path).startswith(str(PUBLIC_DIR.resolve())) or not fs_path.exists() or fs_path.is_dir():
+        if not in_scope or not fs_path.exists() or fs_path.is_dir():
             self.send_error(HTTPStatus.NOT_FOUND)
             return
 

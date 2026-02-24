@@ -292,24 +292,19 @@ class OnboardingPanel {
                     <span class="hint">One word, uppercase. Used for branching and prefixing.</span>
                 </div>
                 
+                <h3 style="margin-top: 32px;">Command Deck Setup</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">We are setting up your Command Deck — with a Kanban, Dashboard, and Mermaid charts viewer, as well as an overview of Micro-Contract Development.</p>
+
                 <div style="display: flex; gap: 16px;">
                     <div class="form-group" style="flex: 1;">
                         <label>Port</label>
-                        <input type="text" id="initPort" value="4000">
+                        <input type="text" id="initPort" value="8765">
                         <span class="hint">Command Deck port.</span>
                     </div>
                     <div class="form-group" style="flex: 1;">
                         <label>Initial Version</label>
                         <input type="text" id="initVersion" value="0.1.0">
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Command Deck Language</label>
-                    <select id="initLang" style="width: 100%; padding: 8px 12px; background-color: var(--mcd-bg); border: 1px solid var(--mcd-border); border-radius: 6px; color: var(--mcd-text); font-size: 14px;">
-                        <option value="node">Node.js</option>
-                        <option value="python">Python</option>
-                    </select>
                 </div>
             </div>
             
@@ -344,26 +339,26 @@ class OnboardingPanel {
 
         <div id="manual-view" class="view">
             <div class="card">
-                <h3>Manual Strategy Definition</h3>
+                <h3>Project Blueprint</h3>
                 
                 <div class="form-group">
-                    <label>Target Users</label>
-                    <input type="text" id="targetUsers" placeholder="e.g. Solo developers building with AI coding agents">
+                    <label title="Who are you building this project for?">Who is this for?</label>
+                    <input type="text" id="targetUsers" placeholder="e.g. Freelance designers using AI for layout ideas">
                 </div>
                 
                 <div class="form-group">
-                    <label>Problem Statement</label>
-                    <input type="text" id="problemStatement" placeholder="e.g. AI agents lack deterministic guardrails, causing scope creep">
+                    <label title="What is the core pain point or challenge your target users face?">What are you solving?</label>
+                    <input type="text" id="problemStatement" placeholder="e.g. It takes too long to format resumes manually">
                 </div>
                 
                 <div class="form-group">
-                    <label>Core Value Proposition</label>
-                    <input type="text" id="coreValue" placeholder="e.g. A contract-governed workflow that enforces deterministic engineering">
+                    <label title="Describe the one main benefit your project provides.">The Big Idea</label>
+                    <input type="text" id="coreValue" placeholder="e.g. A one-click tool that turns LinkedIn profiles into PDFs">
                 </div>
                 
                 <div class="form-group">
-                    <label>Hard Non-Goals</label>
-                    <input type="text" id="nonGoals" placeholder="e.g. No multi-user support; No cloud hosting">
+                    <label title="What features or capabilities are explicitly NOT included in this release?">Out of Scope</label>
+                    <input type="text" id="nonGoals" placeholder="e.g. No mobile app; No custom fonts in v1">
                 </div>
                 
                 <hr style="border: none; border-top: 1px solid var(--mcd-border); margin: 32px 0;">
@@ -374,8 +369,8 @@ class OnboardingPanel {
                 </div>
                 
                 <div class="form-group">
-                    <label>Success Metric</label>
-                    <input type="text" id="successMetric" placeholder="e.g. A new project can be initialized and tracked end-to-end in under 5 minutes">
+                    <label title="What is the primary indicator that this project has achieved its goal?">Definition of "Done"</label>
+                    <input type="text" id="successMetric" placeholder="e.g. A user can export a finished resume in 60 seconds">
                 </div>
             </div>
 
@@ -409,10 +404,10 @@ class OnboardingPanel {
 
         <div id="manual-success-view" class="view">
             <div class="card" style="text-align: center;">
-                <h3 style="color: #2ea043; margin-bottom: 8px;">✅ Strategy Documents Completed!</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for execution.</p>
+                <h3 style="color: #2ea043; margin-bottom: 8px;">✅ System Architecture Locked!</h3>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for Micro-Contracting.</p>
                 <div style="padding: 24px; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); border-radius: 6px; margin-bottom: 24px;">
-                    <p style="margin: 0;">Launch the Command Deck to view your Kanban board and govern your Micro-Contracts.</p>
+                    <p style="margin: 0;">Open the Command Deck to partition your work into Micro-Contracts and begin execution.</p>
                 </div>
                 <button id="btn-launch-cd-manual" class="primary" style="width: 100%; font-size: 16px; padding: 12px;">Launch Command Deck</button>
             </div>
@@ -442,7 +437,7 @@ class OnboardingPanel {
                     codename: document.getElementById('initCodename').value,
                     port: parseInt(document.getElementById('initPort').value) || 4000,
                     initialVersion: document.getElementById('initVersion').value,
-                    serverLang: document.getElementById('initLang').value
+                    serverLang: 'python'
                 };
 
                 for (const key in data) {

@@ -18,6 +18,10 @@
       if (theme === "light") {
         document.documentElement.setAttribute('data-theme', 'light');
       }
+      var collapsed = localStorage.getItem("mcd_sidebar_collapsed") === "true";
+      if (collapsed) {
+        document.documentElement.setAttribute('data-sidebar-collapsed', 'true');
+      }
     })();
   </script>
 </head>
@@ -41,6 +45,9 @@
     </header>
 
     <aside class="sidebar">
+      <header class="sidebar-header">
+        <button id="btnToggleSidebar" class="btn-sidebar-toggle" title="Toggle Sidebar">«</button>
+      </header>
       <section class="panel">
         <h2>Boards</h2>
         <div id="boardList" class="board-list"></div>
@@ -112,14 +119,16 @@
       <header class="charts-header">
         <div>
           <h2 class="view-title">Charts Library</h2>
-          <div class="charts-subtitle">Select a chart to open it in the preview panel.</div>
+          <div class="charts-subtitle">Select a chart to open it in the
+            preview panel.</div>
         </div>
       </header>
       <section class="charts-layout">
         <section class="panel charts-list-panel">
           <h2>Available Charts</h2>
           <div id="chartsList" class="charts-list"></div>
-          <div id="chartsListEmpty" class="empty-state charts-empty">No charts found yet. Generated charts will appear here.</div>
+          <div id="chartsListEmpty" class="empty-state charts-empty">No charts found yet. Generated charts
+            will appear here.</div>
         </section>
         <aside id="chartsPanel" class="panel charts-preview-panel">
           <div class="charts-preview-header">
@@ -290,8 +299,8 @@
     </article>
   </template>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script src="/vendor/marked.min.js"></script>
+  <script src="/vendor/mermaid.min.js"></script>
   <script src="/app.js" defer></script>
 </body>
 

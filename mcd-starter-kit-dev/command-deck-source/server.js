@@ -78,10 +78,12 @@ function boardStatusLists() {
     }));
 }
 
-function emptyBoard(name, description = '') {
+function emptyBoard(name, description = '', codename = 'PRJ') {
     return {
         id: newId('board'),
         name,
+        codename: codename.toUpperCase().slice(0, 3),
+        nextIssueNumber: 1,
         description,
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -133,10 +135,16 @@ function seededLaunchBoard(name) {
         ['m4', 'Prepare release checklist and QA matrix', 'P1', 'Define go/no-go gates, metadata requirements, and test matrix.'],
     ];
 
+    const codename = 'AM';
+    board.codename = codename;
+    board.nextIssueNumber = taskSpecs.length + 1;
+
     taskSpecs.forEach(([msCode, title, priority, description], index) => {
         const listId = index === 0 ? activeId : backlogId;
+        const issueNumber = index + 1;
         board.cards.push({
             id: newId('card'),
+            issueNumber: `${codename}-${String(issueNumber).padStart(3, '0')}`,
             title,
             description,
             acceptance: '',
@@ -192,12 +200,14 @@ function normalizeStateOrders(state) {
 class StateStore {
     constructor(filePath) {
         this.filePath = filePath;
+        this._lastMtime = null;
         this.state = this._loadOrCreate();
     }
 
     _loadOrCreate() {
         if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
         if (fs.existsSync(this.filePath)) {
+            this._lastMtime = fs.statSync(this.filePath).mtimeMs;
             const state = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
             normalizeStateOrders(state);
             this._write(state);
@@ -218,9 +228,20 @@ class StateStore {
         const tmp = this.filePath + '.tmp';
         fs.writeFileSync(tmp, JSON.stringify(payload, null, 2) + '\n', 'utf8');
         fs.renameSync(tmp, this.filePath);
+        this._lastMtime = fs.statSync(this.filePath).mtimeMs;
     }
 
     snapshot() {
+        try {
+            if (fs.existsSync(this.filePath)) {
+                const currentMtime = fs.statSync(this.filePath).mtimeMs;
+                if (!this._lastMtime || currentMtime > this._lastMtime) {
+                    this.state = this._loadOrCreate();
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
         return JSON.parse(JSON.stringify(this.state));
     }
 
@@ -229,6 +250,11 @@ class StateStore {
         normalizeStateOrders(this.state);
         this.state.updatedAt = nowIso();
         this._write(this.state);
+        return this.snapshot();
+    }
+
+    reload() {
+        this.state = this._loadOrCreate();
         return this.snapshot();
     }
 }
@@ -442,9 +468,13 @@ function readBody(req) {
 function serveStatic(res, route) {
     let sanitized = decodeURIComponent(route).replace(/^\/+/, '');
     if (!sanitized) sanitized = 'index.html';
-    const fsPath = path.resolve(PUBLIC_DIR, sanitized);
 
-    if (!fsPath.startsWith(path.resolve(PUBLIC_DIR)) || !fs.existsSync(fsPath) || fs.statSync(fsPath).isDirectory()) {
+    const fsPath = path.resolve(PUBLIC_DIR, sanitized);
+    if (!fsPath.startsWith(path.resolve(PUBLIC_DIR))) {
+        res.writeHead(403); res.end('Forbidden'); return;
+    }
+
+    if (!fs.existsSync(fsPath) || fs.statSync(fsPath).isDirectory()) {
         res.writeHead(404);
         res.end('Not Found');
         return;
@@ -470,6 +500,11 @@ function handleGet(req, res, route, store) {
 
     if (route === '/api/state') {
         return sendJson(res, { ok: true, state: store.snapshot() });
+    }
+
+    if (route === '/api/state/version') {
+        const version = store._lastMtime || null;
+        return sendJson(res, { ok: true, version });
     }
 
     if (route.startsWith('/api/docs/')) {
@@ -500,9 +535,10 @@ async function handlePost(req, res, route, store) {
             const name = String(body.name || '').trim();
             if (!name) return sendError(res, 'Board name is required');
             const description = String(body.description || '');
+            const codename = String(body.codename || 'PRJ').trim().toUpperCase().slice(0, 3);
             const seedTemplate = Boolean(body.seedTemplate);
             const state = store.mutate((s) => {
-                const board = seedTemplate ? seededLaunchBoard(name) : emptyBoard(name, description);
+                const board = seedTemplate ? seededLaunchBoard(name) : emptyBoard(name, description, codename);
                 if (seedTemplate && description) board.description = description;
                 s.boards.push(board);
                 s.activeBoardId = board.id;
@@ -590,8 +626,15 @@ async function handlePost(req, res, route, store) {
                 if (milestoneId && !board.milestones.some((m) => m.id === milestoneId)) {
                     throw new Error('Milestone does not exist on board');
                 }
+
+                const codename = board.codename || 'PRJ';
+                const nextNum = board.nextIssueNumber || 1;
+                const issueNumber = `${codename}-${String(nextNum).padStart(3, '0')}`;
+                board.nextIssueNumber = nextNum + 1;
+
                 board.cards.push({
                     id: newId('card'),
+                    issueNumber,
                     title: String(body.title).trim(),
                     description: String(body.description || ''),
                     acceptance: String(body.acceptance || ''),
@@ -609,23 +652,15 @@ async function handlePost(req, res, route, store) {
             return sendJson(res, { ok: true, state });
         }
 
-        // POST /api/cards/:id/move
-        if (route.endsWith('/move') && route.startsWith('/api/cards/')) {
-            const cardId = route.split('/')[3];
-            const listId = String(body.listId || '');
-            if (!listId) return sendError(res, 'listId is required');
-            const state = store.mutate((s) => {
-                const { board, item } = findCard(s, cardId);
-                if (!board.lists.some((l) => l.id === listId)) throw new Error('Target list not found');
-                item.listId = listId;
-                item.order = maxOrder(board.cards, listId);
-                item.updatedAt = nowIso();
-                board.updatedAt = nowIso();
-            });
+        // POST /api/reload
+        if (route === '/api/reload') {
+            const state = store.reload();
             return sendJson(res, { ok: true, state });
         }
 
-        sendError(res, 'Route not found', 404);
+        if (route.startsWith('/api/')) {
+            return sendError(res, 'Route not found', 404);
+        }
     } catch (e) {
         sendError(res, e.message, 404);
     }
@@ -705,7 +740,9 @@ async function handlePatch(req, res, route, store) {
     }
 }
 
-function handleDelete(req, res, route, store) {
+async function handleDelete(req, res, route, store) {
+    let body = {};
+    try { body = await readBody(req) || {}; } catch (e) { /* ignore */ }
     try {
         // DELETE /api/boards/:id
         if (route.startsWith('/api/boards/')) {
@@ -758,18 +795,9 @@ function handleDelete(req, res, route, store) {
             return sendJson(res, { ok: true, state });
         }
 
-        // DELETE /api/cards/:id
-        if (route.startsWith('/api/cards/')) {
-            const cardId = route.split('/')[3];
-            const state = store.mutate((s) => {
-                const { board } = findCard(s, cardId);
-                board.cards = board.cards.filter((c) => c.id !== cardId);
-                board.updatedAt = nowIso();
-            });
-            return sendJson(res, { ok: true, state });
+        if (route.startsWith('/api/')) {
+            return sendError(res, 'Route not found', 404);
         }
-
-        sendError(res, 'Route not found', 404);
     } catch (e) {
         sendError(res, e.message, 404);
     }
