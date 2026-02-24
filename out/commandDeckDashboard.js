@@ -35,6 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommandDeckDashboard = void 0;
 const vscode = __importStar(require("vscode"));
+const child_process_1 = require("child_process");
+const util_1 = require("util");
+const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class CommandDeckDashboard {
     static createOrShow(extensionUri) {
         const column = vscode.window.activeTextEditor
@@ -109,36 +112,48 @@ class CommandDeckDashboard {
                 case 'startServer':
                     if (root) {
                         let port = '8765';
-                        let serverLang = 'node';
                         try {
                             const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
                             const fileData = await vscode.workspace.fs.readFile(configUri);
                             const parsed = JSON.parse(new TextDecoder().decode(fileData));
                             if (parsed.port)
                                 port = parsed.port;
-                            if (parsed.serverLang)
-                                serverLang = parsed.serverLang;
                         }
-                        catch {
-                            // Fallback if `ops/amphion.json` is missing or malformed
+                        catch { }
+                        // Surgically clear the port before starting
+                        try {
+                            await execAsync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
                         }
-                        let terminal = vscode.window.terminals.find(t => t.name.startsWith('Command Deck :'));
+                        catch { }
+                        let terminal = vscode.window.terminals.find(t => t.name === 'Amphion Agent');
                         if (!terminal) {
-                            terminal = vscode.window.createTerminal({
-                                name: `Command Deck :${port}`,
-                                cwd: root.fsPath
-                            });
+                            terminal = vscode.window.createTerminal('Amphion Agent');
                         }
                         terminal.show();
                         terminal.sendText(`python3 ops/launch-command-deck/server.py --port ${port}`);
+                        vscode.window.showInformationMessage(`AmphionAgent: Starting Command Deck on port ${port}`);
                     }
                     return;
                 case 'stopServer':
                     if (root) {
-                        const terminal = vscode.window.terminals.find(t => t.name.startsWith('Command Deck :'));
-                        if (terminal) {
-                            terminal.show();
-                            terminal.sendText('\x03'); // Ctrl+C
+                        let port = '8765';
+                        try {
+                            const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
+                            const fileData = await vscode.workspace.fs.readFile(configUri);
+                            const parsed = JSON.parse(new TextDecoder().decode(fileData));
+                            if (parsed.port)
+                                port = parsed.port;
+                        }
+                        catch { }
+                        try {
+                            // Surgically kill by port using child_process for deterministic execution
+                            await execAsync(`lsof -ti:${port} | xargs kill -9`);
+                            vscode.window.showInformationMessage(`AmphionAgent: Stopped server on port ${port}`);
+                        }
+                        catch (err) {
+                            // If no process found, lsof returns non-zero, catch it silently or log
+                            console.log('No server found on port or kill failed', err);
+                            vscode.window.showWarningMessage(`AmphionAgent: No active server found on port ${port}`);
                         }
                     }
                     return;

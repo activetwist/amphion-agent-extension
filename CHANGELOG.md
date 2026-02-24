@@ -2,6 +2,17 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.2] - 2026-02-24
+
+### Fixed
+- Resolved local regression where Mermaid charts failed to render in `ops/` directory.
+- Fixed Javascript error when `#btnDeleteChart` was missing from the DOM.
+- Corrected server start/stop logic to surgically target the specific configured port using `lsof`.
+
+### Changed
+- Optimized local Command Deck polling to 10-second intervals with focus-detection to reduce resource usage.
+- Silenced high-frequency `/api/state/version` logs from the server console.
+
 ## [1.28.1] - 2026-02-24
 
 ### Added

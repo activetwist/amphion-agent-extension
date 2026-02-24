@@ -1,4 +1,8 @@
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 export class CommandDeckDashboard {
     public static currentPanel: CommandDeckDashboard | undefined;
@@ -92,36 +96,46 @@ export class CommandDeckDashboard {
                     case 'startServer':
                         if (root) {
                             let port = '8765';
-                            let serverLang = 'node';
-
                             try {
                                 const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
                                 const fileData = await vscode.workspace.fs.readFile(configUri);
                                 const parsed = JSON.parse(new TextDecoder().decode(fileData));
                                 if (parsed.port) port = parsed.port;
-                                if (parsed.serverLang) serverLang = parsed.serverLang;
-                            } catch {
-                                // Fallback if `ops/amphion.json` is missing or malformed
-                            }
+                            } catch { }
 
-                            let terminal = vscode.window.terminals.find(t => t.name.startsWith('Command Deck :'));
+                            // Surgically clear the port before starting
+                            try {
+                                await execAsync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
+                            } catch { }
+
+                            let terminal = vscode.window.terminals.find(t => t.name === 'Amphion Agent');
                             if (!terminal) {
-                                terminal = vscode.window.createTerminal({
-                                    name: `Command Deck :${port}`,
-                                    cwd: root.fsPath
-                                });
+                                terminal = vscode.window.createTerminal('Amphion Agent');
                             }
                             terminal.show();
                             terminal.sendText(`python3 ops/launch-command-deck/server.py --port ${port}`);
+                            vscode.window.showInformationMessage(`AmphionAgent: Starting Command Deck on port ${port}`);
                         }
                         return;
 
                     case 'stopServer':
                         if (root) {
-                            const terminal = vscode.window.terminals.find(t => t.name.startsWith('Command Deck :'));
-                            if (terminal) {
-                                terminal.show();
-                                terminal.sendText('\x03'); // Ctrl+C
+                            let port = '8765';
+                            try {
+                                const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
+                                const fileData = await vscode.workspace.fs.readFile(configUri);
+                                const parsed = JSON.parse(new TextDecoder().decode(fileData));
+                                if (parsed.port) port = parsed.port;
+                            } catch { }
+
+                            try {
+                                // Surgically kill by port using child_process for deterministic execution
+                                await execAsync(`lsof -ti:${port} | xargs kill -9`);
+                                vscode.window.showInformationMessage(`AmphionAgent: Stopped server on port ${port}`);
+                            } catch (err) {
+                                // If no process found, lsof returns non-zero, catch it silently or log
+                                console.log('No server found on port or kill failed', err);
+                                vscode.window.showWarningMessage(`AmphionAgent: No active server found on port ${port}`);
                             }
                         }
                         return;
