@@ -7,7 +7,10 @@ const state = {
     search: "",
   },
   dragCardId: "",
-  currentView: localStorage.getItem("mcd_current_view") || "board",
+  currentView: (() => {
+    const saved = localStorage.getItem("mcd_current_view");
+    return saved === "wiki" ? "board" : (saved || "board");
+  })(),
   lastVersion: null,
   pollInterval: null,
 };
@@ -72,6 +75,8 @@ const el = {
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
+
+  btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
 };
 
 async function api(path, method = "GET", body = null) {
@@ -101,24 +106,190 @@ function configureMermaidTheme() {
     theme: "base",
     themeVariables: isLight
       ? {
-          background: "#ffffff",
-          primaryTextColor: "#0f172a",
-          secondaryTextColor: "#334155",
-          lineColor: "#475569",
-          primaryColor: "#f8fafc",
-          primaryBorderColor: "#94a3b8",
-          clusterBorder: "#94a3b8",
-        }
+        background: "#ffffff",
+        primaryTextColor: "#0f172a",
+        secondaryTextColor: "#334155",
+        lineColor: "#475569",
+        primaryColor: "#f8fafc",
+        primaryBorderColor: "#94a3b8",
+        clusterBorder: "#94a3b8",
+      }
       : {
-          background: "#0f2131",
-          primaryTextColor: "#e9f5ff",
-          secondaryTextColor: "#c5deef",
-          lineColor: "#8bb4cf",
-          primaryColor: "#13283a",
-          primaryBorderColor: "#5a7d97",
-          clusterBorder: "#5a7d97",
-        },
+        background: "#0f2131",
+        primaryTextColor: "#e9f5ff",
+        secondaryTextColor: "#c5deef",
+        lineColor: "#8bb4cf",
+        primaryColor: "#13283a",
+        primaryBorderColor: "#5a7d97",
+        clusterBorder: "#5a7d97",
+      },
   });
+}
+
+const MERMAID_VIEWPORT_CLASS = "mcd-mermaid-viewport";
+const MERMAID_CONTROLS_CLASS = "mcd-mermaid-controls";
+const MERMAID_MIN_SCALE = 0.4;
+const MERMAID_MAX_SCALE = 3;
+const MERMAID_BUTTON_ZOOM_FACTOR = 1.18;
+const MERMAID_WHEEL_SENSITIVITY = 0.0014;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function applyMermaidTransform(controller) {
+  const svg = controller.svg;
+  if (!svg || !svg.isConnected) return;
+  svg.style.transformOrigin = "0 0";
+  svg.style.transform = `translate(${controller.tx}px, ${controller.ty}px) scale(${controller.scale})`;
+}
+
+function mermaidZoomAtPoint(controller, host, x, y, nextScale) {
+  const targetScale = clamp(nextScale, MERMAID_MIN_SCALE, MERMAID_MAX_SCALE);
+  if (Math.abs(targetScale - controller.scale) < 0.0001) return;
+  const localX = (x - controller.tx) / controller.scale;
+  const localY = (y - controller.ty) / controller.scale;
+  controller.scale = targetScale;
+  controller.tx = x - localX * targetScale;
+  controller.ty = y - localY * targetScale;
+  applyMermaidTransform(controller);
+  host.dataset.mcdScale = targetScale.toFixed(2);
+}
+
+function resetMermaidTransform(controller, host) {
+  controller.scale = 1;
+  controller.tx = 0;
+  controller.ty = 0;
+  applyMermaidTransform(controller);
+  host.dataset.mcdScale = "1.00";
+}
+
+function ensureMermaidControls(host, controller) {
+  let controls = host.querySelector(`:scope > .${MERMAID_CONTROLS_CLASS}`);
+  if (controls) return;
+
+  controls = document.createElement("div");
+  controls.className = MERMAID_CONTROLS_CLASS;
+  controls.innerHTML = `
+    <button type="button" data-mermaid-control="zoom-out" aria-label="Zoom out">-</button>
+    <button type="button" data-mermaid-control="reset" aria-label="Reset zoom">Reset</button>
+    <button type="button" data-mermaid-control="zoom-in" aria-label="Zoom in">+</button>
+  `;
+
+  controls.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-mermaid-control]");
+    if (!button || !controller.svg || !controller.svg.isConnected) return;
+    const rect = host.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const action = button.dataset.mermaidControl;
+
+    if (action === "zoom-in") {
+      mermaidZoomAtPoint(controller, host, centerX, centerY, controller.scale * MERMAID_BUTTON_ZOOM_FACTOR);
+      return;
+    }
+    if (action === "zoom-out") {
+      mermaidZoomAtPoint(controller, host, centerX, centerY, controller.scale / MERMAID_BUTTON_ZOOM_FACTOR);
+      return;
+    }
+    resetMermaidTransform(controller, host);
+  });
+
+  host.appendChild(controls);
+}
+
+function bindMermaidInteractions(host, controller) {
+  const state = {
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startTx: 0,
+    startTy: 0,
+  };
+
+  host.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    if (event.target.closest(`.${MERMAID_CONTROLS_CLASS}`)) return;
+    if (!controller.svg || !controller.svg.isConnected) return;
+    state.pointerId = event.pointerId;
+    state.startX = event.clientX;
+    state.startY = event.clientY;
+    state.startTx = controller.tx;
+    state.startTy = controller.ty;
+    host.classList.add("is-panning");
+    if (host.setPointerCapture) host.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  host.addEventListener("pointermove", (event) => {
+    if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+    controller.tx = state.startTx + (event.clientX - state.startX);
+    controller.ty = state.startTy + (event.clientY - state.startY);
+    applyMermaidTransform(controller);
+  });
+
+  const endPan = (event) => {
+    if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+    if (host.hasPointerCapture && host.hasPointerCapture(event.pointerId)) {
+      host.releasePointerCapture(event.pointerId);
+    }
+    state.pointerId = null;
+    host.classList.remove("is-panning");
+  };
+
+  host.addEventListener("pointerup", endPan);
+  host.addEventListener("pointercancel", endPan);
+  host.addEventListener("lostpointercapture", () => {
+    state.pointerId = null;
+    host.classList.remove("is-panning");
+  });
+
+  host.addEventListener(
+    "wheel",
+    (event) => {
+      if (event.target.closest(`.${MERMAID_CONTROLS_CLASS}`)) return;
+      if (!controller.svg || !controller.svg.isConnected) return;
+      const rect = host.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const zoomFactor = Math.exp(-event.deltaY * MERMAID_WHEEL_SENSITIVITY);
+      mermaidZoomAtPoint(controller, host, x, y, controller.scale * zoomFactor);
+      event.preventDefault();
+    },
+    { passive: false }
+  );
+}
+
+function attachMermaidPanZoom(container) {
+  if (!container) return;
+  const svgNodes = container.querySelectorAll(".language-mermaid svg, .mermaid svg, svg[id^='mermaid-']");
+  svgNodes.forEach((svg) => {
+    const host = svg.closest(".language-mermaid, .mermaid") || svg.parentElement;
+    if (!host) return;
+    host.classList.add(MERMAID_VIEWPORT_CLASS);
+
+    if (host.__mcdMermaidController) {
+      host.__mcdMermaidController.svg = svg;
+      applyMermaidTransform(host.__mcdMermaidController);
+      return;
+    }
+
+    const controller = {
+      svg,
+      scale: 1,
+      tx: 0,
+      ty: 0,
+    };
+    host.__mcdMermaidController = controller;
+    ensureMermaidControls(host, controller);
+    bindMermaidInteractions(host, controller);
+    resetMermaidTransform(controller, host);
+  });
+}
+
+function scheduleMermaidPanZoomAttach(container) {
+  if (!container) return;
+  requestAnimationFrame(() => attachMermaidPanZoom(container));
 }
 
 function renderMermaidBlocks(container) {
@@ -127,10 +298,19 @@ function renderMermaidBlocks(container) {
   if (!nodes.length) return;
   configureMermaidTheme();
   nodes.forEach((node) => node.removeAttribute("data-processed"));
+  const attachInteractions = () => scheduleMermaidPanZoomAttach(container);
   if (typeof window.mermaid.run === "function") {
-    window.mermaid.run({ nodes });
+    const renderPromise = window.mermaid.run({ nodes });
+    if (renderPromise && typeof renderPromise.then === "function") {
+      renderPromise.then(attachInteractions).catch((error) => {
+        console.warn("Mermaid render failed:", error);
+      });
+    } else {
+      attachInteractions();
+    }
   } else {
     window.mermaid.init(undefined, nodes);
+    attachInteractions();
   }
 }
 
@@ -558,6 +738,7 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+
   loadChartsFromState();
   if (state.selectedChartId && !state.charts.some((item) => item.id === state.selectedChartId)) {
     state.selectedChartId = "";
@@ -700,7 +881,8 @@ function download(filename, text) {
 function registerEvents() {
   el.navTabs.forEach(tab => {
     tab.addEventListener("click", (e) => {
-      state.currentView = e.target.dataset.view;
+      const nextView = e.target.dataset.view;
+      state.currentView = nextView === "wiki" ? "board" : nextView;
       localStorage.setItem("mcd_current_view", state.currentView);
       document.documentElement.setAttribute('data-current-view', state.currentView);
       render();
@@ -722,43 +904,12 @@ function registerEvents() {
     el.whyMcdDialog.showModal();
   });
 
-  if (el.btnThemeToggle) {
-    el.btnThemeToggle.addEventListener("click", () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
-      const next = current === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("mcd_theme", next);
-      el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
-      configureMermaidTheme();
-      if (state.currentView === "guide") {
-        renderMermaidBlocks(el.guideContent);
-      }
-      if (state.currentView === "charts") {
-        // Rebuild preview from source markdown before Mermaid render.
-        renderChartsPreview();
-      }
-      if (el.docDialog.open) {
-        renderMermaidBlocks(el.docDialogContent);
-      }
-    });
-  }
-
   el.whyMcdDialog.querySelector("button[value='close']").addEventListener("click", (e) => {
     e.preventDefault();
     el.whyMcdDialog.close();
   });
 
-  el.btnNewBoard.addEventListener("click", async () => {
-    const name = prompt("Board name");
-    if (!name || !name.trim()) return;
-    const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
-    await api("/api/boards", "POST", {
-      name: name.trim(),
-      description: "",
-      seedTemplate: useTemplate,
-    });
-    await refresh();
-  });
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 
   el.btnCloneBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
@@ -887,6 +1038,10 @@ function registerEvents() {
       renderCharts();
     });
   }
+
+  if (el.btnThemeToggle) el.btnThemeToggle.onclick = toggleTheme;
+  if (el.btnToggleSidebar) el.btnToggleSidebar.onclick = toggleSidebar;
+  if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 }
 
 function startPolling() {
@@ -904,11 +1059,61 @@ function startPolling() {
   }, 2000);
 }
 
+async function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mcd_theme", next);
+  el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
+
+  configureMermaidTheme();
+  if (state.currentView === "guide") {
+    renderMermaidBlocks(el.guideContent);
+  }
+  if (state.currentView === "charts") {
+    renderChartsPreview();
+  }
+  if (el.docDialog && el.docDialog.open) {
+    renderMermaidBlocks(el.docDialogContent);
+  }
+}
+
+async function createNewBoard() {
+  const name = prompt("Board name");
+  if (!name || !name.trim()) return;
+  const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
+  await api("/api/boards", "POST", {
+    name: name.trim(),
+    description: "",
+    seedTemplate: useTemplate,
+  });
+  await refresh();
+}
+
+function toggleSidebar() {
+  const isCollapsed = document.documentElement.getAttribute("data-sidebar-collapsed") === "true";
+  const nextState = !isCollapsed;
+  if (nextState) {
+    document.documentElement.setAttribute("data-sidebar-collapsed", "true");
+    el.btnToggleSidebar.textContent = "»";
+  } else {
+    document.documentElement.removeAttribute("data-sidebar-collapsed");
+    el.btnToggleSidebar.textContent = "«";
+  }
+  localStorage.setItem("mcd_sidebar_collapsed", nextState);
+}
+
 async function bootstrap() {
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
     el.btnThemeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
+  }
+  if (localStorage.getItem("mcd_theme") === "light") {
+    el.btnThemeToggle.textContent = "Dark Mode";
+  }
+  if (localStorage.getItem("mcd_sidebar_collapsed") === "true") {
+    el.btnToggleSidebar.textContent = "»";
   }
   configureMermaidTheme();
   try {

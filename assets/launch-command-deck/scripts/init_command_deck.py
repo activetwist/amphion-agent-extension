@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Initialize Launch Command Deck state for a new project scaffold."""
+"""Initialize Launch Command Deck state (SQLite) for a new project scaffold."""
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
+import sqlite3
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def now_iso() -> str:
@@ -27,7 +27,7 @@ def board_status_lists() -> List[Dict[str, Any]]:
         ("qa", "QA / Review"),
         ("done", "Done"),
     ]
-    items: List[Dict[str, Any]] = []
+    items = []
     for order, (key, title) in enumerate(statuses):
         items.append(
             {
@@ -35,49 +35,118 @@ def board_status_lists() -> List[Dict[str, Any]]:
                 "key": key,
                 "title": title,
                 "order": order,
-                "createdAt": now_iso(),
-                "updatedAt": now_iso(),
             }
         )
     return items
 
 
-def build_state(
-    project_name: str,
-    codename: str,
-    initial_version: str,
-    milestone_title: str,
-    seed_template: str,
-    project_type: str = "standard",
-) -> Dict[str, Any]:
+def init_db(db_path: Path, project_name: str, codename: str, initial_version: str, milestone_title: str, seed_template: str, project_type: str = "standard") -> None:
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # 1. Create Tables
+    c.executescript('''
+        CREATE TABLE IF NOT EXISTS meta (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS boards (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            codename TEXT,
+            nextIssueNumber INTEGER,
+            description TEXT,
+            projectType TEXT,
+            createdAt TEXT,
+            updatedAt TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS lists (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            key TEXT,
+            title TEXT,
+            listOrder INTEGER,
+            createdAt TEXT,
+            updatedAt TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS milestones (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            code TEXT,
+            title TEXT,
+            msOrder INTEGER,
+            createdAt TEXT,
+            updatedAt TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS cards (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            issueNumber TEXT,
+            title TEXT,
+            description TEXT,
+            acceptance TEXT,
+            milestoneId TEXT,
+            listId TEXT,
+            priority TEXT,
+            owner TEXT,
+            targetDate TEXT,
+            cardOrder INTEGER,
+            createdAt TEXT,
+            updatedAt TEXT
+        );
+        
+        CREATE TABLE IF NOT EXISTS charts (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            title TEXT,
+            description TEXT,
+            markdown TEXT,
+            createdAt TEXT,
+            updatedAt TEXT
+        );
+    ''')
+    conn.commit()
+
+    # 2. Setup Meta & Board
     board_id = new_id("board")
-    milestone_id = new_id("ms")
+    c.execute("INSERT INTO meta (key, value) VALUES (?, ?)", ("activeBoardId", board_id))
+    c.execute("INSERT INTO meta (key, value) VALUES (?, ?)", ("version", "1"))
+
+    now = now_iso()
+    c.execute('''
+        INSERT INTO boards (id, name, codename, nextIssueNumber, description, projectType, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (board_id, f"{project_name} Launch Command Deck", codename.upper()[:3], 1, f"Command deck for {project_name} ({codename}) using MCD protocol.", project_type, now, now))
+
+    # 3. Setup Lists
     lists = board_status_lists()
-    list_id_by_key = {item["key"]: item["id"] for item in lists}
+    list_id_by_key = {}
+    for lst in lists:
+        list_id_by_key[lst["key"]] = lst["id"]
+        c.execute('''
+            INSERT INTO lists (id, boardId, key, title, listOrder, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (lst["id"], board_id, lst["key"], lst["title"], lst["order"], now, now))
 
-    board = {
-        "id": board_id,
-        "name": f"{project_name} Launch Command Deck",
-        "codename": codename.upper()[:3],
-        "nextIssueNumber": 1,
-        "description": f"Command deck for {project_name} ({codename}) using MCD protocol.",
-        "projectType": project_type,
-        "createdAt": now_iso(),
-        "updatedAt": now_iso(),
-        "lists": lists,
-        "milestones": [
-            {
-                "id": milestone_id,
-                "code": initial_version.lower().replace(".", "").replace("-", ""),
-                "title": milestone_title,
-                "order": 0,
-                "createdAt": now_iso(),
-                "updatedAt": now_iso(),
-            }
-        ],
-        "cards": [],
-    }
+    # 4. Setup Milestone
+    milestone_id = new_id("ms")
+    c.execute('''
+        INSERT INTO milestones (id, boardId, code, title, msOrder, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (milestone_id, board_id, initial_version.lower().replace(".", "").replace("-", ""), milestone_title, 0, now, now))
 
+    # 5. Setup Charts (Sample IA)
+    c.execute('''
+        INSERT INTO charts (id, boardId, title, description, markdown, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', ("sample_ia_home_about_blog_contact", board_id, "Sample IA · Marketing Site", "Simple website structure example", "```mermaid\nflowchart TD\n  Home --> About\n  Home --> Blog\n  Home --> Contact\n```", now, now))
+
+    # 6. Seed Cards
+    next_issue_num = 1
     if seed_template == "scaffold":
         seed_cards = [
             (
@@ -102,38 +171,24 @@ def build_state(
                 "- Contract is approved.\\n- Implementation validates against acceptance criteria.",
             ),
         ]
+        
         for order, (list_key, title, priority, description, acceptance) in enumerate(seed_cards):
-            issue_num = board["nextIssueNumber"]
-            board["cards"].append(
-                {
-                    "id": new_id("card"),
-                    "issueNumber": f"{board['codename']}-{issue_num:03d}",
-                    "title": title,
-                    "description": description,
-                    "acceptance": acceptance,
-                    "milestoneId": milestone_id,
-                    "listId": list_id_by_key[list_key],
-                    "priority": priority,
-                    "owner": "",
-                    "targetDate": "",
-                    "order": order if list_key == "backlog" else 0,
-                    "createdAt": now_iso(),
-                    "updatedAt": now_iso(),
-                }
-            )
-            board["nextIssueNumber"] += 1
+            card_id = new_id("card")
+            issue_num_str = f"{codename.upper()[:3]}-{next_issue_num:03d}"
+            c.execute('''
+                INSERT INTO cards (id, boardId, issueNumber, title, description, acceptance, milestoneId, listId, priority, owner, targetDate, cardOrder, createdAt, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (card_id, board_id, issue_num_str, title, description, acceptance, milestone_id, list_id_by_key[list_key], priority, "", "", order if list_key == "backlog" else 0, now, now))
+            next_issue_num += 1
+            
+        c.execute("UPDATE boards SET nextIssueNumber = ? WHERE id = ?", (next_issue_num, board_id))
 
-    state = {
-        "version": 1,
-        "updatedAt": now_iso(),
-        "activeBoardId": board_id,
-        "boards": [board],
-    }
-    return state
+    conn.commit()
+    conn.close()
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Initialize Launch Command Deck for a project")
+    parser = argparse.ArgumentParser(description="Initialize Launch Command Deck (SQLite) for a project")
     parser.add_argument("--project-name", required=True, help="Project name")
     parser.add_argument("--codename", default="Genesis", help="Project codename")
     parser.add_argument("--initial-version", default="v0.01a", help="Initial project version")
@@ -150,9 +205,9 @@ def parse_args() -> argparse.Namespace:
         help="Project type (e.g., standard, content_pipeline, software_dev)",
     )
     parser.add_argument(
-        "--state-file",
+        "--db-file",
         default="",
-        help="Override state path (defaults to deck_root/data/state.json)",
+        help="Override database path (defaults to deck_root/data/amphion.db)",
     )
     return parser.parse_args()
 
@@ -161,10 +216,15 @@ def main() -> None:
     args = parse_args()
     script_dir = Path(__file__).resolve().parent
     deck_root = script_dir.parent
-    state_path = Path(args.state_file).expanduser().resolve() if args.state_file else (deck_root / "data" / "state.json")
-    state_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path = Path(args.db_file).expanduser().resolve() if args.db_file else (deck_root / "data" / "amphion.db")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Remove existing db if re-initializing
+    if db_path.exists():
+        db_path.unlink()
 
-    state = build_state(
+    init_db(
+        db_path=db_path,
         project_name=args.project_name.strip(),
         codename=args.codename.strip(),
         initial_version=args.initial_version.strip(),
@@ -172,8 +232,7 @@ def main() -> None:
         seed_template=args.seed_template,
         project_type=args.type.strip(),
     )
-    state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    print(f"Initialized Launch Command Deck state at {state_path}")
+    print(f"Initialized SQLite Launch Command Deck at {db_path}")
 
 
 if __name__ == "__main__":

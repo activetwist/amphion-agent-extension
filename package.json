@@ -2,7 +2,7 @@
     "name": "amphion-agent",
     "displayName": "AmphionAgent",
     "description": "Initialize a full Micro-Contract Development (MCD) project scaffold with a single command.",
-    "version": "1.25.0",
+    "version": "1.26.4",
     "license": "Proprietary",
     "icon": "icon.png",
     "publisher": "active-twist",
@@ -36,6 +36,10 @@
             {
                 "command": "mcd.init",
                 "title": "MCD: Initialize New Project"
+            },
+            {
+                "command": "mcd.openDashboard",
+                "title": "MCD: Open Command Deck Dashboard"
             }
         ],
         "menus": {

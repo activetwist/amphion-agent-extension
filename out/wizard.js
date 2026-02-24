@@ -48,21 +48,9 @@ async function runWizard() {
     });
     if (!projectName)
         return undefined;
-    // Step 2: Server Language
-    const serverPick = await vscode.window.showQuickPick([
-        { label: 'Python', description: 'Default — zero setup', detail: 'python' },
-        { label: 'Node.js', description: 'JavaScript runtime', detail: 'node' },
-    ], {
-        title: 'AmphionAgent (2/5)',
-        placeHolder: 'Select Command Deck server language',
-        ignoreFocusOut: true,
-    });
-    if (!serverPick)
-        return undefined;
-    const serverLang = serverPick.detail || 'python';
-    // Step 3: Codename
+    // Step 2: Codename
     const codename = await vscode.window.showInputBox({
-        title: 'AmphionAgent (3/5)',
+        title: 'AmphionAgent (2/4)',
         prompt: 'Enter the Project Codename',
         placeHolder: 'e.g. Genesis',
         ignoreFocusOut: true,
@@ -72,9 +60,9 @@ async function runWizard() {
     });
     if (!codename)
         return undefined;
-    // Step 4: Initial Version
+    // Step 3: Initial Version
     const initialVersion = await vscode.window.showInputBox({
-        title: 'AmphionAgent (4/5)',
+        title: 'AmphionAgent (3/4)',
         prompt: 'Enter the Initial Version',
         value: 'v0.01a',
         ignoreFocusOut: true,
@@ -84,9 +72,9 @@ async function runWizard() {
     });
     if (!initialVersion)
         return undefined;
-    // Step 5: Port
+    // Step 4: Port
     const port = await vscode.window.showInputBox({
-        title: 'AmphionAgent (5/5)',
+        title: 'AmphionAgent (4/4)',
         prompt: 'Enter the Command Deck Port (must not be in use)',
         value: '8765',
         ignoreFocusOut: true,
@@ -102,7 +90,7 @@ async function runWizard() {
         return undefined;
     return {
         projectName: projectName.trim(),
-        serverLang,
+        serverLang: 'python',
         codename: codename.trim(),
         initialVersion: initialVersion.trim(),
         port: port.trim(),
