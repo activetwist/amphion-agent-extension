@@ -33,6 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.migrateEnvironment = migrateEnvironment;
 exports.buildScaffold = buildScaffold;
 exports.launchCommandDeck = launchCommandDeck;
 const vscode = __importStar(require("vscode"));
@@ -56,6 +57,7 @@ const DIRS = [
     'referenceDocs/05_Records/buildLogs',
     'referenceDocs/05_Records/chatLogs',
     'referenceDocs/05_Records/documentation/helperContext',
+    'referenceDocs/06_AgentMemory',
     '.agents/workflows',
     '.cursor/rules',
     '.cursor/commands',
@@ -121,8 +123,126 @@ async function pathExists(root, relativePath) {
         return false;
     }
 }
+async function readJsonFile(root, relativePath) {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, relativePath));
+        return JSON.parse(new TextDecoder().decode(bytes));
+    }
+    catch {
+        return undefined;
+    }
+}
+async function ensureFileExists(root, relativePath, content) {
+    const exists = await pathExists(root, relativePath);
+    if (!exists) {
+        await writeFile(root, relativePath, content);
+    }
+}
+function runShellCommand(cwd, command) {
+    return new Promise((resolve, reject) => {
+        (0, child_process_1.exec)(command, { cwd }, (error, stdout, stderr) => {
+            if (error) {
+                reject(new Error(stderr || error.message));
+                return;
+            }
+            resolve(stdout);
+        });
+    });
+}
+function normalizeProjectConfig(raw) {
+    return {
+        projectName: typeof raw.projectName === 'string' && raw.projectName.trim().length > 0 ? raw.projectName : 'Amphion Project',
+        serverLang: raw.serverLang === 'node' ? 'node' : 'python',
+        codename: typeof raw.codename === 'string' && raw.codename.trim().length > 0 ? raw.codename : 'BLACKCLAW',
+        initialVersion: typeof raw.initialVersion === 'string' && raw.initialVersion.trim().length > 0 ? raw.initialVersion : '0.1.0',
+        port: String(raw.port ?? '8765')
+    };
+}
+function buildDefaultAgentMemorySnapshot(milestone) {
+    return {
+        v: 1,
+        upd: new Date().toISOString(),
+        cur: {
+            st: 'init',
+            ms: milestone,
+            ct: [],
+            dec: [],
+            trb: [],
+            lrn: [],
+            nx: [],
+            ref: []
+        },
+        hist: []
+    };
+}
+async function getExtensionVersion(extensionUri) {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionUri, 'package.json'));
+        const parsed = JSON.parse(new TextDecoder().decode(bytes));
+        return parsed.version ?? '0.0.0';
+    }
+    catch {
+        return '0.0.0';
+    }
+}
+async function migrateEnvironment(root, extensionUri, targetVersion) {
+    let rawConfig = await readJsonFile(root, 'ops/amphion.json');
+    if (!rawConfig) {
+        rawConfig = {};
+    }
+    const config = normalizeProjectConfig(rawConfig);
+    try {
+        const status = await runShellCommand(root.fsPath, 'git status --porcelain');
+        if (status.trim().length > 0) {
+            const proceed = await vscode.window.showWarningMessage('Environment update detected uncommitted changes. Continue anyway?', { modal: true }, 'Continue', 'Abort');
+            if (proceed !== 'Continue') {
+                return false;
+            }
+        }
+    }
+    catch {
+        // No git repo or git unavailable. Continue with non-blocking behavior.
+    }
+    const mcdDir = 'referenceDocs/00_Governance/mcd';
+    await createDir(root, 'referenceDocs/00_Governance/mcd');
+    await createDir(root, 'referenceDocs/06_AgentMemory');
+    await createDir(root, '.agents/workflows');
+    await createDir(root, '.cursor/rules');
+    await createDir(root, '.cursor/commands');
+    await createDir(root, '.windsurf/workflows');
+    // Allowlist: generator-owned governance + command surfaces.
+    await writeFile(root, 'referenceDocs/00_Governance/GUARDRAILS.md', (0, guardrails_1.renderGuardrails)(config));
+    await writeFile(root, 'referenceDocs/00_Governance/MCD_PLAYBOOK.md', (0, playbook_1.getPlaybookContent)());
+    await writeFile(root, `${mcdDir}/EVALUATE.md`, (0, commands_1.renderEvaluate)(config));
+    await writeFile(root, `${mcdDir}/BOARD.md`, (0, commands_1.renderBoard)(config));
+    await writeFile(root, `${mcdDir}/CONTRACT.md`, (0, commands_1.renderContract)(config));
+    await writeFile(root, `${mcdDir}/EXECUTE.md`, (0, commands_1.renderExecute)(config));
+    await writeFile(root, `${mcdDir}/CLOSEOUT.md`, (0, commands_1.renderCloseout)(config));
+    await writeFile(root, `${mcdDir}/REMEMBER.md`, (0, commands_1.renderRemember)(config));
+    // Allowlist: generator-owned adapters/workflows.
+    const { renderClaudeMd, renderAgentsMd, renderCursorRules } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
+    await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
+    await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
+    await appendOrWriteFile(root, '.cursorrules', renderCursorRules(config));
+    await appendOrWriteFile(root, '.clinerules', renderCursorRules(config));
+    await deployWorkflows(root, config);
+    // Include memory/governance additions when missing.
+    await ensureFileExists(root, 'referenceDocs/06_AgentMemory/agent-memory.json', JSON.stringify(buildDefaultAgentMemorySnapshot('migration'), null, 2));
+    await ensureFileExists(root, 'referenceDocs/06_AgentMemory/README.md', '# Agent Memory\n\nThis directory stores compact operational memory for agent continuity.\n\n- Canonical file: `agent-memory.json`\n- Update policy: mandatory at closeout, optional via `/remember` during long sessions.\n- Keep entries compact and bounded; detailed narratives stay in `referenceDocs/05_Records/`.\n');
+    const nextConfig = {
+        ...rawConfig,
+        port: config.port,
+        serverLang: config.serverLang,
+        codename: config.codename,
+        projectName: config.projectName,
+        initialVersion: config.initialVersion,
+        mcdVersion: targetVersion
+    };
+    await writeFile(root, 'ops/amphion.json', JSON.stringify(nextConfig, null, 2));
+    return true;
+}
 async function deployWorkflows(root, config) {
-    const commands = ['evaluate', 'board', 'contract', 'execute', 'closeout', 'docs'];
+    const commands = ['evaluate', 'board', 'contract', 'execute', 'closeout', 'remember', 'docs'];
     const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
     for (const cmd of commands) {
         // Antigravity
@@ -136,6 +256,7 @@ async function deployWorkflows(root, config) {
     }
 }
 async function buildScaffold(root, config, extensionUri, initTerminal) {
+    const extensionVersion = await getExtensionVersion(extensionUri);
     // --- Pre-flight: conflict detection ---
     const conflicts = [];
     for (const dir of CONFLICT_CHECK_DIRS) {
@@ -162,7 +283,9 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
         port: config.port,
         serverLang: config.serverLang,
         codename: config.codename,
-        projectName: config.projectName
+        projectName: config.projectName,
+        initialVersion: config.initialVersion,
+        mcdVersion: extensionVersion
     }, null, 2));
     // 2. Write GUARDRAILS.md
     await writeFile(root, 'referenceDocs/00_Governance/GUARDRAILS.md', (0, guardrails_1.renderGuardrails)(config));
@@ -177,6 +300,10 @@ async function buildScaffold(root, config, extensionUri, initTerminal) {
     await writeFile(root, `${mcdDir}/CONTRACT.md`, (0, commands_1.renderContract)(config));
     await writeFile(root, `${mcdDir}/EXECUTE.md`, (0, commands_1.renderExecute)(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, (0, commands_1.renderCloseout)(config));
+    await writeFile(root, `${mcdDir}/REMEMBER.md`, (0, commands_1.renderRemember)(config));
+    // 4.5 Write default compact memory artifacts
+    await writeFile(root, 'referenceDocs/06_AgentMemory/agent-memory.json', JSON.stringify(buildDefaultAgentMemorySnapshot('bootstrap'), null, 2));
+    await writeFile(root, 'referenceDocs/06_AgentMemory/README.md', '# Agent Memory\n\nThis directory stores compact operational memory for agent continuity.\n\n- Canonical file: `agent-memory.json`\n- Update policy: mandatory at closeout, optional via `/remember` during long sessions.\n- Keep entries compact and bounded; detailed narratives stay in `referenceDocs/05_Records/`.\n');
     // 5. Write Agent Adapters
     const { renderClaudeMd, renderAgentsMd, renderCursorRules } = await Promise.resolve().then(() => __importStar(require('./templates/adapters')));
     await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));

@@ -39,10 +39,24 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ### 5. \`@[/closeout]\`
 *Formalize the release.*
 - **Action**: Verifies the acceptance criteria, archives the contract, writes a persistent formal record, and commits the code to the repository.
-- **Output**:
+- **Output**: 
   1. Contract moved to \`03_Contracts/archive/\`.
   2. Closeout Record mapped to \`05_Records/\`.
-  3. Strict \`closeout: {description}\` Git Commit.
+  3. Updated compact memory snapshot (\`referenceDocs/06_AgentMemory/agent-memory.json\`).
+  4. Strict \`closeout: {description}\` Git Commit.
+
+---
+
+## Utility Command: \`@[/remember]\`
+\`/remember\` is a utility checkpoint, not a lifecycle phase.
+
+- **Purpose**: Manually capture compact operational context into \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- **When to Use**:
+  1. Long sessions where context continuity is at risk.
+  2. Material scope shifts under approved contracts.
+  3. Durable troubleshooting/architecture decisions worth preserving.
+- **Mandatory Use**: At closeout completion for each completed version/slice.
+- **Rule**: \`/remember\` does not auto-transition phases and does not authorize code changes by itself.
 
 ---
 

@@ -10,8 +10,10 @@ Initial Version: \`${config.initialVersion}\`
 ## Execution Model
 All work follows this strict sequence:
 1. Evaluate
-2. Contract
-3. Execute
+2. Board (Optional)
+3. Contract
+4. Execute
+5. Closeout
 
 No phase skipping is permitted.
 
@@ -31,6 +33,27 @@ No phase skipping is permitted.
 - Keep versioning and build naming deterministic.
 - Record meaningful changes and outcomes in project records.
 
+## Utility Commands
+Utility commands can run between lifecycle phases but never replace phase transitions.
+
+### \`/remember\` (Utility-Only)
+- \`/remember\` is a manual checkpoint command, not a lifecycle phase.
+- Purpose: update compact operational memory in \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- Allowed triggers:
+  - Long sessions where context continuity risk increases.
+  - Material scope changes under approved contracts.
+  - Durable troubleshooting breakthroughs and architecture/runtime decisions.
+- Mandatory trigger:
+  - Closeout completion for a version/slice.
+- Guardrail: \`/remember\` must not auto-advance the lifecycle or execute code changes by itself.
+
+## Agent Memory Policy
+- Canonical memory directory: \`referenceDocs/06_AgentMemory/\`
+- Canonical memory file: \`referenceDocs/06_AgentMemory/agent-memory.json\`
+- Memory model: compact bounded snapshot with rolling \`hist\` context window.
+- Memory updates must remain concise, deduplicated, and constrained by documented caps.
+- Human-readable records in \`05_Records/\` remain the source for detailed narrative evidence.
+
 ## Closeout Procedure
 Closeout is a governed step that follows the completion of all contracted work within a version. A version is not considered closed until all of the following are satisfied:
 
@@ -40,6 +63,7 @@ Closeout is a governed step that follows the completion of all contracted work w
 3. **Closeout record written**: A closeout record has been created in \`05_Records/\` documenting contracts executed, deliverables produced, and compliance status.
 4. **Artifacts staged**: All generated artifacts are present and accounted for, including:
    - Updated strategy/architecture/governance documents
+   - Agent memory artifact (\`referenceDocs/06_AgentMemory/agent-memory.json\`)
    - Build logs (\`05_Records/buildLogs/\`)
    - Chat logs (\`05_Records/chatLogs/\`)
    - Closeout record (\`05_Records/\`)
@@ -86,6 +110,7 @@ This convention applies to all documents across all reference directories (Gover
 - [ ] Naming/versioning remains deterministic.
 - [ ] Document naming convention followed (YYYYMMDDHHMM prefix).
 - [ ] Conflicts with active contracts have been flagged.
+- [ ] Agent memory updated and validated (\`referenceDocs/06_AgentMemory/agent-memory.json\`) when applicable.
 - [ ] Closeout record exists (when closing a version).
 - [ ] Git commit completed with all artifacts staged (when closing a version).
 `;

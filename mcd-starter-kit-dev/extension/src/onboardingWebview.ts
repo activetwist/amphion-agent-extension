@@ -126,7 +126,6 @@ export class OnboardingPanel {
                             const { writeFoundationJson } = await import('./foundation/foundationWriter');
                             const { renderCharterFromFoundation } = await import('./templates/charterFromFoundation');
                             const { renderPrdFromFoundation } = await import('./templates/prdFromFoundation');
-                            const { promptPostInitReview } = await import('./postInit/postInitPrompt');
 
                             const guidedSubmission = this._asGuidedSubmissionData(message.data);
                             if (!guidedSubmission) {
@@ -135,7 +134,6 @@ export class OnboardingPanel {
                             }
 
                             const foundationState = this._buildGuidedFoundationState(guidedSubmission);
-                            this._panel.dispose();
 
                             const wrote = await writeFoundationJson(root, foundationState);
                             if (!wrote) {
@@ -158,8 +156,7 @@ export class OnboardingPanel {
 
                             this._terminal.sendText('git add referenceDocs/');
                             this._terminal.sendText(`git commit -m "docs(${this._config.initialVersion}): generate SIP-1 foundation + artifacts"`);
-
-                            await promptPostInitReview(root, this._config);
+                            this._panel.webview.postMessage({ command: 'manualComplete' });
                         } catch (e) {
                             console.error('Guided Init error', e);
                             vscode.window.showErrorMessage('Failed to complete Guided Init.');
@@ -1141,6 +1138,7 @@ export class OnboardingPanel {
                     break;
                 case 'manualComplete':
                     if (manualView) manualView.classList.remove('active');
+                    if (guidedView) guidedView.classList.remove('active');
                     if (selectionView) selectionView.classList.remove('active');
                     manualSuccessView.classList.add('active');
                     break;

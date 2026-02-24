@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "upd": "2026-02-24T17:34:00Z",
+  "cur": {
+    "st": "evaluate",
+    "ms": "memory-remember-unified",
+    "ct": [
+      "202602241134-CONTRACT_AGENT_MEMORY_AND_REMEMBER_UNIFIED.md"
+    ],
+    "dec": [
+      "canonical-memory-file:referenceDocs/06_AgentMemory/agent-memory.json"
+    ],
+    "trb": [],
+    "lrn": [
+      "remember-command-is-utility-not-phase"
+    ],
+    "nx": [
+      "execute-memory-and-remember-unified-contract"
+    ],
+    "ref": [
+      "referenceDocs/04_Analysis/findings/202602241054-EVAL_AGENT_MEMORY_AND_REMEMBER_COMBINED_FINDINGS.md"
+    ]
+  },
+  "hist": []
+}

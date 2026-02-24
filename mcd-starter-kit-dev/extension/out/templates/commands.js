@@ -4,6 +4,7 @@ exports.renderEvaluate = renderEvaluate;
 exports.renderBoard = renderBoard;
 exports.renderContract = renderContract;
 exports.renderExecute = renderExecute;
+exports.renderRemember = renderRemember;
 exports.renderCloseout = renderCloseout;
 function renderEvaluate(config) {
     return `# EVALUATE · ${config.projectName}
@@ -120,6 +121,38 @@ Invoke this command ONLY when an approved contract exists in \`03_Contracts/acti
 - [ ] Walkthrough artifact demonstrating the completed work.
 `;
 }
+function renderRemember(config) {
+    return `# REMEMBER · ${config.projectName}
+
+**Type:** Utility Command (Non-Phase)
+**Status:** Canonical Instruction Set
+**Codename:** \`${config.codename}\`
+
+## When to Use
+Use this command to capture a compact memory checkpoint without changing lifecycle phase.
+
+## Inputs
+- [ ] Current contract context (if any)
+- [ ] Durable decisions/troubleshooting outcomes worth preserving
+- [ ] Current milestone/slice identifier
+
+## Instructions
+1. **Read Current Memory**: Load \`referenceDocs/06_AgentMemory/agent-memory.json\` if it exists; initialize it if missing.
+2. **Capture Snapshot**: Update \`cur\` with concise state (\`st\`, \`ms\`, \`ct\`, \`dec\`, \`trb\`, \`lrn\`, \`nx\`, \`ref\`) and refresh \`upd\` timestamp.
+3. **Bounded History**: Push previous \`cur\` into \`hist\` and keep only the latest bounded window (2-3 snapshots).
+4. **Density Control**: Keep entries compact, deduplicated, and within documented cap limits.
+5. **No Phase Transition**: Confirm checkpoint completion and remain in current lifecycle phase.
+
+## Guardrails
+- \`/remember\` is utility-only and cannot replace Evaluate/Board/Contract/Execute/Closeout.
+- Do not include long prose; use short slug-like entries.
+- Do not write speculative or unverified facts into memory.
+
+## Output
+- [ ] Updated \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- [ ] Brief user-facing confirmation that memory checkpoint was recorded.
+`;
+}
 function renderCloseout(config) {
     return `# CLOSEOUT · ${config.projectName}
 
@@ -134,16 +167,19 @@ Invoke this command when all contracted work for a version is verified and compl
 - [ ] All executed contracts for the version.
 - [ ] Build Logs & Verification results.
 - [ ] Final Repository State.
+- [ ] \`referenceDocs/06_AgentMemory/agent-memory.json\` baseline (existing or to be initialized).
 
 ## Instructions
 1. **Archiving**: Move executed contracts from \`03_Contracts/active/\` to \`03_Contracts/archive/\`.
-2. **Validation**: Final check against the project's Governance Guardrails.
-3. **Record Keeping**: Write a formal Closeout Record in \`05_Records/\`.
-4. **Persistence**: Ensure all artifacts are staged and committed to the repository.
-5. **Versioning**: Tag or finalize the version in \`package.json\` or relevant metadata.
+2. **Memory Update**: Update compact operational memory in \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+3. **Validation**: Final check against Governance Guardrails and run closeout hygiene validation (\`referenceDocs/04_Analysis/scripts/validate_closeout_hygiene.py\` when available).
+4. **Record Keeping**: Write a formal Closeout Record in \`05_Records/\`.
+5. **Persistence**: Ensure all artifacts are staged and committed to the repository.
+6. **Versioning**: Tag or finalize the version in \`package.json\` or relevant metadata.
 
 ## Output
 - [ ] Formal Closeout Record in \`05_Records/\`.
+- [ ] Updated \`referenceDocs/06_AgentMemory/agent-memory.json\`.
 - [ ] Clean directory state (\`03_Contracts/active/\` is empty).
 - [ ] Final Git commit using the \`closeout:\` prefix.
 `;
