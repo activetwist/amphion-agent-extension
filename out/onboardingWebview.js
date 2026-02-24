@@ -317,7 +317,7 @@ class OnboardingPanel {
 
         .option-row button {
             flex: 0 0 auto;
-            min-width: 220px;
+            width: 260px;
             padding: 12px 24px;
             display: flex;
             align-items: center;
