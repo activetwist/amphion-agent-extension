@@ -308,6 +308,10 @@ class CommandDeckDashboard {
                     <span class="command-tag">0. /help</span>
                     <span class="command-desc">request assistance</span>
                 </div>
+                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/remember'})">
+                    <span class="command-tag">0.5 /remember</span>
+                    <span class="command-desc">checkpoint memory</span>
+                </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/evaluate'})">
                     <span class="command-tag">1. /evaluate</span>
                     <span class="command-desc">research & scope</span>

@@ -50,6 +50,7 @@ function getCommandDescription(command: string, config: ProjectConfig): string {
     const cmd = command.toLowerCase();
     if (cmd === 'docs') return `Generate Project Strategy (Charter & PRD) from source documents for ${config.projectName}`;
     if (cmd === 'board') return `Populate the Command Board and draft contracts based on Evaluate findings for ${config.projectName}`;
+    if (cmd === 'remember') return `Capture a compact memory checkpoint for ${config.projectName} without phase transition`;
     return `Run MCD ${command.toUpperCase()} command for ${config.projectName}`;
 }
 
@@ -92,6 +93,9 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Execute**: [EXECUTE.md](referenceDocs/00_Governance/mcd/EXECUTE.md)
 - **Closeout**: [CLOSEOUT.md](referenceDocs/00_Governance/mcd/CLOSEOUT.md)
 
+## Utility Commands
+- **Remember**: [REMEMBER.md](referenceDocs/00_Governance/mcd/REMEMBER.md)
+
 ## Operational Rules
 1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 2. Always read the corresponding command file before starting a phase.
@@ -124,6 +128,9 @@ Before performing any task, the agent must identify the current phase and load t
 4. **Build** via the Execute command.
 5. **Finalize** via the Closeout command.
 
+## Utility Commands
+- **Remember** via the Remember command (\`/remember\`) for non-phase memory checkpoints.
+
 **Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 
 ## Product Manager Experience
@@ -155,5 +162,6 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 - **Contract**: Refer to \`referenceDocs/00_Governance/mcd/CONTRACT.md\`
 - **Execute**: Refer to \`referenceDocs/00_Governance/mcd/EXECUTE.md\`
 - **Closeout**: Refer to \`referenceDocs/00_Governance/mcd/CLOSEOUT.md\`
+- **Remember**: Refer to \`referenceDocs/00_Governance/mcd/REMEMBER.md\`
 `;
 }

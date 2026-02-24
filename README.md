@@ -1,19 +1,25 @@
 # AmphionAgent
 
-AmphionAgent is a VS Code extension that scaffolds a complete Micro-Contract Development (MCD) workspace and launches a local Command Deck for planning and delivery.
+AmphionAgent is a VS Code extension for teams using AI to build software with tighter control. It scaffolds a complete Micro-Contract Development (MCD) workspace, enforces phase-gated execution, and launches a local Command Deck for planning, traceability, and release discipline.
 
-## What It Creates
+## Who It's For
+
+- Teams using AI assistants that need deterministic planning and approval gates
+- Product/engineering operators who want execution traceability from evaluation through closeout
+- Projects where governance artifacts must be created and maintained alongside code
+
+## What You Get in <5 Minutes
 
 Running `MCD: Initialize New Project` generates:
-
-- `referenceDocs/` governance structure (`00_Governance` through `05_Records`)
-- Canonical MCD command docs (`EVALUATE`, `BOARD`, `CONTRACT`, `EXECUTE`, `CLOSEOUT`)
+- `referenceDocs/` governance structure (`00_Governance` through `06_AgentMemory`)
+- Canonical MCD command docs (`EVALUATE`, `BOARD`, `CONTRACT`, `EXECUTE`, `CLOSEOUT`, `REMEMBER`)
 - IDE workflow artifacts (`.agents/workflows`, `.cursor/rules`, `.cursor/commands`)
 - Local Command Deck app under `ops/launch-command-deck/`
+- Operator-gated workflow where each phase halts until explicit authorization
 
-The scaffold is additive and designed to work in both empty folders and existing repositories.
+The scaffold is additive and works in both empty folders and existing repositories.
 
-## Command Flow
+## How It Works
 
 AmphionAgent uses explicit slash-command phases:
 
@@ -25,6 +31,24 @@ AmphionAgent uses explicit slash-command phases:
 
 Each phase must halt and wait for explicit operator authorization before moving to the next.
 
+## Screenshots
+
+### Project Onboarding
+![Project Onboarding](./media/screenshots/20260224/01-Project-Onboarding.png)
+Guided setup for project identity, codename, version, and local Command Deck configuration.
+
+### Command Deck Board
+![Command Deck Board](./media/screenshots/20260224/02-Kanban-Board.png)
+Kanban-style board for contracts, milestones, and operator-visible execution flow.
+
+### Charts Viewer
+![Charts Viewer](./media/screenshots/20260224/04-Charts-Viewer.png)
+Built-in charts surface for Mermaid architecture and information flow visualization.
+
+### IDE Control Panel
+![IDE Control Panel](./media/screenshots/20260224/05-IDE-Control-Panel.png)
+In-IDE command flow and server controls for running MCD from the development environment.
+
 ## Install
 
 ### From VSIX
@@ -32,8 +56,7 @@ Each phase must halt and wait for explicit operator authorization before moving 
 1. Open Extensions view in your IDE.
 2. Use "Install from VSIX...".
 3. Select the packaged file, for example:
-   - `amphion-agent-1.24.4.vsix` (test build)
-   - `amphion-agent-1.25.0.vsix` (current release line)
+   - `amphion-agent-1.28.1.vsix` (current release line)
 
 ### Marketplace
 
@@ -41,11 +64,9 @@ Publisher: `active-twist`
 
 ## Requirements
 
-- VS Code compatible host (or compatible IDE extension runtime)
+- AI-Enabled VS Code-based IDE
 - Git
-- One local runtime for Command Deck server:
-  - Python 3, or
-  - Node.js
+- Local runtime for Command Deck server: Python 3
 
 ## Notes
 

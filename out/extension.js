@@ -36,7 +36,71 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
+const scaffolder_1 = require("./scaffolder");
 const commandDeckDashboard_1 = require("./commandDeckDashboard");
+const UPDATE_DEFER_HOURS = 24;
+function parseVersion(version) {
+    return version
+        .split('.')
+        .map((segment) => {
+        const parsed = parseInt(segment.replace(/[^\d]/g, ''), 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    });
+}
+function compareVersions(a, b) {
+    const left = parseVersion(a);
+    const right = parseVersion(b);
+    const max = Math.max(left.length, right.length);
+    for (let i = 0; i < max; i += 1) {
+        const lv = left[i] ?? 0;
+        const rv = right[i] ?? 0;
+        if (lv > rv)
+            return 1;
+        if (lv < rv)
+            return -1;
+    }
+    return 0;
+}
+async function readEnvironmentConfig(root) {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, 'ops', 'amphion.json'));
+        return JSON.parse(new TextDecoder().decode(bytes));
+    }
+    catch {
+        return undefined;
+    }
+}
+function getDeferKey(root) {
+    return `amphion.environmentUpdate.deferUntil:${root.fsPath}`;
+}
+async function maybePromptEnvironmentUpdate(context, root) {
+    const extensionVersion = String(context.extension.packageJSON.version ?? '0.0.0');
+    const deferKey = getDeferKey(root);
+    const deferUntil = context.workspaceState.get(deferKey, 0);
+    if (Date.now() < deferUntil) {
+        return;
+    }
+    const envConfig = await readEnvironmentConfig(root);
+    const installedVersion = envConfig?.mcdVersion ?? '0.0.0';
+    if (compareVersions(installedVersion, extensionVersion) >= 0) {
+        return;
+    }
+    const action = await vscode.window.showInformationMessage(`AmphionAgent environment update available (${installedVersion} -> ${extensionVersion}). Update generator-owned governance and adapter files now?`, 'Update Environment', 'Later');
+    if (action === 'Later') {
+        await context.workspaceState.update(deferKey, Date.now() + UPDATE_DEFER_HOURS * 60 * 60 * 1000);
+        return;
+    }
+    if (action === 'Update Environment') {
+        const updated = await (0, scaffolder_1.migrateEnvironment)(root, context.extensionUri, extensionVersion);
+        if (updated) {
+            await context.workspaceState.update(deferKey, 0);
+            vscode.window.showInformationMessage(`AmphionAgent environment updated to ${extensionVersion}.`);
+        }
+        else {
+            vscode.window.showInformationMessage('Environment update was canceled.');
+        }
+    }
+}
 function activate(context) {
     const disposable = vscode.commands.registerCommand('mcd.init', async () => {
         // Determine target workspace folder
@@ -62,6 +126,7 @@ function activate(context) {
         vscode.workspace.fs.stat(refDocsUri).then(() => {
             // referenceDocs exists — MCD scaffold already present, auto-open dashboard
             vscode.commands.executeCommand('mcd.openDashboard');
+            void maybePromptEnvironmentUpdate(context, root);
         }, () => {
             // referenceDocs does not exist — offer initialization
             vscode.window

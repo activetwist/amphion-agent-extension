@@ -103,14 +103,12 @@ class OnboardingPanel {
                         const { writeFoundationJson } = await Promise.resolve().then(() => __importStar(require('./foundation/foundationWriter')));
                         const { renderCharterFromFoundation } = await Promise.resolve().then(() => __importStar(require('./templates/charterFromFoundation')));
                         const { renderPrdFromFoundation } = await Promise.resolve().then(() => __importStar(require('./templates/prdFromFoundation')));
-                        const { promptPostInitReview } = await Promise.resolve().then(() => __importStar(require('./postInit/postInitPrompt')));
                         const guidedSubmission = this._asGuidedSubmissionData(message.data);
                         if (!guidedSubmission) {
                             vscode.window.showErrorMessage('Guided onboarding payload was invalid.');
                             return;
                         }
                         const foundationState = this._buildGuidedFoundationState(guidedSubmission);
-                        this._panel.dispose();
                         const wrote = await writeFoundationJson(root, foundationState);
                         if (!wrote) {
                             vscode.window.showInformationMessage('Guided Init aborted.');
@@ -122,7 +120,7 @@ class OnboardingPanel {
                         await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`), encoder.encode(renderPrdFromFoundation(foundationState, timestamp)));
                         this._terminal.sendText('git add referenceDocs/');
                         this._terminal.sendText(`git commit -m "docs(${this._config.initialVersion}): generate SIP-1 foundation + artifacts"`);
-                        await promptPostInitReview(root, this._config);
+                        this._panel.webview.postMessage({ command: 'manualComplete' });
                     }
                     catch (e) {
                         console.error('Guided Init error', e);
@@ -1083,6 +1081,7 @@ class OnboardingPanel {
                     break;
                 case 'manualComplete':
                     if (manualView) manualView.classList.remove('active');
+                    if (guidedView) guidedView.classList.remove('active');
                     if (selectionView) selectionView.classList.remove('active');
                     manualSuccessView.classList.add('active');
                     break;
