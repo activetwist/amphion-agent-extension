@@ -2,6 +2,11 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.6] - 2026-02-24
+
+### Fixed
+- Resolved a critical bug in the "Update Environment" command where operational assets (Command Deck server and frontend) were not being synchronized. Migrations now correctly update `ops/launch-command-deck/` while safely preserving existing `state.json` data.
+
 ## [1.28.5] - 2026-02-24
 
 ### Changed

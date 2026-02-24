@@ -92,6 +92,32 @@ function copyDirSync(src: string, dest: string): void {
     }
 }
 
+/**
+ * Recursively copies a directory but skips specific files if they already exist in the destination.
+ * This is used during migration to avoid overwriting user data (like state.json).
+ */
+function copyDirSafeSync(src: string, dest: string, skipIfExist: string[] = []): void {
+    if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+    }
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+            copyDirSafeSync(srcPath, destPath, skipIfExist);
+        } else {
+            // Check if this file should be skipped if it already exists
+            const isSkippable = skipIfExist.some(skipPath => destPath.endsWith(skipPath));
+            if (isSkippable && fs.existsSync(destPath)) {
+                continue;
+            }
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
+
 async function pathExists(root: vscode.Uri, relativePath: string): Promise<boolean> {
     try {
         await vscode.workspace.fs.stat(vscode.Uri.joinPath(root, relativePath));
@@ -244,6 +270,12 @@ export async function migrateEnvironment(
     };
 
     await writeFile(root, 'ops/amphion.json', JSON.stringify(nextConfig, null, 2));
+
+    // Synchronize the Command Deck assets (safe migration)
+    const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
+    const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
+    copyDirSafeSync(deckSrc.fsPath, deckDest, ['state.json']);
+
     return true;
 }
 
