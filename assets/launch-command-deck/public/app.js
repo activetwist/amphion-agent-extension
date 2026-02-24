@@ -49,6 +49,7 @@ const el = {
   chartsPanelTitle: document.querySelector("#chartsPanelTitle"),
   chartsPanelContent: document.querySelector("#chartsPanelContent"),
   btnCloseChartsPanel: document.querySelector("#btnCloseChartsPanel"),
+  btnDeleteChart: document.querySelector("#btnDeleteChart"),
 
   importFile: document.querySelector("#importFile"),
   btnSaveBoard: document.querySelector("#btnSaveBoard"),
@@ -1036,6 +1037,16 @@ function registerEvents() {
     el.btnCloseChartsPanel.addEventListener("click", () => {
       state.selectedChartId = "";
       renderCharts();
+    });
+  }
+
+  if (el.btnDeleteChart) {
+    el.btnDeleteChart.addEventListener("click", async () => {
+      if (!state.selectedChartId) return;
+      if (!confirm("Delete this Mermaid chart?")) return;
+      await api(`/api/charts/${state.selectedChartId}`, "DELETE");
+      state.selectedChartId = "";
+      await refresh();
     });
   }
 

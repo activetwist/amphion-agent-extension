@@ -599,6 +599,14 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   margin-bottom: var(--space-3);
 }
 
+#btnDeleteChart {
+  display: none;
+}
+
+.charts-preview-panel.is-open #btnDeleteChart {
+  display: inline-block;
+}
+
 .charts-preview-content,
 .doc-dialog-content {
   overflow-y: auto;
@@ -641,7 +649,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   cursor: grabbing;
 }
 
-.mcd-mermaid-viewport > svg {
+.mcd-mermaid-viewport>svg {
   display: block;
   max-width: none !important;
   height: auto;
@@ -649,7 +657,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   transition: transform var(--motion-fast);
 }
 
-.mcd-mermaid-viewport.is-panning > svg {
+.mcd-mermaid-viewport.is-panning>svg {
   transition: none;
 }
 

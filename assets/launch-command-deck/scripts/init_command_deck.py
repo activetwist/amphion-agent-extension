@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import sqlite3
 import uuid
 from pathlib import Path
@@ -15,11 +16,15 @@ def now_iso() -> str:
     return dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
-def new_id(prefix: str) -> str:
+def new_id(prefix: str, seed: str = "") -> str:
+    """Generate a stable ID if seed is provided, else fallback to random UUID."""
+    if seed:
+        h = hashlib.sha256(seed.encode()).hexdigest()
+        return f"{prefix}_{h[:10]}"
     return f"{prefix}_{uuid.uuid4().hex[:10]}"
 
 
-def board_status_lists() -> List[Dict[str, Any]]:
+def board_status_lists(seed_base: str = "") -> List[Dict[str, Any]]:
     statuses = [
         ("backlog", "Backlog"),
         ("active", "In Progress"),
@@ -31,7 +36,7 @@ def board_status_lists() -> List[Dict[str, Any]]:
     for order, (key, title) in enumerate(statuses):
         items.append(
             {
-                "id": new_id("list"),
+                "id": new_id("list", f"{seed_base}_{key}"),
                 "key": key,
                 "title": title,
                 "order": order,
@@ -113,7 +118,8 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
     conn.commit()
 
     # 2. Setup Meta & Board
-    board_id = new_id("board")
+    board_seed = f"{codename}_{project_name}"
+    board_id = new_id("board", board_seed)
     c.execute("INSERT INTO meta (key, value) VALUES (?, ?)", ("activeBoardId", board_id))
     c.execute("INSERT INTO meta (key, value) VALUES (?, ?)", ("version", "1"))
 
@@ -124,7 +130,7 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
     ''', (board_id, f"{project_name} Launch Command Deck", codename.upper()[:3], 1, f"Command deck for {project_name} ({codename}) using MCD protocol.", project_type, "referenceDocs/01_Strategy/foundation.json", now, now))
 
     # 3. Setup Lists
-    lists = board_status_lists()
+    lists = board_status_lists(board_seed)
     list_id_by_key = {}
     for lst in lists:
         list_id_by_key[lst["key"]] = lst["id"]
@@ -134,17 +140,18 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
         ''', (lst["id"], board_id, lst["key"], lst["title"], lst["order"], now, now))
 
     # 4. Setup Milestone
-    milestone_id = new_id("ms")
+    milestone_id = new_id("ms", f"{board_seed}_{initial_version}")
     c.execute('''
         INSERT INTO milestones (id, boardId, code, title, msOrder, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', (milestone_id, board_id, initial_version.lower().replace(".", "").replace("-", ""), milestone_title, 0, now, now))
 
     # 5. Setup Charts (Sample IA)
+    chart_id = new_id("chart", f"{board_seed}_sample_ia")
     c.execute('''
         INSERT INTO charts (id, boardId, title, description, markdown, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', ("sample_ia_home_about_blog_contact", board_id, "Sample IA · Marketing Site", "Simple website structure example", "```mermaid\nflowchart TD\n  Home --> About\n  Home --> Blog\n  Home --> Contact\n```", now, now))
+    ''', (chart_id, board_id, "Sample IA · Marketing Site", "Simple website structure example", "```mermaid\nflowchart TD\n  Home --> About\n  Home --> Blog\n  Home --> Contact\n```", now, now))
 
     # 6. Seed Cards
     next_issue_num = 1
@@ -181,7 +188,7 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
         ]
         
         for order, (list_key, title, priority, description, acceptance) in enumerate(seed_cards):
-            card_id = new_id("card")
+            card_id = new_id("card", f"{board_seed}_{title}")
             issue_num_str = f"{codename.upper()[:3]}-{next_issue_num:03d}"
             c.execute('''
                 INSERT INTO cards (id, boardId, issueNumber, title, description, acceptance, milestoneId, listId, priority, owner, targetDate, cardOrder, createdAt, updatedAt)

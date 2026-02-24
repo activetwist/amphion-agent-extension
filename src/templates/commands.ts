@@ -22,6 +22,7 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 3. **Scoping**: Define the specific boundaries of the work. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine if new Architecture Primitives are required.
 5. **Card Update**: Create or update a Kanban card in \`ops/launch-command-deck/data/state.json\` with your findings and acceptance criteria to ensure the Product Owner can observe the plan.
+6. **Phase Isolation**: Do not draft the implementation contract during this phase. Scoping must be finalized and cardinality established before planning the 'How'.
 
 **CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
@@ -82,6 +83,7 @@ Invoke this command after Evaluation is complete and scope is locked. This phase
 3. **Risk Assessment**: identify potential side effects or breaking changes.
 4. **AFP Enumeration**: List every file that will be created, modified, or deleted.
 5. **Approval**: Present the contract to the operator for formal approval.
+6. **Trigger-Based Execution**: Generating this contract does NOT authorize execution. Implementation must only begin after explicit operator approval and the invocation of the \`/execute\` command.
 
 **CRITICAL AGENT INSTRUCTION:** After generating the Contract, you MUST halt execution. Do not proceed to the Execute phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 

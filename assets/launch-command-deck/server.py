@@ -50,7 +50,7 @@ def dict_factory(cursor, row):
 class SQLiteStore:
     def __init__(self, db_path: Path):
         self.db_path = db_path
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def get_conn(self):
         conn = sqlite3.connect(self.db_path)
@@ -476,6 +476,13 @@ class KanbanHandler(BaseHTTPRequestHandler):
                 if route.startswith("/api/cards/"):
                     card_id = route.split("/")[3]
                     c.execute("DELETE FROM cards WHERE id=?", (card_id,))
+                    conn.commit()
+                    self._send_json({"ok": True, "state": STORE.snapshot()})
+                    return
+
+                if route.startswith("/api/charts/"):
+                    chart_id = route.split("/")[3]
+                    c.execute("DELETE FROM charts WHERE id=?", (chart_id,))
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
