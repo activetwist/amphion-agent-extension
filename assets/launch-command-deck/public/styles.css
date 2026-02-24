@@ -995,6 +995,20 @@ textarea:focus {
   margin-right: var(--space-2);
 }
 
+.btn-attribution-info {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-ghost-surface {
   background: transparent;
   border: 1px solid var(--border-subtle);
@@ -1165,6 +1179,63 @@ menu {
   font-size: 1rem;
 }
 
+.attribution-dialog {
+  width: min(760px, 95vw);
+  max-height: 88vh;
+  padding: var(--space-6);
+}
+
+.attribution-header {
+  margin-bottom: var(--space-4);
+}
+
+.attribution-dialog-body {
+  display: grid;
+  gap: var(--space-4);
+  font-family: var(--font-ui);
+}
+
+.attribution-entry {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-layer);
+  padding: var(--space-4);
+}
+
+.attribution-entry .why-section-title {
+  margin-top: 0;
+}
+
+.attribution-entry .why-paragraph {
+  margin-bottom: var(--space-3);
+}
+
+.attribution-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.attribution-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform var(--motion-fast), box-shadow var(--motion-fast), opacity var(--motion-fast);
+}
+
+.attribution-link-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+  box-shadow: var(--shadow-card);
+}
+
 .spacer {
   flex: 1;
 }
@@ -1212,6 +1283,14 @@ menu {
 
   .global-header-actions {
     align-self: flex-end;
+  }
+
+  .attribution-links {
+    width: 100%;
+  }
+
+  .attribution-link-btn {
+    width: 100%;
   }
 }
 

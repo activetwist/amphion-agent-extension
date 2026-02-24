@@ -2,6 +2,22 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.3] - 2026-02-24
+
+### Added
+- Added a persistent global `Credits` info control in the Command Deck header (next to `New Board`).
+- Added a hard-coded attribution modal containing credits for Active Twist and Stanton Brooks.
+- Added styled CTA link buttons in the modal for:
+  - `https://activetwist.com`
+  - `https://www.linkedin.com/in/stantonbrooks/`
+
+### Changed
+- Backfilled release notes to capture the prior local UI/branding workstream completed before this slice, including:
+  - Board-to-Kanban labeling updates and navigation refinement.
+  - Header branding integration (application logo + favicon) and selector width standardization.
+- Kept attribution independent of `MCD_PLAYBOOK.md` by rendering content directly from frontend markup.
+- Synchronized attribution UI behavior across local runtime, command-deck source mirror, and extension bundled asset copies.
+
 ## [1.28.2] - 2026-02-24
 
 ### Fixed

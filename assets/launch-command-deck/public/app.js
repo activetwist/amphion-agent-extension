@@ -74,7 +74,9 @@ const el = {
   btnCancelCard: document.querySelector("#btnCancelCard"),
   cardTemplate: document.querySelector("#cardTemplate"),
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
+  attributionDialog: document.querySelector("#attributionDialog"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
+  btnAttributionInfo: document.querySelector("#btnAttributionInfo"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
 
   btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
@@ -909,6 +911,20 @@ function registerEvents() {
     e.preventDefault();
     el.whyMcdDialog.close();
   });
+
+  if (el.btnAttributionInfo && el.attributionDialog) {
+    el.btnAttributionInfo.addEventListener("click", () => {
+      el.attributionDialog.showModal();
+    });
+
+    const attributionClose = el.attributionDialog.querySelector("button[value='close']");
+    if (attributionClose) {
+      attributionClose.addEventListener("click", (e) => {
+        e.preventDefault();
+        el.attributionDialog.close();
+      });
+    }
+  }
 
   if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 

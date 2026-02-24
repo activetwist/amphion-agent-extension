@@ -41,6 +41,8 @@
       <div class="global-header-actions">
         <button id="btnThemeToggle" class="btn btn-theme-toggle">Light Mode</button>
         <button id="btnNewBoard" class="btn primary">New Board</button>
+        <button id="btnAttributionInfo" class="btn btn-attribution-info" title="Credits & Attribution"
+          aria-label="Open credits and attribution">i</button>
       </div>
     </header>
 
@@ -227,6 +229,42 @@
       <h3 class="why-section-title">Deterministic Engineering</h3>
       <p>Contracts act as both absolute instruction sets for the machine and historical ledgers for human operators,
         eliminating "black box" code drift and making the software's evolution totally replayable.</p>
+    </div>
+  </dialog>
+
+  <dialog id="attributionDialog" class="card-dialog attribution-dialog">
+    <form method="dialog">
+      <div class="modal-header attribution-header">
+        <h2 class="why-title">Credits</h2>
+        <button value="close" class="btn">Close</button>
+      </div>
+    </form>
+    <div class="attribution-dialog-body">
+      <section class="attribution-entry">
+        <h3 class="why-section-title">Active Twist</h3>
+        <p class="why-paragraph">Active Twist is a Modern Readiness Consulting Firm that builds diagnostic, learning,
+          and delivery systems to help organizations improve how work actually gets done. Their work spans innovation
+          maturity, intergroup leadership, AI readiness, and product delivery, serving clients from Fortune 500
+          companies to public institutions. AmphionAgent and the MCD methodology are products of Active Twist's
+          commitment to building what they need, proving it works, and sharing it openly.</p>
+        <div class="attribution-links">
+          <a class="attribution-link-btn" href="https://activetwist.com" target="_blank" rel="noopener noreferrer">Visit
+            Active Twist</a>
+        </div>
+      </section>
+
+      <section class="attribution-entry">
+        <h3 class="why-section-title">Stanton Brooks</h3>
+        <p class="why-paragraph">Stanton Brooks is a product manager and UX veteran with nearly two decades of
+          experience shipping software, leading design teams, and advising organizations on how to build things people
+          actually want to use. He developed the Micro-Contract Development methodology to bring product discipline to
+          the age of agentic AI development and built AmphionAgent to prove it works. He is the Director of UX &
+          Product Innovation at Active Twist.</p>
+        <div class="attribution-links">
+          <a class="attribution-link-btn" href="https://www.linkedin.com/in/stantonbrooks/" target="_blank"
+            rel="noopener noreferrer">View Stanton on LinkedIn</a>
+        </div>
+      </section>
     </div>
   </dialog>
 
