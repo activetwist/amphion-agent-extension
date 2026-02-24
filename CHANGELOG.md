@@ -2,6 +2,13 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.4] - 2026-02-24
+
+### Changed
+- Refined IDE Command Deck dashboard UI for improved ergonomics.
+- Renamed "DETAILS" section to "Documents" and moved its header out of the surface box.
+- Left-aligned primary headings and reduced vertical spacing for a tighter, more professional layout.
+
 ## [1.28.3] - 2026-02-24
 
 ### Added

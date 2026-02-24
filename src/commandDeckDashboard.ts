@@ -193,12 +193,12 @@ export class CommandDeckDashboard {
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 32px;
+            gap: 24px;
         }
 
         h1 {
             font-size: 28px;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             font-weight: 600;
         }
 
@@ -212,7 +212,7 @@ export class CommandDeckDashboard {
 
         p.subtitle {
             color: #8b949e;
-            margin-bottom: 32px;
+            margin-bottom: 16px;
             font-size: 14px;
         }
 
@@ -288,14 +288,14 @@ export class CommandDeckDashboard {
 </head>
 <body>
     <div class="container">
-        <header style="text-align: center; margin-bottom: 16px;">
+        <header style="text-align: left; margin-bottom: 16px;">
             <h1>Amphion Command Deck</h1>
             <p class="subtitle">AI Development Orchestrator Phase Transitions</p>
         </header>
 
         <div>
-            <div class="details-section">
-                <h2>DETAILS</h2>
+            <h2>Documents</h2>
+            <div class="details-section" style="margin-top: -8px;">
                 <ul class="details-list">
                     <li><a onclick="vscode.postMessage({command: 'previewFile', path: 'referenceDocs/00_Governance/MCD_PLAYBOOK.md'})">• Canonical MCD Commands</a></li>
                     <li><a onclick="vscode.postMessage({command: 'openDynamicDoc', folder: '01_Strategy', suffix: 'PROJECT_CHARTER.md'})">• Project Charter</a></li>
