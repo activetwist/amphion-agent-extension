@@ -58,6 +58,7 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             nextIssueNumber INTEGER,
             description TEXT,
             projectType TEXT,
+            foundationPath TEXT,
             createdAt TEXT,
             updatedAt TEXT
         );
@@ -118,9 +119,9 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
 
     now = now_iso()
     c.execute('''
-        INSERT INTO boards (id, name, codename, nextIssueNumber, description, projectType, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (board_id, f"{project_name} Launch Command Deck", codename.upper()[:3], 1, f"Command deck for {project_name} ({codename}) using MCD protocol.", project_type, now, now))
+        INSERT INTO boards (id, name, codename, nextIssueNumber, description, projectType, foundationPath, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (board_id, f"{project_name} Launch Command Deck", codename.upper()[:3], 1, f"Command deck for {project_name} ({codename}) using MCD protocol.", project_type, "referenceDocs/01_Strategy/foundation.json", now, now))
 
     # 3. Setup Lists
     lists = board_status_lists()
@@ -158,10 +159,17 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             ),
             (
                 "backlog",
-                f"{initial_version} - Project Charter + PRD Baseline",
+                f"{initial_version} - Spec Lock: Charter & Non-Goals",
                 "P0",
-                "Capture charter, strategy baseline, and high-level PRD before implementation contracts.",
-                "- Charter and PRD drafts exist in strategy docs.\\n- Scope boundaries are explicit.",
+                "Ensure project strategy and Non-Goals are explicitly defined in the foundation.",
+                "- Foundation JSON exists.\\n- Project Charter is locked.\\n- Non-goals are clearly delineated.",
+            ),
+            (
+                "backlog",
+                f"{initial_version} - Artifacts exist and are canonical",
+                "P1",
+                "Verify that High-Level PRD and derived artifacts are correctly populated and canonical.",
+                "- High-Level PRD exists.\\n- Architecture examples are integrated.",
             ),
             (
                 "backlog",

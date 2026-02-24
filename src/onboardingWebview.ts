@@ -96,6 +96,45 @@ export class OnboardingPanel {
                             this._panel.webview.postMessage({ command: 'handoffReady', data: importPrompts });
                         }
                         return;
+                    case 'startGuided':
+                        if (!scaffoldComplete) return;
+                        this._panel.dispose();
+                        try {
+                            const { runGuidedWizard } = await import('./onboarding/guidedWizard');
+                            const { writeFoundationJson } = await import('./foundation/foundationWriter');
+                            const { renderCharterFromFoundation } = await import('./templates/charterFromFoundation');
+                            const { renderPrdFromFoundation } = await import('./templates/prdFromFoundation');
+                            const { promptPostInitReview } = await import('./postInit/postInitPrompt');
+
+                            const foundationState = await runGuidedWizard(this._config!);
+                            if (foundationState) {
+                                await writeFoundationJson(root, foundationState);
+
+                                const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+                                const encoder = new TextEncoder();
+
+                                await vscode.workspace.fs.writeFile(
+                                    vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
+                                    encoder.encode(renderCharterFromFoundation(foundationState, timestamp))
+                                );
+
+                                await vscode.workspace.fs.writeFile(
+                                    vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
+                                    encoder.encode(renderPrdFromFoundation(foundationState, timestamp))
+                                );
+
+                                this._terminal!.sendText('git add referenceDocs/');
+                                this._terminal!.sendText(`git commit -m "docs(${this._config!.initialVersion}): generate SIP-1 foundation + artifacts"`);
+
+                                await promptPostInitReview(root, this._config!);
+                            } else {
+                                vscode.window.showInformationMessage('Guided Init aborted.');
+                            }
+                        } catch (e) {
+                            console.error('Guided Init error', e);
+                            vscode.window.showErrorMessage('Failed to complete Guided Init.');
+                        }
+                        return;
                     case 'cancel':
                         if (!scaffoldComplete) return;
                         this._panel.dispose();
@@ -329,16 +368,21 @@ export class OnboardingPanel {
                 <h3>How would you like to build your Strategy?</h3>
                 <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Choose an approach to generate your Project Charter and High-Level PRD.</p>
                 
-                <div class="button-group">
-                    <button id="btn-show-manual" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                        <span style="font-size: 24px;">✍️</span>
-                        <span>Start from Scratch</span>
-                        <span style="font-size: 12px; font-weight: 400; color: #8b949e;">Fill out 6 quick fields</span>
+                <div class="button-group" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <button id="btn-show-manual" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
+                        <span style="font-size: 24px;">⚡</span>
+                        <span>Fast Onboarding</span>
+                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">I understand Product Management language very well, and I already know how to define and measure my project success.</span>
                     </button>
-                    <button id="btn-action-import" class="primary" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <button id="btn-show-guided" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
+                        <span style="font-size: 24px;">🧭</span>
+                        <span>Guided Onboarding</span>
+                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">Answer a series of guided questions with easy descriptions to help you build the strategic documents for your project.</span>
+                    </button>
+                    <button id="btn-action-import" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px 12px; height: 100%;">
                         <span style="font-size: 24px;">📂</span>
-                        <span>Import Source Docs</span>
-                        <span style="font-size: 12px; font-weight: 400; color: rgba(255,255,255,0.7);">Agent derivation flow</span>
+                        <span>Import Docs</span>
+                        <span style="font-size: 12px; font-weight: 400; color: #8b949e; text-align: center;">I have a project charter and product requirements document already, and I would like to import them to initialize the project.</span>
                     </button>
                 </div>
             </div>
@@ -478,6 +522,16 @@ export class OnboardingPanel {
             document.getElementById('btn-show-manual').addEventListener('click', () => {
                 selectionView.classList.remove('active');
                 manualView.classList.add('active');
+            });
+        }
+
+        if (document.getElementById('btn-show-guided')) {
+            document.getElementById('btn-show-guided').addEventListener('click', () => {
+                const btn = document.getElementById('btn-show-guided');
+                btn.innerText = 'Starting...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                vscode.postMessage({ command: 'startGuided' });
             });
         }
 
