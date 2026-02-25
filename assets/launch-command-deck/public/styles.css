@@ -261,6 +261,13 @@ html[data-sidebar-collapsed="true"] .app-shell {
   gap: var(--space-2);
 }
 
+.app-logo {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+  margin-right: -4px;
+}
+
 .global-header h1 {
   margin: 0;
   font-size: 1.3rem;
@@ -269,13 +276,73 @@ html[data-sidebar-collapsed="true"] .app-shell {
   color: var(--text-primary);
 }
 
-.nav-tabs {
-  display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  background: var(--surface-layer);
+.view-selector {
+  position: relative;
+  z-index: 100;
+}
+
+.view-selector-toggle {
+  appearance: none;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  background: var(--surface-layer);
+  color: var(--text-primary);
+  width: 220px;
+  padding: 6px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    background var(--motion-fast),
+    border-color var(--motion-fast),
+    transform var(--motion-fast);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+
+.view-selector-toggle:hover {
+  background: var(--surface-elevated);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.view-selector-toggle .chevron {
+  opacity: 0.6;
+  transition: transform var(--motion-base);
+}
+
+.view-selector.is-open .view-selector-toggle .chevron {
+  transform: rotate(180deg);
+}
+
+.view-selector-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 220px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  padding: var(--space-2);
+  display: grid;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--motion-base),
+    transform var(--motion-base),
+    visibility var(--motion-base);
+}
+
+.view-selector.is-open .view-selector-options {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .nav-tab {
@@ -284,19 +351,18 @@ html[data-sidebar-collapsed="true"] .app-shell {
   background: transparent;
   color: var(--text-secondary);
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
+  padding: 10px 14px;
   cursor: pointer;
   font-size: 0.9rem;
+  text-align: left;
   transition:
     background var(--motion-fast),
-    color var(--motion-fast),
-    transform var(--motion-fast);
+    color var(--motion-fast);
 }
 
 .nav-tab:hover {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
-  transform: translateY(-1px);
+  background: var(--btn-ghost-hover);
 }
 
 .nav-tab.active {

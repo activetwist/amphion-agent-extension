@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Launch Command Board</title>
+  <link rel="icon" type="image/png" href="/application-logo.png" />
   <link rel="stylesheet" href="/styles.css" />
   <script>
     (function () {
@@ -30,13 +31,23 @@
   <div class="app-shell">
     <header class="global-header">
       <div class="global-header-main">
-        <h1>Command Deck</h1>
-        <nav class="nav-tabs" id="navTabs">
-          <button class="nav-tab active" data-view="board">Board</button>
-          <button class="nav-tab" data-view="dashboard">Dashboard</button>
-          <button class="nav-tab" data-view="charts">Charts</button>
-          <button class="nav-tab" data-view="guide">MCD Guide</button>
-        </nav>
+        <img src="/application-logo.png" alt="Amphion Logo" class="app-logo" />
+        <h1>Amphion Agent Controls</h1>
+        <div class="view-selector" id="viewSelector">
+          <button class="view-selector-toggle" id="viewSelectorToggle">
+            <span id="currentViewLabel">Kanban</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div class="view-selector-options" id="viewSelectorOptions">
+            <button class="nav-tab active" data-view="board">Kanban</button>
+            <button class="nav-tab" data-view="dashboard">Dashboard</button>
+            <button class="nav-tab" data-view="charts">Charts Library</button>
+            <button class="nav-tab" data-view="guide">MCD Guide</button>
+          </div>
+        </div>
       </div>
       <div class="global-header-actions">
         <button id="btnThemeToggle" class="btn btn-theme-toggle">Light Mode</button>

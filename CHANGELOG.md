@@ -2,12 +2,14 @@
 
 All notable changes to this extension are documented in this file.
 
-## [1.28.6] - 2026-02-24
+## [1.28.7] - 2026-02-24
 
 ### Fixed
-- Resolved a critical bug in the "Update Environment" command where operational assets (Command Deck server and frontend) were not being synchronized. Migrations now correctly update `ops/launch-command-deck/` while safely preserving existing `state.json` data.
+- **Synchronized Assets Regression**: Fixed a critical issue where the extension's internal assets were outdated, causing environment updates to roll back UI and branding improvements. The "Command Deck" is now correctly branded as **Amphion Agent Controls**.
+- **Mermaid Rendering**: Implemented a custom `marked` renderer to ensure Mermaid diagrams are consistently rendered in the Charts Library.
+- **Unified Branding**: Restored the logo, favicon, and dropdown navigation refinements to the Command Deck distribution.
 
-## [1.28.5] - 2026-02-24
+## [1.28.6] - 2026-02-24
 
 ### Changed
 - Rebranded IDE Dashboard to "Amphion Agent Controls" to establish a functional distinction between the IDE command interface and the browser-based collaboration platform ("Amphion Command Deck").

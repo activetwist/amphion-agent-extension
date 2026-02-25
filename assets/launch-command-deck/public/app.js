@@ -23,6 +23,10 @@ const el = {
   boardDescription: document.querySelector("#boardDescription"),
   milestoneFilter: document.querySelector("#milestoneFilter"),
   searchInput: document.querySelector("#searchInput"),
+  viewSelector: document.querySelector("#viewSelector"),
+  viewSelectorToggle: document.querySelector("#viewSelectorToggle"),
+  currentViewLabel: document.querySelector("#currentViewLabel"),
+  viewSelectorOptions: document.querySelector("#viewSelectorOptions"),
   navTabs: document.querySelectorAll(".nav-tab"),
   btnNewBoard: document.querySelector("#btnNewBoard"),
   btnCloneBoard: document.querySelector("#btnCloneBoard"),
@@ -78,7 +82,6 @@ const el = {
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnAttributionInfo: document.querySelector("#btnAttributionInfo"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
-
   btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
 };
 
@@ -297,23 +300,30 @@ function scheduleMermaidPanZoomAttach(container) {
 
 function renderMermaidBlocks(container) {
   if (!window.mermaid || !container) return;
-  const nodes = container.querySelectorAll(".language-mermaid");
+  // Support both .language-mermaid (standard) and .mermaid (legacy/custom)
+  const nodes = container.querySelectorAll(".language-mermaid, .mermaid, pre.mermaid");
   if (!nodes.length) return;
-  configureMermaidTheme();
-  nodes.forEach((node) => node.removeAttribute("data-processed"));
-  const attachInteractions = () => scheduleMermaidPanZoomAttach(container);
-  if (typeof window.mermaid.run === "function") {
-    const renderPromise = window.mermaid.run({ nodes });
-    if (renderPromise && typeof renderPromise.then === "function") {
-      renderPromise.then(attachInteractions).catch((error) => {
-        console.warn("Mermaid render failed:", error);
-      });
-    } else {
+
+  try {
+    configureMermaidTheme();
+    nodes.forEach((node) => node.removeAttribute("data-processed"));
+    const attachInteractions = () => scheduleMermaidPanZoomAttach(container);
+
+    if (typeof window.mermaid.run === "function") {
+      const renderPromise = window.mermaid.run({ nodes });
+      if (renderPromise && typeof renderPromise.then === "function") {
+        renderPromise.then(attachInteractions).catch((error) => {
+          console.warn("Mermaid render failed:", error);
+        });
+      } else {
+        attachInteractions();
+      }
+    } else if (typeof window.mermaid.init === "function") {
+      window.mermaid.init(undefined, nodes);
       attachInteractions();
     }
-  } else {
-    window.mermaid.init(undefined, nodes);
-    attachInteractions();
+  } catch (err) {
+    console.error("Critical error in Mermaid rendering:", err);
   }
 }
 
@@ -436,14 +446,25 @@ function cardMatchesFilter(board, card) {
   return haystack.includes(query);
 }
 
-function renderBoardList() {
+function renderKanbanList() {
   const activeBoard = getActiveBoard();
   el.boardList.innerHTML = "";
 
   for (const board of state.data.boards) {
     const button = document.createElement("button");
     button.className = `board-item ${activeBoard && board.id === activeBoard.id ? "active" : ""}`;
-    button.textContent = board.name;
+
+    const titleDiv = document.createElement("div");
+    titleDiv.style.fontWeight = "600";
+    titleDiv.textContent = board.name;
+    button.appendChild(titleDiv);
+
+    const codeSpan = document.createElement("span");
+    codeSpan.style.fontSize = "0.75rem";
+    codeSpan.style.opacity = "0.6";
+    codeSpan.textContent = board.codename || "KANBAN";
+    button.appendChild(codeSpan);
+
     button.addEventListener("click", async () => {
       await api(`/api/boards/${board.id}/activate`, "POST", {});
       await refresh();
@@ -452,7 +473,7 @@ function renderBoardList() {
   }
 }
 
-function renderBoardMeta() {
+function renderKanbanMeta() {
   const board = getActiveBoard();
   if (!board) return;
   el.boardName.value = board.name;
@@ -758,12 +779,20 @@ async function refresh() {
 function render() {
   const board = getActiveBoard();
   if (!board) return;
-  renderBoardList();
-  renderBoardMeta();
+  renderKanbanList();
+  renderKanbanMeta();
   renderMilestoneProgress();
 
-  // Update Tab UI State
-  el.navTabs.forEach(tab => {
+  // Update View Selector UI State
+  const viewMap = {
+    board: "Kanban",
+    dashboard: "Dashboard",
+    charts: "Charts Library",
+    guide: "MCD Guide",
+  };
+  el.currentViewLabel.textContent = viewMap[state.currentView] || "Kanban";
+
+  el.navTabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.view === state.currentView);
   });
 
@@ -882,12 +911,23 @@ function download(filename, text) {
 }
 
 function registerEvents() {
-  el.navTabs.forEach(tab => {
+  el.viewSelectorToggle.addEventListener("click", () => {
+    el.viewSelector.classList.toggle("is-open");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!el.viewSelector.contains(e.target)) {
+      el.viewSelector.classList.remove("is-open");
+    }
+  });
+
+  el.navTabs.forEach((tab) => {
     tab.addEventListener("click", (e) => {
-      const nextView = e.target.dataset.view;
+      const nextView = e.target.closest(".nav-tab").dataset.view;
       state.currentView = nextView === "wiki" ? "board" : nextView;
       localStorage.setItem("mcd_current_view", state.currentView);
-      document.documentElement.setAttribute('data-current-view', state.currentView);
+      document.documentElement.setAttribute("data-current-view", state.currentView);
+      el.viewSelector.classList.remove("is-open");
       render();
     });
   });
@@ -953,7 +993,7 @@ function registerEvents() {
   el.btnDeleteBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
-    if (!confirm(`Delete board \"${board.name}\"?`)) return;
+    if (!confirm(`Delete Kanban \"${board.name}\"?`)) return;
     await api(`/api/boards/${board.id}`, "DELETE");
     await refresh();
   });
@@ -1074,6 +1114,9 @@ function registerEvents() {
 function startPolling() {
   if (state.pollInterval) clearInterval(state.pollInterval);
   state.pollInterval = setInterval(async () => {
+    // Only poll if tab is focused to save local resources
+    if (document.visibilityState !== "visible") return;
+
     try {
       const vRes = await api("/api/state/version");
       if (vRes.ok && vRes.version && state.lastVersion && vRes.version !== state.lastVersion) {
@@ -1083,7 +1126,7 @@ function startPolling() {
     } catch (e) {
       // fail silently
     }
-  }, 2000);
+  }, 10000);
 }
 
 async function toggleTheme() {
@@ -1106,7 +1149,7 @@ async function toggleTheme() {
 }
 
 async function createNewBoard() {
-  const name = prompt("Board name");
+  const name = prompt("Kanban name");
   if (!name || !name.trim()) return;
   const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
   await api("/api/boards", "POST", {
@@ -1131,6 +1174,20 @@ function toggleSidebar() {
 }
 
 async function bootstrap() {
+  if (window.marked) {
+    const renderer = new window.marked.Renderer();
+    const originalCode = renderer.code.bind(renderer);
+    renderer.code = function (token) {
+      const code = token.text || "";
+      const lang = token.lang || "";
+      if (lang === "mermaid") {
+        return `<div class="mermaid">${code}</div>`;
+      }
+      return originalCode(token);
+    };
+    window.marked.use({ renderer });
+  }
+
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";

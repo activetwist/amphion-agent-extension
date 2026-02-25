@@ -115,6 +115,12 @@ STORE = SQLiteStore(DB_FILE)
 class KanbanHandler(BaseHTTPRequestHandler):
     server_version = "LaunchCommandDeck/0.2"
 
+    def log_message(self, format, *args):
+        # Silence state polling to reduce terminal noise
+        if len(args) > 0 and isinstance(args[0], str) and "/api/state/version" in args[0]:
+            return
+        super().log_message(format, *args)
+
     def _send_json(self, payload: Dict[str, Any], status: int = HTTPStatus.OK) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
