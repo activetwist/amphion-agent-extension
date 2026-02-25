@@ -2,6 +2,12 @@
 
 All notable changes to this extension are documented in this file.
 
+## [1.28.8] - 2026-02-24
+
+### Fixed
+- **Definitive Branding Alignment**: Updated the Command Deck's HTML title and state-backed board name to consistently reflect the **Amphion Agent Controls** identity.
+- **Title Synchronization**: Ensured the browser tab title matches the global header and IDE dashboard.
+
 ## [1.28.7] - 2026-02-24
 
 ### Fixed
