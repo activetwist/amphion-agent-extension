@@ -11,6 +11,7 @@ import argparse
 import datetime as dt
 import json
 import mimetypes
+import re
 import subprocess
 import threading
 import uuid
@@ -20,13 +21,20 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
 DATA_DIR = BASE_DIR / "data"
-DOCS_DIR = BASE_DIR.parent.parent / "referenceDocs"
+WORKSPACE_DIR = BASE_DIR.parent.parent
+CONTROL_PLANE_DIR = WORKSPACE_DIR / ".amphion" / "control-plane"
+LEGACY_DOCS_DIR = WORKSPACE_DIR / "referenceDocs"
 DB_FILE = DATA_DIR / "amphion.db"
+LEGACY_STATE_FILE = DATA_DIR / "state.json"
+RUNTIME_SERVER = "launch-command-deck"
+RUNTIME_IMPLEMENTATION = "python"
+RUNTIME_DATASTORE = "sqlite"
+RUNTIME_FINGERPRINT = f"{RUNTIME_SERVER}:{RUNTIME_IMPLEMENTATION}:{RUNTIME_DATASTORE}"
 
 
 def now_iso() -> str:
@@ -39,6 +47,1754 @@ def new_id(prefix: str) -> str:
 
 def sort_by_order(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(items, key=lambda x: (x.get("order", 0), x.get("title", "")))
+
+
+MERMAID_BLOCK_RE = re.compile(r"```mermaid\s*\n(?P<body>.*?)```", re.IGNORECASE | re.DOTALL)
+FLOWCHART_START_RE = re.compile(r"^\s*(flowchart|graph)\b", re.IGNORECASE)
+FLOWCHART_SKIP_RE = re.compile(
+    r"^\s*(%%|subgraph\b|end\b|classDef\b|class\b|style\b|linkStyle\b|click\b)",
+    re.IGNORECASE,
+)
+MERMAID_DIAGRAM_HEADERS = (
+    "flowchart",
+    "graph",
+    "sequenceDiagram",
+    "classDiagram",
+    "stateDiagram",
+    "erDiagram",
+    "journey",
+    "gantt",
+    "pie",
+    "gitGraph",
+    "mindmap",
+    "timeline",
+    "quadrantChart",
+    "requirementDiagram",
+    "sankey-beta",
+    "xychart-beta",
+)
+MERMAID_FENCED_BLOCK_ONLY_RE = re.compile(
+    r"^\s*```mermaid\s*\n(?P<body>[\s\S]*?)\n?```\s*$",
+    re.IGNORECASE,
+)
+MERMAID_RAW_HEADER_RE = re.compile(
+    r"^\s*(?:" + "|".join(re.escape(header) for header in MERMAID_DIAGRAM_HEADERS) + r")\b",
+    re.IGNORECASE,
+)
+CHART_MARKDOWN_ERROR = "markdown must be Mermaid chart content"
+MILESTONE_KIND_STANDARD = "standard"
+MILESTONE_KIND_PREFLIGHT = "preflight"
+MILESTONE_REQUIRED_ERROR = "milestoneId is required. Add/select a milestone for new work."
+MILESTONE_CLOSED_ERROR = "Pre-flight milestone is write-closed. Use an active milestone or create a new one."
+MILESTONE_ARCHIVED_ERROR = "Milestone is archived. Restore it from Archives before assigning new work."
+MILESTONE_TEXT_MAX_LEN = 10_000
+MILESTONE_METADATA_FIELDS = ("metaContract", "goals", "nonGoals", "risks")
+ARTIFACT_ALLOWED_TYPES = {"findings", "outcomes"}
+BOARD_ARTIFACT_ALLOWED_TYPES = {"charter", "prd", "guardrails", "playbook"}
+ARTIFACT_TITLE_MAX_LEN = 280
+ARTIFACT_SUMMARY_MAX_LEN = 4_000
+ARTIFACT_BODY_MAX_LEN = 40_000
+ARTIFACT_SOURCE_REF_MAX_LEN = 120
+MERMAID_NODE_PATTERNS = [
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\{\{\s*(?P<label>(?![\"']).*?)\s*\}\}"), "{id}{{{{{label}}}}}"),
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\{(?!\{)\s*(?P<label>(?![\"']).*?)\s*\}"), "{id}{{{label}}}"),
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\[\[\s*(?P<label>(?![\"']).*?)\s*\]\]"), "{id}[[{label}]]"),
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\[(?!\[)\s*(?P<label>(?![\"']).*?)\s*\](?!\])"), "{id}[{label}]"),
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\(\(\s*(?P<label>(?![\"']).*?)\s*\)\)"), "{id}(({label}))"),
+    (re.compile(r"(?P<id>\b[A-Za-z_][\w-]*)\((?!\()\s*(?P<label>(?![\"']).*?)\s*\)(?!\))"), "{id}({label})"),
+]
+
+
+def _quote_mermaid_label(label: str) -> str:
+    clean = label.strip()
+    if len(clean) >= 2 and ((clean[0] == clean[-1] == '"') or (clean[0] == clean[-1] == "'")):
+        clean = clean[1:-1]
+    escaped = clean.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _sanitize_flowchart_line(line: str) -> str:
+    result = line
+    for pattern, template in MERMAID_NODE_PATTERNS:
+        def _replace(match: re.Match[str]) -> str:
+            quoted = _quote_mermaid_label(match.group("label"))
+            return template.format(id=match.group("id"), label=quoted)
+        result = pattern.sub(_replace, result)
+    return result
+
+
+def sanitize_mermaid_node_labels(markdown: str) -> str:
+    """Normalize flowchart node labels to Mermaid-safe quoted form."""
+
+    def _replace_block(match: re.Match[str]) -> str:
+        body = match.group("body")
+        lines = body.splitlines()
+        in_flowchart = False
+        changed = False
+        updated_lines: List[str] = []
+
+        for line in lines:
+            stripped = line.strip()
+            if FLOWCHART_START_RE.match(stripped):
+                in_flowchart = True
+                updated_lines.append(line)
+                continue
+
+            if not in_flowchart or FLOWCHART_SKIP_RE.match(stripped):
+                updated_lines.append(line)
+                continue
+
+            safe_line = _sanitize_flowchart_line(line)
+            if safe_line != line:
+                changed = True
+            updated_lines.append(safe_line)
+
+        if not changed:
+            return match.group(0)
+        return "```mermaid\n" + "\n".join(updated_lines) + "\n```"
+
+    return MERMAID_BLOCK_RE.sub(_replace_block, markdown)
+
+
+def _normalize_mermaid_body(raw: str) -> str:
+    trimmed = str(raw or "").strip()
+    if not trimmed:
+        return ""
+    return "\n".join(line.rstrip() for line in trimmed.splitlines()).strip()
+
+
+def _first_significant_mermaid_line(body: str) -> str:
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("%%"):
+            continue
+        return stripped
+    return ""
+
+
+def normalize_and_validate_mermaid(markdown: str) -> str:
+    raw = str(markdown or "")
+    if not raw.strip():
+        raise ValueError(CHART_MARKDOWN_ERROR)
+
+    fenced_match = MERMAID_FENCED_BLOCK_ONLY_RE.match(raw)
+    if fenced_match:
+        body = _normalize_mermaid_body(fenced_match.group("body"))
+    else:
+        body = _normalize_mermaid_body(raw)
+
+    if not body:
+        raise ValueError(CHART_MARKDOWN_ERROR)
+
+    first_line = _first_significant_mermaid_line(body)
+    if not first_line or not MERMAID_RAW_HEADER_RE.match(first_line):
+        raise ValueError(CHART_MARKDOWN_ERROR)
+
+    canonical = f"```mermaid\n{body}\n```"
+    return sanitize_mermaid_node_labels(canonical)
+
+
+def _coerce_milestone_text(value: Any, field_name: str) -> str:
+    """Normalize milestone metadata fields into bounded text payloads."""
+    if value is None:
+        text = ""
+    elif isinstance(value, str):
+        text = value
+    elif isinstance(value, (list, dict)):
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value)
+
+    if len(text) > MILESTONE_TEXT_MAX_LEN:
+        raise ValueError(f"{field_name} exceeds max length ({MILESTONE_TEXT_MAX_LEN})")
+    return text
+
+
+def _coerce_artifact_type(value: Any) -> str:
+    artifact_type = str(value or "").strip().lower()
+    if artifact_type not in ARTIFACT_ALLOWED_TYPES:
+        raise ValueError("artifactType must be one of: findings, outcomes")
+    return artifact_type
+
+
+def _coerce_board_artifact_type(value: Any) -> str:
+    artifact_type = str(value or "").strip().lower()
+    if artifact_type not in BOARD_ARTIFACT_ALLOWED_TYPES:
+        raise ValueError("artifactType must be one of: charter, prd, guardrails, playbook")
+    return artifact_type
+
+
+def _coerce_artifact_text(value: Any, field_name: str, max_len: int, *, required: bool = False) -> str:
+    if value is None:
+        text = ""
+    elif isinstance(value, str):
+        text = value
+    elif isinstance(value, (list, dict)):
+        text = json.dumps(value, ensure_ascii=False)
+    else:
+        text = str(value)
+
+    if required and not text.strip():
+        raise ValueError(f"{field_name} is required")
+    if len(text) > max_len:
+        raise ValueError(f"{field_name} exceeds max length ({max_len})")
+    return text
+
+
+def _artifact_payload(row: Dict[str, Any], *, include_body: bool = False) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "id": str(row.get("id") or ""),
+        "boardId": str(row.get("boardId") or ""),
+        "milestoneId": str(row.get("milestoneId") or ""),
+        "artifactType": str(row.get("artifactType") or ""),
+        "revision": int(row.get("revision") or 0),
+        "title": str(row.get("title") or ""),
+        "summary": str(row.get("summary") or ""),
+        "sourceCardId": str(row.get("sourceCardId") or ""),
+        "sourceEventId": str(row.get("sourceEventId") or ""),
+        "createdAt": str(row.get("createdAt") or ""),
+        "updatedAt": str(row.get("updatedAt") or ""),
+    }
+    body = str(row.get("body") or "")
+    if include_body:
+        payload["body"] = body
+    else:
+        payload["bodyLength"] = len(body)
+    return payload
+
+
+def _board_artifact_payload(row: Dict[str, Any], *, include_body: bool = False) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "id": str(row.get("id") or ""),
+        "boardId": str(row.get("boardId") or ""),
+        "artifactType": str(row.get("artifactType") or ""),
+        "revision": int(row.get("revision") or 0),
+        "title": str(row.get("title") or ""),
+        "summary": str(row.get("summary") or ""),
+        "sourceRef": str(row.get("sourceRef") or ""),
+        "createdAt": str(row.get("createdAt") or ""),
+        "updatedAt": str(row.get("updatedAt") or ""),
+    }
+    body = str(row.get("body") or "")
+    if include_body:
+        payload["body"] = body
+    else:
+        payload["bodyLength"] = len(body)
+    return payload
+
+
+MEMORY_ALLOWED_SOURCES = {"user", "operator", "verified-system"}
+MEMORY_ALLOWED_EVENT_TYPES = {"upsert", "delete", "touch"}
+MEMORY_ALLOWED_BUCKETS = {"ct", "dec", "trb", "lrn", "nx", "ref", "misc"}
+MEMORY_EXPORT_DIR = WORKSPACE_DIR / ".amphion" / "memory"
+
+
+@dataclass(frozen=True)
+class MemoryBudgets:
+    max_objects: int = 300
+    max_events: int = 2000
+    max_object_bytes: int = 262_144
+    max_event_bytes: int = 524_288
+
+    @staticmethod
+    def from_payload(payload: Dict[str, Any]) -> "MemoryBudgets":
+        return MemoryBudgets(
+            max_objects=_safe_int(payload.get("maxObjects"), 300, 25, 5000),
+            max_events=_safe_int(payload.get("maxEvents"), 2000, 100, 20_000),
+            max_object_bytes=_safe_int(payload.get("maxObjectBytes"), 262_144, 16_384, 8_388_608),
+            max_event_bytes=_safe_int(payload.get("maxEventBytes"), 524_288, 32_768, 16_777_216),
+        )
+
+
+def _safe_int(value: Any, default: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(maximum, parsed))
+
+
+def _json_dumps_compact(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _json_loads_safe(raw: str, default: Any) -> Any:
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except Exception:
+        return default
+
+
+def _slugify_export_value(value: Any) -> str:
+    if isinstance(value, dict):
+        for key in ("summary", "title", "text", "note", "value"):
+            if key in value:
+                return str(value[key])[:120]
+        return _json_dumps_compact(value)[:120]
+    if isinstance(value, list):
+        return _json_dumps_compact(value)[:120]
+    if value is None:
+        return "null"
+    return str(value)[:120]
+
+
+def _resolve_board_id(cursor, requested: str) -> str:
+    candidate = (requested or "").strip()
+    if not candidate:
+        cursor.execute("SELECT value FROM meta WHERE key='activeBoardId'")
+        row = cursor.fetchone()
+        candidate = row["value"] if row and row.get("value") else ""
+    if not candidate:
+        return ""
+    cursor.execute("SELECT id FROM boards WHERE id=?", (candidate,))
+    return candidate if cursor.fetchone() else ""
+
+
+def _ensure_preflight_lifecycle(cursor, now: str) -> None:
+    cursor.execute(
+        "UPDATE milestones SET kind=? WHERE kind IS NULL OR TRIM(kind)=''",
+        (MILESTONE_KIND_STANDARD,),
+    )
+    cursor.execute("UPDATE milestones SET acceptsNewCards=1 WHERE acceptsNewCards IS NULL")
+    cursor.execute("UPDATE milestones SET writeClosedAt='' WHERE writeClosedAt IS NULL")
+    cursor.execute("UPDATE milestones SET archivedAt='' WHERE archivedAt IS NULL")
+
+    cursor.execute("SELECT id, preflightLifecycleInitialized FROM boards")
+    boards = cursor.fetchall()
+    for board in boards:
+        board_id = str(board.get("id") or "")
+        if not board_id:
+            continue
+        initialized = int(board.get("preflightLifecycleInitialized") or 0)
+        cursor.execute(
+            """
+            SELECT id
+            FROM milestones
+            WHERE boardId=? AND kind=?
+            ORDER BY msOrder ASC, id ASC
+            LIMIT 1
+            """,
+            (board_id, MILESTONE_KIND_PREFLIGHT),
+        )
+        existing_preflight = cursor.fetchone()
+        if existing_preflight:
+            if initialized != 1:
+                cursor.execute(
+                    "UPDATE boards SET preflightLifecycleInitialized=1, updatedAt=? WHERE id=?",
+                    (now, board_id),
+                )
+            continue
+        if initialized == 1:
+            continue
+        cursor.execute(
+            """
+            SELECT id
+            FROM milestones
+            WHERE boardId=?
+            ORDER BY msOrder ASC, id ASC
+            LIMIT 1
+            """,
+            (board_id,),
+        )
+        first = cursor.fetchone()
+        if not first:
+            continue
+        cursor.execute(
+            "UPDATE milestones SET kind=?, updatedAt=? WHERE id=?",
+            (MILESTONE_KIND_PREFLIGHT, now, first["id"]),
+        )
+        cursor.execute(
+            "UPDATE boards SET preflightLifecycleInitialized=1, updatedAt=? WHERE id=?",
+            (now, board_id),
+        )
+
+
+def _get_milestone(cursor, board_id: str, milestone_id: str) -> Optional[Dict[str, Any]]:
+    cursor.execute("SELECT * FROM milestones WHERE id=? AND boardId=?", (milestone_id, board_id))
+    return cursor.fetchone()
+
+
+def _is_archived_milestone(milestone: Optional[Dict[str, Any]]) -> bool:
+    if not milestone:
+        return False
+    return bool(str(milestone.get("archivedAt") or "").strip())
+
+
+def _is_write_closed_preflight(milestone: Optional[Dict[str, Any]]) -> bool:
+    if not milestone:
+        return False
+    kind = str(milestone.get("kind") or MILESTONE_KIND_STANDARD)
+    accepts = int(milestone.get("acceptsNewCards") or 0)
+    return kind == MILESTONE_KIND_PREFLIGHT and accepts != 1
+
+
+def _is_complete_list_key(list_key: str) -> bool:
+    key = str(list_key or "").strip().lower()
+    return key in {"qa", "done"}
+
+
+def _is_complete_list_id(cursor, board_id: str, list_id: str) -> bool:
+    safe_board_id = str(board_id or "").strip()
+    safe_list_id = str(list_id or "").strip()
+    if not safe_board_id or not safe_list_id:
+        return False
+    cursor.execute("SELECT key FROM lists WHERE id=? AND boardId=?", (safe_list_id, safe_board_id))
+    row = cursor.fetchone()
+    if not row:
+        return False
+    return _is_complete_list_key(str(row.get("key") or ""))
+
+
+def _is_completion_transition(cursor, board_id: str, old_list_id: str, new_list_id: str) -> bool:
+    return (not _is_complete_list_id(cursor, board_id, old_list_id)) and _is_complete_list_id(
+        cursor, board_id, new_list_id
+    )
+
+
+def _is_eval_card_title(title: Any) -> bool:
+    text = str(title or "").strip()
+    if not text:
+        return False
+    upper = text.upper()
+    return bool(re.search(r"(?<!NON-)\bEVAL\b", upper))
+
+
+def _build_eval_findings_artifact_payload(cursor, card: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    board_id = str(card.get("boardId") or "").strip()
+    milestone_id = str(card.get("milestoneId") or "").strip()
+    card_id = str(card.get("id") or "").strip()
+    if not board_id or not milestone_id or not card_id:
+        return None
+
+    cursor.execute("SELECT * FROM milestones WHERE id=? AND boardId=?", (milestone_id, board_id))
+    milestone = cursor.fetchone()
+    if not milestone:
+        return None
+
+    issue_number = str(card.get("issueNumber") or "").strip()
+    card_title = str(card.get("title") or "").strip() or "Evaluation Findings"
+    card_header = f"{issue_number} · {card_title}" if issue_number else card_title
+
+    description = str(card.get("description") or "").strip()
+    acceptance = str(card.get("acceptance") or "").strip()
+    if not description:
+        description = "No description provided."
+    if not acceptance:
+        acceptance = "No acceptance criteria provided."
+
+    cursor.execute("SELECT title, key FROM lists WHERE id=? AND boardId=?", (str(card.get("listId") or ""), board_id))
+    list_row = cursor.fetchone() or {}
+    status_title = str(list_row.get("title") or "Unknown Status")
+    status_key = str(list_row.get("key") or "").strip().lower()
+    completion_bucket = "Complete" if _is_complete_list_key(status_key) else "Incomplete"
+
+    artifact_title = f"Findings · {card_header}"[:ARTIFACT_TITLE_MAX_LEN]
+    summary_seed = str(card.get("description") or "").strip()
+    if summary_seed:
+        summary_seed = summary_seed.splitlines()[0]
+    if not summary_seed:
+        summary_seed = str(card.get("acceptance") or "").strip().splitlines()[0] if str(card.get("acceptance") or "").strip() else ""
+    if not summary_seed:
+        summary_seed = f"Findings captured from {card_header}"
+    artifact_summary = summary_seed[:ARTIFACT_SUMMARY_MAX_LEN]
+
+    artifact_body = (
+        f"Evaluation Card: {card_header}\n"
+        f"Milestone: {str(milestone.get('title') or '').strip()}\n"
+        f"Status: {status_title}\n"
+        f"Bucket: {completion_bucket}\n\n"
+        f"Description:\n{description}\n\n"
+        f"Acceptance:\n{acceptance}"
+    )[:ARTIFACT_BODY_MAX_LEN]
+
+    return {
+        "boardId": board_id,
+        "milestoneId": milestone_id,
+        "title": artifact_title,
+        "summary": artifact_summary,
+        "body": artifact_body,
+    }
+
+
+def _append_findings_for_eval_completion(
+    cursor,
+    card: Dict[str, Any],
+    now: str,
+    source_event_id: str = "",
+) -> bool:
+    if not _is_eval_card_title(card.get("title")):
+        return False
+
+    payload = _build_eval_findings_artifact_payload(cursor, card)
+    if not payload:
+        return False
+
+    board_id = payload["boardId"]
+    milestone_id = payload["milestoneId"]
+    card_id = str(card.get("id") or "")
+    safe_source_event_id = str(source_event_id or "")[:ARTIFACT_SOURCE_REF_MAX_LEN]
+
+    cursor.execute(
+        """
+        SELECT title, summary, body, sourceCardId
+        FROM milestone_artifacts
+        WHERE boardId=? AND milestoneId=? AND artifactType='findings' AND sourceCardId=?
+        ORDER BY revision DESC, createdAt DESC
+        LIMIT 1
+        """,
+        (board_id, milestone_id, card_id[:ARTIFACT_SOURCE_REF_MAX_LEN]),
+    )
+    latest = cursor.fetchone()
+    if latest:
+        same_payload = (
+            str(latest.get("title") or "") == payload["title"]
+            and str(latest.get("summary") or "") == payload["summary"]
+            and str(latest.get("body") or "") == payload["body"]
+            and str(latest.get("sourceCardId") or "") == card_id
+        )
+        if same_payload:
+            return False
+
+    cursor.execute(
+        """
+        SELECT COALESCE(MAX(revision), 0) + 1 AS nextRevision
+        FROM milestone_artifacts
+        WHERE boardId=? AND milestoneId=? AND artifactType='findings'
+        """,
+        (board_id, milestone_id),
+    )
+    revision_row = cursor.fetchone() or {}
+    next_revision = int(revision_row.get("nextRevision") or 1)
+
+    cursor.execute(
+        """
+        INSERT INTO milestone_artifacts (
+            id, boardId, milestoneId, artifactType, revision,
+            title, summary, body, sourceCardId, sourceEventId, createdAt, updatedAt
+        ) VALUES (?, ?, ?, 'findings', ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            new_id("mfa"),
+            board_id,
+            milestone_id,
+            next_revision,
+            payload["title"],
+            payload["summary"],
+            payload["body"],
+            card_id[:ARTIFACT_SOURCE_REF_MAX_LEN],
+            safe_source_event_id,
+            now,
+            now,
+        ),
+    )
+    return True
+
+
+def _repair_amp007_findings_if_missing(cursor, now: str) -> bool:
+    """Backfill a baseline findings artifact for AMP-007 when missing."""
+    cursor.execute(
+        """
+        SELECT * FROM milestones
+        WHERE title LIKE 'AMP-007%' AND title LIKE '%DB Canonical Lifecycle Contracts%'
+        ORDER BY updatedAt DESC, createdAt DESC
+        LIMIT 1
+        """
+    )
+    milestone = cursor.fetchone()
+    if not milestone:
+        return False
+
+    milestone_id = str(milestone.get("id") or "").strip()
+    board_id = str(milestone.get("boardId") or "").strip()
+    if not milestone_id or not board_id:
+        return False
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM milestone_artifacts
+        WHERE boardId=? AND milestoneId=? AND artifactType='findings'
+        LIMIT 1
+        """,
+        (board_id, milestone_id),
+    )
+    if cursor.fetchone():
+        return False
+
+    cursor.execute(
+        """
+        SELECT id, issueNumber, title
+        FROM cards
+        WHERE boardId=? AND milestoneId=?
+        ORDER BY
+            CASE WHEN issueNumber='AMP-044' THEN 0 ELSE 1 END,
+            cardOrder ASC,
+            updatedAt DESC,
+            createdAt DESC
+        LIMIT 1
+        """,
+        (board_id, milestone_id),
+    )
+    source_card = cursor.fetchone() or {}
+    source_card_id = str(source_card.get("id") or "")[:ARTIFACT_SOURCE_REF_MAX_LEN]
+
+    milestone_title = str(milestone.get("title") or "").strip() or "AMP-007"
+    meta_contract = str(milestone.get("metaContract") or "").strip()
+    goals = str(milestone.get("goals") or "").strip()
+    non_goals = str(milestone.get("nonGoals") or "").strip()
+    risks = str(milestone.get("risks") or "").strip()
+
+    cursor.execute(
+        """
+        SELECT issueNumber, title
+        FROM cards
+        WHERE boardId=? AND milestoneId=?
+        ORDER BY cardOrder ASC, updatedAt ASC, createdAt ASC
+        """,
+        (board_id, milestone_id),
+    )
+    card_rows = cursor.fetchall()
+    card_lines = []
+    for row in card_rows:
+        issue = str(row.get("issueNumber") or "—").strip() or "—"
+        title = str(row.get("title") or "").strip() or "Untitled Task"
+        card_lines.append(f"- {issue} · {title}")
+    if not card_lines:
+        card_lines = ["- No milestone cards were available during repair."]
+
+    summary_seed = meta_contract or f"{milestone_title} findings backfill baseline."
+    artifact_summary = summary_seed[:ARTIFACT_SUMMARY_MAX_LEN]
+    artifact_body = (
+        "Recovered Findings Baseline:\n"
+        f"- Milestone: {milestone_title}\n\n"
+        "Meta Contract:\n"
+        f"{meta_contract or 'No meta contract recorded.'}\n\n"
+        "Goals:\n"
+        f"{goals or 'No goals recorded.'}\n\n"
+        "Non-Goals:\n"
+        f"{non_goals or 'No non-goals recorded.'}\n\n"
+        "Risks:\n"
+        f"{risks or 'No risks recorded.'}\n\n"
+        "Milestone Cards:\n"
+        f"{chr(10).join(card_lines)}"
+    )[:ARTIFACT_BODY_MAX_LEN]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(MAX(revision), 0) + 1 AS nextRevision
+        FROM milestone_artifacts
+        WHERE boardId=? AND milestoneId=? AND artifactType='findings'
+        """,
+        (board_id, milestone_id),
+    )
+    revision_row = cursor.fetchone() or {}
+    next_revision = int(revision_row.get("nextRevision") or 1)
+
+    cursor.execute(
+        """
+        INSERT INTO milestone_artifacts (
+            id, boardId, milestoneId, artifactType, revision,
+            title, summary, body, sourceCardId, sourceEventId, createdAt, updatedAt
+        ) VALUES (?, ?, ?, 'findings', ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            new_id("mfa"),
+            board_id,
+            milestone_id,
+            next_revision,
+            "Findings · AMP-007 Backfill Baseline",
+            artifact_summary,
+            artifact_body,
+            source_card_id,
+            "amp-046-amp007-findings-repair-v1",
+            now,
+            now,
+        ),
+    )
+    return True
+
+
+def _format_outcomes_item_lines(items: List[str], empty_fallback: str) -> str:
+    if not items:
+        return f"- {empty_fallback}"
+    return "\n".join(items[:20])
+
+
+def _build_milestone_outcomes_payload(cursor, milestone: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    board_id = str(milestone.get("boardId") or "").strip()
+    milestone_id = str(milestone.get("id") or "").strip()
+    milestone_title = str(milestone.get("title") or "").strip() or "Untitled Milestone"
+    if not board_id or not milestone_id:
+        return None
+
+    cursor.execute(
+        """
+        SELECT
+            c.id,
+            c.issueNumber,
+            c.title,
+            c.cardOrder,
+            c.updatedAt,
+            l.key AS listKey,
+            l.title AS listTitle
+        FROM cards c
+        LEFT JOIN lists l ON l.id = c.listId
+        WHERE c.boardId=? AND c.milestoneId=?
+        ORDER BY c.cardOrder ASC, c.updatedAt ASC, c.id ASC
+        """,
+        (board_id, milestone_id),
+    )
+    rows = cursor.fetchall()
+
+    completed_items: List[str] = []
+    deferred_items: List[str] = []
+    blocked_items: List[str] = []
+
+    for row in rows:
+        issue = str(row.get("issueNumber") or "—").strip() or "—"
+        card_title = str(row.get("title") or "").strip() or "Untitled Task"
+        status_key = str(row.get("listKey") or "").strip().lower()
+        status_title = str(row.get("listTitle") or "").strip() or "Unknown Status"
+        line = f"- {issue} · {card_title} ({status_title})"
+
+        if _is_complete_list_key(status_key):
+            completed_items.append(line)
+        else:
+            deferred_items.append(line)
+            if status_key == "blocked":
+                blocked_items.append(line)
+
+    completed_count = len(completed_items)
+    deferred_count = len(deferred_items)
+    blocked_count = len(blocked_items)
+
+    completed_section = _format_outcomes_item_lines(completed_items, "No tasks were completed at closeout.")
+    deferred_section = _format_outcomes_item_lines(deferred_items, "No deferred tasks.")
+    notable_section = _format_outcomes_item_lines(blocked_items, "No blocked tasks recorded at closeout.")
+
+    if deferred_count > 0:
+        deviation_line = f"- Milestone archived with {deferred_count} deferred task(s)."
+        next_action_line = "- Re-route deferred tasks into an active milestone before finalizing release history."
+    else:
+        deviation_line = "- No closeout deviation recorded."
+        next_action_line = "- Milestone can remain archived as historical record."
+
+    body = (
+        "Completed Scope:\n"
+        f"{completed_section}\n\n"
+        "Deferred Tasks:\n"
+        f"{deferred_section}\n\n"
+        "Notable Issues:\n"
+        f"{notable_section}\n\n"
+        "Deviations:\n"
+        f"{deviation_line}\n\n"
+        "Next Action:\n"
+        f"{next_action_line}"
+    )[:ARTIFACT_BODY_MAX_LEN]
+
+    summary = (
+        f"{completed_count} complete, {deferred_count} deferred, {blocked_count} blocked at closeout."
+    )[:ARTIFACT_SUMMARY_MAX_LEN]
+    title = f"Outcomes · {milestone_title} closeout"[:ARTIFACT_TITLE_MAX_LEN]
+
+    return {
+        "boardId": board_id,
+        "milestoneId": milestone_id,
+        "title": title,
+        "summary": summary,
+        "body": body,
+    }
+
+
+def _append_outcomes_for_milestone_closeout(
+    cursor,
+    milestone: Dict[str, Any],
+    now: str,
+    source_event_id: str = "",
+) -> bool:
+    payload = _build_milestone_outcomes_payload(cursor, milestone)
+    if not payload:
+        return False
+
+    board_id = payload["boardId"]
+    milestone_id = payload["milestoneId"]
+
+    cursor.execute(
+        """
+        SELECT COALESCE(MAX(revision), 0) + 1 AS nextRevision
+        FROM milestone_artifacts
+        WHERE boardId=? AND milestoneId=? AND artifactType='outcomes'
+        """,
+        (board_id, milestone_id),
+    )
+    revision_row = cursor.fetchone() or {}
+    next_revision = int(revision_row.get("nextRevision") or 1)
+
+    cursor.execute(
+        """
+        INSERT INTO milestone_artifacts (
+            id, boardId, milestoneId, artifactType, revision,
+            title, summary, body, sourceCardId, sourceEventId, createdAt, updatedAt
+        ) VALUES (?, ?, ?, 'outcomes', ?, ?, ?, ?, '', ?, ?, ?)
+        """,
+        (
+            new_id("mfa"),
+            board_id,
+            milestone_id,
+            next_revision,
+            payload["title"],
+            payload["summary"],
+            payload["body"],
+            str(source_event_id or "")[:ARTIFACT_SOURCE_REF_MAX_LEN],
+            now,
+            now,
+        ),
+    )
+    return True
+
+
+def _done_list_ids(cursor, board_id: str) -> set[str]:
+    cursor.execute("SELECT id FROM lists WHERE boardId=? AND key='done'", (board_id,))
+    return {str(row.get("id") or "") for row in cursor.fetchall() if row.get("id")}
+
+
+def _refresh_preflight_write_state(cursor, board_id: str, now: str) -> None:
+    _ensure_preflight_lifecycle(cursor, now)
+    done_list_ids = _done_list_ids(cursor, board_id)
+    if not done_list_ids:
+        return
+
+    cursor.execute(
+        "SELECT id, acceptsNewCards, archivedAt FROM milestones WHERE boardId=? AND kind=?",
+        (board_id, MILESTONE_KIND_PREFLIGHT),
+    )
+    preflight_rows = cursor.fetchall()
+    for milestone in preflight_rows:
+        if _is_archived_milestone(milestone):
+            continue
+        if int(milestone.get("acceptsNewCards") or 0) != 1:
+            continue
+        milestone_id = str(milestone.get("id") or "")
+        if not milestone_id:
+            continue
+        cursor.execute(
+            "SELECT listId FROM cards WHERE boardId=? AND milestoneId=?",
+            (board_id, milestone_id),
+        )
+        rows = cursor.fetchall()
+        total_cards = len(rows)
+        if total_cards == 0:
+            continue
+        if all(str(row.get("listId") or "") in done_list_ids for row in rows):
+            cursor.execute(
+                """
+                UPDATE milestones
+                SET acceptsNewCards=0,
+                    writeClosedAt=COALESCE(NULLIF(writeClosedAt, ''), ?),
+                    updatedAt=?
+                WHERE id=?
+                """,
+                (now, now, milestone_id),
+            )
+
+
+def _memory_event_payload_bytes(row: Dict[str, Any]) -> int:
+    return len(str(row.get("memoryKey") or "")) + len(str(row.get("value") or "")) + len(
+        str(row.get("tags") or "")
+    ) + len(str(row.get("sourceRef") or ""))
+
+
+def _memory_object_payload_bytes(row: Dict[str, Any]) -> int:
+    return len(str(row.get("memoryKey") or "")) + len(str(row.get("value") or "")) + len(
+        str(row.get("tags") or "")
+    )
+
+
+def _memory_stats(cursor, board_id: str) -> Dict[str, int]:
+    cursor.execute(
+        """
+        SELECT
+            COUNT(*) AS eventCount,
+            COALESCE(SUM(LENGTH(memoryKey) + LENGTH(COALESCE(value,'')) + LENGTH(COALESCE(tags,'')) + LENGTH(COALESCE(sourceRef,''))), 0) AS eventBytes
+        FROM memory_events
+        WHERE boardId=?
+        """,
+        (board_id,),
+    )
+    events = cursor.fetchone() or {}
+
+    cursor.execute(
+        """
+        SELECT
+            COUNT(*) AS objectCount,
+            COALESCE(SUM(LENGTH(memoryKey) + LENGTH(COALESCE(value,'')) + LENGTH(COALESCE(tags,''))), 0) AS objectBytes
+        FROM memory_objects
+        WHERE boardId=? AND isDeleted=0
+        """,
+        (board_id,),
+    )
+    objects = cursor.fetchone() or {}
+
+    return {
+        "eventCount": int(events.get("eventCount") or 0),
+        "eventBytes": int(events.get("eventBytes") or 0),
+        "objectCount": int(objects.get("objectCount") or 0),
+        "objectBytes": int(objects.get("objectBytes") or 0),
+    }
+
+
+def _memory_rows_to_payload(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    payload: List[Dict[str, Any]] = []
+    for row in rows:
+        tags = _json_loads_safe(str(row.get("tags") or "[]"), [])
+        if not isinstance(tags, list):
+            tags = []
+        payload.append(
+            {
+                "id": row.get("id", ""),
+                "boardId": row.get("boardId", ""),
+                "memoryKey": row.get("memoryKey", ""),
+                "bucket": row.get("bucket", "misc"),
+                "value": _json_loads_safe(str(row.get("value") or "null"), None),
+                "tags": [str(tag) for tag in tags if isinstance(tag, str)],
+                "sourceType": row.get("sourceType", ""),
+                "isDeleted": bool(row.get("isDeleted", 0)),
+                "version": int(row.get("version") or 0),
+                "createdAt": row.get("createdAt", ""),
+                "updatedAt": row.get("updatedAt", ""),
+                "lastTouchedAt": row.get("lastTouchedAt", ""),
+                "expiresAt": row.get("expiresAt", ""),
+                "lastEventId": row.get("lastEventId", ""),
+            }
+        )
+    return payload
+
+
+def _lww_wins(now: str, event_id: str, existing: Dict[str, Any]) -> bool:
+    updated_at = str(existing.get("updatedAt") or "")
+    prev_event = str(existing.get("lastEventId") or "")
+    return now > updated_at or (now == updated_at and event_id > prev_event)
+
+
+def _apply_memory_event(
+    cursor,
+    board_id: str,
+    event_id: str,
+    now: str,
+    memory_key: str,
+    event_type: str,
+    source_type: str,
+    bucket: str,
+    value_json: str,
+    tags_json: str,
+    expires_at: Optional[str],
+) -> bool:
+    cursor.execute("SELECT * FROM memory_objects WHERE boardId=? AND memoryKey=?", (board_id, memory_key))
+    existing = cursor.fetchone()
+
+    if event_type == "touch" and (not existing or int(existing.get("isDeleted") or 0) == 1):
+        return False
+
+    if not existing:
+        is_deleted = 1 if event_type == "delete" else 0
+        cursor.execute(
+            """
+            INSERT INTO memory_objects (
+                id, boardId, memoryKey, bucket, value, tags, sourceType, isDeleted,
+                version, lastEventId, createdAt, updatedAt, lastTouchedAt, expiresAt
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_id("memobj"),
+                board_id,
+                memory_key,
+                bucket,
+                "null" if is_deleted else value_json,
+                "[]" if is_deleted else tags_json,
+                source_type,
+                is_deleted,
+                1,
+                event_id,
+                now,
+                now,
+                now,
+                expires_at or "",
+            ),
+        )
+        return True
+
+    if not _lww_wins(now, event_id, existing):
+        return False
+
+    next_version = int(existing.get("version") or 0) + 1
+
+    if event_type == "touch":
+        cursor.execute(
+            """
+            UPDATE memory_objects
+            SET sourceType=?, version=?, lastEventId=?, updatedAt=?, lastTouchedAt=?
+            WHERE boardId=? AND memoryKey=?
+            """,
+            (source_type, next_version, event_id, now, now, board_id, memory_key),
+        )
+        return True
+
+    is_deleted = 1 if event_type == "delete" else 0
+    cursor.execute(
+        """
+        UPDATE memory_objects
+        SET bucket=?, value=?, tags=?, sourceType=?, isDeleted=?, version=?, lastEventId=?, updatedAt=?, lastTouchedAt=?, expiresAt=?
+        WHERE boardId=? AND memoryKey=?
+        """,
+        (
+            bucket,
+            "null" if is_deleted else value_json,
+            "[]" if is_deleted else tags_json,
+            source_type,
+            is_deleted,
+            next_version,
+            event_id,
+            now,
+            now,
+            expires_at or "",
+            board_id,
+            memory_key,
+        ),
+    )
+    return True
+
+
+def _compact_memory(cursor, board_id: str, now: str, budgets: MemoryBudgets) -> Dict[str, Any]:
+    stats_before = _memory_stats(cursor, board_id)
+    removed = {
+        "expiredObjects": 0,
+        "overflowObjects": 0,
+        "objectBytesPruned": 0,
+        "overflowEvents": 0,
+        "eventBytesPruned": 0,
+    }
+
+    cursor.execute(
+        "DELETE FROM memory_objects WHERE boardId=? AND expiresAt IS NOT NULL AND expiresAt != '' AND expiresAt <= ?",
+        (board_id, now),
+    )
+    removed["expiredObjects"] += cursor.rowcount
+
+    cursor.execute(
+        "SELECT id FROM memory_objects WHERE boardId=? AND isDeleted=0 ORDER BY updatedAt DESC, memoryKey ASC, id DESC",
+        (board_id,),
+    )
+    object_ids = [row["id"] for row in cursor.fetchall()]
+    if len(object_ids) > budgets.max_objects:
+        drop_ids = object_ids[budgets.max_objects :]
+        cursor.executemany("DELETE FROM memory_objects WHERE id=?", [(obj_id,) for obj_id in drop_ids])
+        removed["overflowObjects"] += len(drop_ids)
+
+    stats_mid = _memory_stats(cursor, board_id)
+    object_bytes = stats_mid["objectBytes"]
+    while object_bytes > budgets.max_object_bytes:
+        cursor.execute(
+            """
+            SELECT id, memoryKey, value, tags
+            FROM memory_objects
+            WHERE boardId=? AND isDeleted=0
+            ORDER BY updatedAt ASC, memoryKey ASC, id ASC
+            LIMIT 1
+            """,
+            (board_id,),
+        )
+        oldest = cursor.fetchone()
+        if not oldest:
+            break
+        object_bytes -= _memory_object_payload_bytes(oldest)
+        cursor.execute("DELETE FROM memory_objects WHERE id=?", (oldest["id"],))
+        removed["objectBytesPruned"] += 1
+
+    cursor.execute(
+        "SELECT id FROM memory_events WHERE boardId=? ORDER BY createdAt DESC, id DESC",
+        (board_id,),
+    )
+    event_ids = [row["id"] for row in cursor.fetchall()]
+    if len(event_ids) > budgets.max_events:
+        drop_ids = event_ids[budgets.max_events :]
+        cursor.executemany("DELETE FROM memory_events WHERE id=?", [(event_id,) for event_id in drop_ids])
+        removed["overflowEvents"] += len(drop_ids)
+
+    stats_mid = _memory_stats(cursor, board_id)
+    event_bytes = stats_mid["eventBytes"]
+    while event_bytes > budgets.max_event_bytes:
+        cursor.execute(
+            """
+            SELECT id, memoryKey, value, tags, sourceRef
+            FROM memory_events
+            WHERE boardId=?
+            ORDER BY createdAt ASC, id ASC
+            LIMIT 1
+            """,
+            (board_id,),
+        )
+        oldest = cursor.fetchone()
+        if not oldest:
+            break
+        event_bytes -= _memory_event_payload_bytes(oldest)
+        cursor.execute("DELETE FROM memory_events WHERE id=?", (oldest["id"],))
+        removed["eventBytesPruned"] += 1
+
+    stats_after = _memory_stats(cursor, board_id)
+    return {
+        "boardId": board_id,
+        "budgets": {
+            "maxObjects": budgets.max_objects,
+            "maxEvents": budgets.max_events,
+            "maxObjectBytes": budgets.max_object_bytes,
+            "maxEventBytes": budgets.max_event_bytes,
+        },
+        "removed": removed,
+        "before": stats_before,
+        "after": stats_after,
+    }
+
+
+def _build_memory_projection(rows: List[Dict[str, Any]], board_id: str, now: str) -> Dict[str, Any]:
+    buckets = {"ct": [], "dec": [], "trb": [], "lrn": [], "nx": [], "ref": []}
+    for row in rows:
+        bucket = str(row.get("bucket") or "dec")
+        value = _json_loads_safe(str(row.get("value") or "null"), None)
+        slug = f"{row.get('memoryKey', '')}:{_slugify_export_value(value)}".strip(":")
+        if bucket not in buckets:
+            bucket = "dec"
+        if slug and slug not in buckets[bucket]:
+            buckets[bucket].append(slug)
+
+    for key in buckets:
+        buckets[key] = buckets[key][:20]
+
+    return {
+        "v": 1,
+        "upd": now,
+        "cur": {
+            "st": "memory-db",
+            "ms": f"board:{board_id}",
+            "ct": buckets["ct"],
+            "dec": buckets["dec"],
+            "trb": buckets["trb"],
+            "lrn": buckets["lrn"],
+            "nx": buckets["nx"],
+            "ref": buckets["ref"],
+        },
+        "hist": [],
+    }
+
+
+def _export_memory_snapshot(cursor, board_id: str, export_path: Path, now: str) -> Dict[str, Any]:
+    export_dir = MEMORY_EXPORT_DIR.resolve()
+    export_target = export_path.resolve()
+    if not str(export_target).startswith(str(export_dir)):
+        raise ValueError(f"Export path must remain inside {export_dir}")
+
+    cursor.execute(
+        """
+        SELECT * FROM memory_objects
+        WHERE boardId=? AND isDeleted=0
+        ORDER BY updatedAt DESC, memoryKey ASC
+        LIMIT 500
+        """,
+        (board_id,),
+    )
+    rows = cursor.fetchall()
+    payload = _build_memory_projection(rows, board_id, now)
+
+    previous_cur = None
+    if export_target.exists():
+        try:
+            previous = json.loads(export_target.read_text(encoding="utf-8"))
+            previous_cur = previous.get("cur")
+            previous_hist = previous.get("hist", [])
+            if isinstance(previous_hist, list):
+                payload["hist"] = [entry for entry in previous_hist if isinstance(entry, dict)][:3]
+        except Exception:
+            previous_cur = None
+
+    if isinstance(previous_cur, dict):
+        payload["hist"] = [previous_cur] + payload["hist"]
+        payload["hist"] = payload["hist"][:3]
+
+    export_target.parent.mkdir(parents=True, exist_ok=True)
+    export_target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"path": str(export_target), "count": len(rows)}
+
+
+def ensure_sqlite_schema(db_path: Path) -> None:
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = dict_factory
+    try:
+        now = now_iso()
+        c = conn.cursor()
+        c.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS boards (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                codename TEXT,
+                nextIssueNumber INTEGER,
+                description TEXT,
+                projectType TEXT,
+                foundationPath TEXT,
+                preflightLifecycleInitialized INTEGER DEFAULT 0,
+                createdAt TEXT,
+                updatedAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS lists (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                key TEXT,
+                title TEXT,
+                listOrder INTEGER,
+                createdAt TEXT,
+                updatedAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS milestones (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                code TEXT,
+                title TEXT,
+                msOrder INTEGER,
+                kind TEXT DEFAULT 'standard',
+                acceptsNewCards INTEGER DEFAULT 1,
+                writeClosedAt TEXT DEFAULT '',
+                archivedAt TEXT DEFAULT '',
+                metaContract TEXT DEFAULT '',
+                goals TEXT DEFAULT '',
+                nonGoals TEXT DEFAULT '',
+                risks TEXT DEFAULT '',
+                createdAt TEXT,
+                updatedAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS cards (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                issueNumber TEXT,
+                title TEXT,
+                description TEXT,
+                acceptance TEXT,
+                milestoneId TEXT,
+                listId TEXT,
+                priority TEXT,
+                owner TEXT,
+                targetDate TEXT,
+                cardOrder INTEGER,
+                createdAt TEXT,
+                updatedAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS charts (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                title TEXT,
+                description TEXT,
+                markdown TEXT,
+                createdAt TEXT,
+                updatedAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS memory_events (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                memoryKey TEXT,
+                eventType TEXT,
+                sourceType TEXT,
+                attested INTEGER,
+                bucket TEXT,
+                value TEXT,
+                tags TEXT,
+                ttlSeconds INTEGER,
+                sourceRef TEXT,
+                createdAt TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS memory_objects (
+                id TEXT PRIMARY KEY,
+                boardId TEXT,
+                memoryKey TEXT,
+                bucket TEXT,
+                value TEXT,
+                tags TEXT,
+                sourceType TEXT,
+                isDeleted INTEGER,
+                version INTEGER,
+                lastEventId TEXT,
+                createdAt TEXT,
+                updatedAt TEXT,
+                lastTouchedAt TEXT,
+                expiresAt TEXT,
+                UNIQUE(boardId, memoryKey)
+            );
+
+            CREATE TABLE IF NOT EXISTS milestone_artifacts (
+                id TEXT PRIMARY KEY,
+                boardId TEXT NOT NULL,
+                milestoneId TEXT NOT NULL,
+                artifactType TEXT NOT NULL CHECK (artifactType IN ('findings', 'outcomes')),
+                revision INTEGER NOT NULL CHECK (revision > 0),
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL DEFAULT '',
+                sourceCardId TEXT NOT NULL DEFAULT '',
+                sourceEventId TEXT NOT NULL DEFAULT '',
+                createdAt TEXT NOT NULL,
+                updatedAt TEXT NOT NULL,
+                UNIQUE(boardId, milestoneId, artifactType, revision)
+            );
+
+            CREATE TABLE IF NOT EXISTS board_artifacts (
+                id TEXT PRIMARY KEY,
+                boardId TEXT NOT NULL,
+                artifactType TEXT NOT NULL CHECK (artifactType IN ('charter', 'prd', 'guardrails', 'playbook')),
+                revision INTEGER NOT NULL CHECK (revision > 0),
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL DEFAULT '',
+                body TEXT NOT NULL DEFAULT '',
+                sourceRef TEXT NOT NULL DEFAULT '',
+                createdAt TEXT NOT NULL,
+                updatedAt TEXT NOT NULL,
+                UNIQUE(boardId, artifactType, revision)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_lists_board_order ON lists(boardId, listOrder);
+            CREATE INDEX IF NOT EXISTS idx_cards_board_order ON cards(boardId, cardOrder);
+            CREATE INDEX IF NOT EXISTS idx_cards_list_order ON cards(listId, cardOrder);
+            CREATE INDEX IF NOT EXISTS idx_milestones_board_order ON milestones(boardId, msOrder);
+            CREATE INDEX IF NOT EXISTS idx_charts_board_updated ON charts(boardId, updatedAt);
+            CREATE INDEX IF NOT EXISTS idx_memory_events_board_created ON memory_events(boardId, createdAt);
+            CREATE INDEX IF NOT EXISTS idx_memory_events_board_key ON memory_events(boardId, memoryKey);
+            CREATE INDEX IF NOT EXISTS idx_memory_objects_board_updated ON memory_objects(boardId, updatedAt);
+            CREATE INDEX IF NOT EXISTS idx_memory_objects_board_bucket ON memory_objects(boardId, bucket);
+            CREATE INDEX IF NOT EXISTS idx_milestone_artifacts_lookup
+                ON milestone_artifacts(boardId, milestoneId, artifactType, revision DESC);
+            CREATE INDEX IF NOT EXISTS idx_milestone_artifacts_type_updated
+                ON milestone_artifacts(artifactType, updatedAt DESC);
+            CREATE INDEX IF NOT EXISTS idx_board_artifacts_lookup
+                ON board_artifacts(boardId, artifactType, revision DESC);
+            CREATE INDEX IF NOT EXISTS idx_board_artifacts_type_updated
+                ON board_artifacts(artifactType, updatedAt DESC);
+            """
+        )
+        c.execute("PRAGMA table_info(boards)")
+        board_columns = {str(row.get("name") or "") for row in c.fetchall()}
+        if "preflightLifecycleInitialized" not in board_columns:
+            c.execute("ALTER TABLE boards ADD COLUMN preflightLifecycleInitialized INTEGER DEFAULT 0")
+
+        c.execute("PRAGMA table_info(milestones)")
+        milestone_columns = {str(row.get("name") or "") for row in c.fetchall()}
+        if "kind" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN kind TEXT DEFAULT 'standard'")
+        if "acceptsNewCards" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN acceptsNewCards INTEGER DEFAULT 1")
+        if "writeClosedAt" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN writeClosedAt TEXT DEFAULT ''")
+        if "archivedAt" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN archivedAt TEXT DEFAULT ''")
+        if "metaContract" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN metaContract TEXT DEFAULT ''")
+        if "goals" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN goals TEXT DEFAULT ''")
+        if "nonGoals" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN nonGoals TEXT DEFAULT ''")
+        if "risks" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN risks TEXT DEFAULT ''")
+        _ensure_preflight_lifecycle(c, now)
+        _repair_amp007_findings_if_missing(c, now)
+
+        c.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('version', '1')")
+        c.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('activeBoardId', '')")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def canonicalize_legacy_chart_rows(db_path: Path) -> int:
+    conn = sqlite3.connect(db_path)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, markdown FROM charts")
+        rows = c.fetchall()
+
+        now = now_iso()
+        updates = []
+        for chart_id, markdown in rows:
+            raw = str(markdown or "")
+            try:
+                canonical = normalize_and_validate_mermaid(raw)
+            except ValueError:
+                continue
+            if canonical != raw:
+                updates.append((canonical, now, chart_id))
+
+        if updates:
+            c.executemany("UPDATE charts SET markdown=?, updatedAt=? WHERE id=?", updates)
+            conn.commit()
+        return len(updates)
+    finally:
+        conn.close()
+
+
+def canonical_playbook_markdown() -> str:
+    return """# The Micro-Contract Development (MCD) Playbook: Operator's Guide
+
+Welcome directly to the **Command Deck**. This platform operates on the Micro-Contract Development (MCD) methodology. MCD is designed for solo operators working alongside advanced AI agents in modern IDEs like Windsurf and Cursor.
+
+The core philosophy is **Deterministic Versioning**: zero hallucination, zero scope creep, and total traceability. Every line of code written must be explicitly authorized by a text-based contract, and AI agents are structurally barred from chaining operations together without operator consent.
+
+## The "Halt and Prompt" Safety Rail
+The most critical rule of the MCD protocol is **Halt and Prompt**.
+An AI agent executing a phase (like Evaluate or Contract) is strictly forbidden from automatically starting the next phase. Once a phase's outputs are generated, the agent MUST explicitly halt tool execution, present the results to the human Operator, and prompt the user for the next Slash Command. This prevents runaway agent logic and guarantees the human is always the supreme arbiter of state.
+
+---
+
+## The 4-Phase Sequence & IDE Slash Commands
+To utilize the MCD protocol, the human Operator guides the AI through these discrete phases using explicit Slash Commands in the IDE chat interface:
+
+### 1. `@[/evaluate]`
+*Understand before building.*
+- **Action**: Assess the current state of the application, read related documentation, and write a formal evaluation determining what needs to be built or fixed.
+- **Output**: A new markdown file in `04_Analysis/findings/`.
+- **Rule**: Absolutely no project code is modified during Evaluation.
+
+### 2. `@[/contract]`
+*Authorize the work.*
+- **Action**: Drafts binding contract scope and sequenced micro-contract cards in the Command Deck API-backed board runtime.
+- **Output**: Milestone/card contract records with deterministic issue sequencing and acceptance criteria.
+- **Rule**: The operator must grant approval before the agent proceeds to Execution.
+
+### 3. `@[/execute]`
+*Build to specification.*
+- **Action**: The AI modifies the Approved File Paths (AFPs) exactly as defined in the active contract.
+- **Rule**: If a roadblock occurs that requires changing the *scope* of the contract, the execute phase halts immediately. A new contract must be evaluated and authorized.
+
+### 4. `@[/closeout]`
+*Formalize the release.*
+- **Action**: Verifies acceptance criteria, closes/archives the milestone, appends outcomes artifact, and commits code when applicable.
+- **Output**:
+  1. Outcomes artifact appended to milestone records in DB.
+  2. Milestone archived/closed in board runtime.
+  3. Updated DB-backed memory state via `/api/memory/*` with optional compatibility projection (`.amphion/memory/agent-memory.json`).
+  4. Strict `closeout: {description}` Git Commit.
+
+---
+
+## Utility Command: `@[/remember]`
+`/remember` is a utility checkpoint, not a lifecycle phase.
+
+- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`, with optional compatibility projection.
+- **When to Use**:
+  1. Long sessions where context continuity is at risk.
+  2. Material scope shifts under approved contracts.
+  3. Durable troubleshooting/architecture decisions worth preserving.
+- **Mandatory Use**: At closeout completion for each completed version/slice.
+- **Rule**: `/remember` does not auto-transition phases and does not authorize code changes by itself.
+
+---
+
+## Core Operational Rules (`GUARDRAILS.md`)
+1. **Local Only**: MCD runs locally. No cloud dependencies or unprompted package manager usage.
+2. **Mermaid.js Required**: All systemic architecture documents utilize Mermaid.js syntax for version-controllable diagrams.
+3. **Immutability**: Once a contract is archived or a closeout record is spun down, it cannot be edited. Remediating errors requires an entirely fresh Evaluation -> Contract pipeline.
+"""
+
+
+def _is_stub_playbook_body(body: str) -> bool:
+    text = str(body or "").strip()
+    if not text:
+        return True
+    if "\\n" in text and "Use DB-backed milestone/card artifacts as canonical workflow authority." in text:
+        return True
+    if text == "# MCD Playbook\n\nUse DB-backed milestone/card artifacts as canonical workflow authority.":
+        return True
+    if "The Micro-Contract Development (MCD) Playbook: Operator's Guide" in text:
+        return False
+    return len(text) < 220 and "MCD Playbook" in text
+
+
+def repair_playbook_artifacts_if_needed(db_path: Path) -> int:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = dict_factory
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, name FROM boards")
+        boards = c.fetchall()
+        now = now_iso()
+        canonical_body = canonical_playbook_markdown()
+        repaired = 0
+
+        for board in boards:
+            board_id = str(board.get("id") or "")
+            if not board_id:
+                continue
+            board_name = str(board.get("name") or "Project").strip()
+            title = f"MCD Playbook · {board_name.replace(' Launch Command Deck', '').strip()}"
+            c.execute(
+                """
+                SELECT * FROM board_artifacts
+                WHERE boardId=? AND artifactType='playbook'
+                ORDER BY revision DESC, createdAt DESC
+                LIMIT 1
+                """,
+                (board_id,),
+            )
+            row = c.fetchone()
+            if row:
+                if not _is_stub_playbook_body(str(row.get("body") or "")):
+                    continue
+                next_revision = int(row.get("revision") or 0) + 1
+                title = str(row.get("title") or title)
+                summary = "Canonical playbook artifact repair (auto-migration)."
+            else:
+                next_revision = 1
+                summary = "Canonical playbook artifact (auto-seeded repair)."
+
+            c.execute(
+                """
+                INSERT INTO board_artifacts (
+                    id, boardId, artifactType, revision, title, summary, body, sourceRef, createdAt, updatedAt
+                ) VALUES (?, ?, 'playbook', ?, ?, ?, ?, 'server-startup-repair', ?, ?)
+                """,
+                (new_id("bfa"), board_id, next_revision, title, summary, canonical_body, now, now),
+            )
+            repaired += 1
+
+        if repaired:
+            conn.commit()
+        return repaired
+    finally:
+        conn.close()
+
+
+def migrate_legacy_state_json_to_sqlite(
+    db_path: Path,
+    state_path: Path,
+    *,
+    force: bool = False,
+) -> Dict[str, Any]:
+    report: Dict[str, Any] = {
+        "ok": True,
+        "stateFile": str(state_path),
+        "force": bool(force),
+        "applied": False,
+        "reason": "",
+        "counts": {
+            "boards": 0,
+            "lists": 0,
+            "milestones": 0,
+            "cards": 0,
+            "charts": 0,
+        },
+    }
+    if not state_path.exists():
+        report["reason"] = "legacy state.json not found"
+        return report
+
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        report["ok"] = False
+        report["reason"] = f"unable to parse state.json: {exc}"
+        return report
+
+    if not isinstance(payload, dict):
+        report["reason"] = "legacy state payload is not an object"
+        return report
+
+    boards = payload.get("boards") or []
+    if not isinstance(boards, list) or not boards:
+        report["reason"] = "legacy state contains no boards"
+        return report
+
+    conn = sqlite3.connect(db_path)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM boards")
+        existing_boards = int((c.fetchone() or [0])[0] or 0)
+        if existing_boards > 0 and not force:
+            report["reason"] = "sqlite already populated; migration skipped (use force to merge)"
+            return report
+
+        now = now_iso()
+        for board in boards:
+            if not isinstance(board, dict):
+                continue
+            board_id = str(board.get("id") or "").strip() or new_id("board")
+            name = str(board.get("name") or "Migrated Board")
+            codename = str(board.get("codename") or "AMP").strip().upper()[:6] or "AMP"
+            next_issue = int(board.get("nextIssueNumber") or 1)
+            description = str(board.get("description") or "")
+            project_type = str(board.get("projectType") or "standard")
+            created_at = str(board.get("createdAt") or now)
+            updated_at = str(board.get("updatedAt") or now)
+            foundation_path = str(board.get("foundationPath") or ".amphion/control-plane/foundation.json")
+            preflight_init = int(board.get("preflightLifecycleInitialized") or 0)
+
+            c.execute(
+                """
+                INSERT OR IGNORE INTO boards (
+                    id, name, codename, nextIssueNumber, description, projectType,
+                    foundationPath, preflightLifecycleInitialized, createdAt, updatedAt
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    board_id,
+                    name,
+                    codename,
+                    next_issue,
+                    description,
+                    project_type,
+                    foundation_path,
+                    preflight_init,
+                    created_at,
+                    updated_at,
+                ),
+            )
+            if c.rowcount:
+                report["counts"]["boards"] += 1
+
+            lists = board.get("lists") or []
+            if isinstance(lists, list):
+                for list_row in lists:
+                    if not isinstance(list_row, dict):
+                        continue
+                    list_id = str(list_row.get("id") or "").strip() or new_id("list")
+                    c.execute(
+                        """
+                        INSERT OR IGNORE INTO lists (
+                            id, boardId, key, title, listOrder, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            list_id,
+                            board_id,
+                            str(list_row.get("key") or "backlog"),
+                            str(list_row.get("title") or "Backlog"),
+                            int(list_row.get("order") if list_row.get("order") is not None else list_row.get("listOrder") or 0),
+                            str(list_row.get("createdAt") or now),
+                            str(list_row.get("updatedAt") or now),
+                        ),
+                    )
+                    if c.rowcount:
+                        report["counts"]["lists"] += 1
+
+            milestones = board.get("milestones") or []
+            if isinstance(milestones, list):
+                for ms_row in milestones:
+                    if not isinstance(ms_row, dict):
+                        continue
+                    ms_id = str(ms_row.get("id") or "").strip() or new_id("ms")
+                    c.execute(
+                        """
+                        INSERT OR IGNORE INTO milestones (
+                            id, boardId, code, title, msOrder, kind, acceptsNewCards, writeClosedAt,
+                            archivedAt, metaContract, goals, nonGoals, risks, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            ms_id,
+                            board_id,
+                            str(ms_row.get("code") or ""),
+                            str(ms_row.get("title") or "Migrated Milestone"),
+                            int(ms_row.get("order") if ms_row.get("order") is not None else ms_row.get("msOrder") or 0),
+                            str(ms_row.get("kind") or MILESTONE_KIND_STANDARD),
+                            int(ms_row.get("acceptsNewCards") if ms_row.get("acceptsNewCards") is not None else 1),
+                            str(ms_row.get("writeClosedAt") or ""),
+                            str(ms_row.get("archivedAt") or ""),
+                            str(ms_row.get("metaContract") or ""),
+                            str(ms_row.get("goals") or ""),
+                            str(ms_row.get("nonGoals") or ""),
+                            str(ms_row.get("risks") or ""),
+                            str(ms_row.get("createdAt") or now),
+                            str(ms_row.get("updatedAt") or now),
+                        ),
+                    )
+                    if c.rowcount:
+                        report["counts"]["milestones"] += 1
+
+            cards = board.get("cards") or []
+            if isinstance(cards, list):
+                for card_row in cards:
+                    if not isinstance(card_row, dict):
+                        continue
+                    card_id = str(card_row.get("id") or "").strip() or new_id("card")
+                    c.execute(
+                        """
+                        INSERT OR IGNORE INTO cards (
+                            id, boardId, issueNumber, title, description, acceptance, milestoneId, listId,
+                            priority, owner, targetDate, cardOrder, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            card_id,
+                            board_id,
+                            str(card_row.get("issueNumber") or ""),
+                            str(card_row.get("title") or "Migrated Card"),
+                            str(card_row.get("description") or ""),
+                            str(card_row.get("acceptance") or ""),
+                            str(card_row.get("milestoneId") or ""),
+                            str(card_row.get("listId") or ""),
+                            str(card_row.get("priority") or "P2"),
+                            str(card_row.get("owner") or ""),
+                            str(card_row.get("targetDate") or ""),
+                            int(card_row.get("order") if card_row.get("order") is not None else card_row.get("cardOrder") or 0),
+                            str(card_row.get("createdAt") or now),
+                            str(card_row.get("updatedAt") or now),
+                        ),
+                    )
+                    if c.rowcount:
+                        report["counts"]["cards"] += 1
+
+            charts = payload.get("charts") or []
+            if isinstance(charts, list):
+                for chart_row in charts:
+                    if not isinstance(chart_row, dict):
+                        continue
+                    chart_id = str(chart_row.get("id") or "").strip() or new_id("chart")
+                    c.execute(
+                        """
+                        INSERT OR IGNORE INTO charts (
+                            id, boardId, title, description, markdown, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            chart_id,
+                            board_id,
+                            str(chart_row.get("title") or "Migrated Chart"),
+                            str(chart_row.get("description") or ""),
+                            str(chart_row.get("markdown") or ""),
+                            str(chart_row.get("createdAt") or now),
+                            str(chart_row.get("updatedAt") or now),
+                        ),
+                    )
+                    if c.rowcount:
+                        report["counts"]["charts"] += 1
+
+        active_board = str(payload.get("activeBoardId") or "").strip()
+        if active_board:
+            c.execute("UPDATE meta SET value=? WHERE key='activeBoardId'", (active_board,))
+        conn.commit()
+        report["applied"] = True
+        report["reason"] = "legacy state migrated into sqlite"
+        return report
+    finally:
+        conn.close()
 
 
 def dict_factory(cursor, row):
@@ -80,6 +1836,9 @@ class SQLiteStore:
                 c.execute("SELECT * FROM charts")
                 charts = c.fetchall()
 
+                c.execute("SELECT * FROM board_artifacts")
+                board_artifacts = c.fetchall()
+
             lists_by_board = {}
             for l in lists:
                 l["order"] = l.pop("listOrder", 0)
@@ -95,10 +1854,18 @@ class SQLiteStore:
                 cd["order"] = cd.pop("cardOrder", 0)
                 cards_by_board.setdefault(cd["boardId"], []).append(cd)
 
+            artifacts_by_board = {}
+            for art in board_artifacts:
+                artifacts_by_board.setdefault(art["boardId"], []).append(art)
+
             for b in boards:
                 b["lists"] = sorted(lists_by_board.get(b["id"], []), key=lambda x: x["order"])
                 b["milestones"] = sorted(ms_by_board.get(b["id"], []), key=lambda x: x["order"])
                 b["cards"] = sorted(cards_by_board.get(b["id"], []), key=lambda x: x["order"])
+                b["artifacts"] = sorted(
+                    artifacts_by_board.get(b["id"], []),
+                    key=lambda x: (x.get("artifactType", ""), -(x.get("revision") or 0)),
+                )
 
             return {
                 "version": meta.get("version", 1),
@@ -109,6 +1876,16 @@ class SQLiteStore:
             }
 
 
+ensure_sqlite_schema(DB_FILE)
+LEGACY_MIGRATION_REPORT = migrate_legacy_state_json_to_sqlite(DB_FILE, LEGACY_STATE_FILE, force=False)
+CANONICALIZED_CHART_ROWS = canonicalize_legacy_chart_rows(DB_FILE)
+PLAYBOOK_REPAIR_ROWS = repair_playbook_artifacts_if_needed(DB_FILE)
+if CANONICALIZED_CHART_ROWS:
+    print(f"[CommandDeck] Canonicalized {CANONICALIZED_CHART_ROWS} legacy chart row(s).")
+if LEGACY_MIGRATION_REPORT.get("applied"):
+    print("[CommandDeck] Legacy state.json migration applied.")
+if PLAYBOOK_REPAIR_ROWS:
+    print(f"[CommandDeck] Repaired playbook artifact for {PLAYBOOK_REPAIR_ROWS} board(s).")
 STORE = SQLiteStore(DB_FILE)
 
 
@@ -158,9 +1935,22 @@ class KanbanHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         route = parsed.path
+        params = parse_qs(parsed.query)
 
         if route == "/api/health":
-            self._send_json({"ok": True, "time": now_iso()})
+            self._send_json(
+                {
+                    "ok": True,
+                    "time": now_iso(),
+                    "runtime": {
+                        "server": RUNTIME_SERVER,
+                        "implementation": RUNTIME_IMPLEMENTATION,
+                        "datastore": RUNTIME_DATASTORE,
+                        "fingerprint": RUNTIME_FINGERPRINT,
+                        "dbFile": DB_FILE.name,
+                    },
+                }
+            )
             return
 
         if route == "/api/state":
@@ -173,25 +1963,365 @@ class KanbanHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "version": version})
             return
 
+        if route == "/api/migration/legacy-state-json/status":
+            self._send_json({"ok": True, "migration": LEGACY_MIGRATION_REPORT})
+            return
+
+        if route.startswith("/api/boards/") and "/artifacts" in route:
+            parts = route.split("/")
+            if len(parts) >= 5 and parts[4] == "artifacts":
+                board_id = (parts[3] or "").strip()
+                if not board_id:
+                    self._send_error("boardId is required")
+                    return
+
+                with STORE._lock:
+                    conn = STORE.get_conn()
+                    c = conn.cursor()
+                    try:
+                        c.execute("SELECT id FROM boards WHERE id=?", (board_id,))
+                        if not c.fetchone():
+                            self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                            return
+
+                        if len(parts) == 5:
+                            artifact_type_raw = (params.get("artifactType", [""])[0] or "").strip()
+                            artifact_type = ""
+                            if artifact_type_raw:
+                                try:
+                                    artifact_type = _coerce_board_artifact_type(artifact_type_raw)
+                                except ValueError as exc:
+                                    self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                                    return
+
+                            if artifact_type:
+                                c.execute(
+                                    """
+                                    SELECT * FROM board_artifacts
+                                    WHERE boardId=? AND artifactType=?
+                                    ORDER BY revision DESC, createdAt DESC
+                                    """,
+                                    (board_id, artifact_type),
+                                )
+                            else:
+                                c.execute(
+                                    """
+                                    SELECT * FROM board_artifacts
+                                    WHERE boardId=?
+                                    ORDER BY artifactType ASC, revision DESC, createdAt DESC
+                                    """,
+                                    (board_id,),
+                                )
+                            rows = c.fetchall()
+                            self._send_json(
+                                {
+                                    "ok": True,
+                                    "boardId": board_id,
+                                    "artifactType": artifact_type,
+                                    "count": len(rows),
+                                    "artifacts": [_board_artifact_payload(row, include_body=False) for row in rows],
+                                }
+                            )
+                            return
+
+                        if len(parts) == 6 and parts[5] == "latest":
+                            artifact_type_raw = (params.get("artifactType", [""])[0] or "").strip()
+                            if not artifact_type_raw:
+                                self._send_error("artifactType query parameter is required")
+                                return
+                            try:
+                                artifact_type = _coerce_board_artifact_type(artifact_type_raw)
+                            except ValueError as exc:
+                                self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                                return
+
+                            c.execute(
+                                """
+                                SELECT * FROM board_artifacts
+                                WHERE boardId=? AND artifactType=?
+                                ORDER BY revision DESC, createdAt DESC
+                                LIMIT 1
+                                """,
+                                (board_id, artifact_type),
+                            )
+                            row = c.fetchone()
+                            if not row:
+                                self._send_error("Artifact not found", status=HTTPStatus.NOT_FOUND)
+                                return
+                            self._send_json({"ok": True, "artifact": _board_artifact_payload(row, include_body=True)})
+                            return
+                    finally:
+                        conn.close()
+
+        if route.startswith("/api/milestones/") and "/artifacts" in route:
+            parts = route.split("/")
+            if len(parts) >= 5 and parts[4] == "artifacts":
+                milestone_id = (parts[3] or "").strip()
+                if not milestone_id:
+                    self._send_error("milestoneId is required")
+                    return
+
+                with STORE._lock:
+                    conn = STORE.get_conn()
+                    c = conn.cursor()
+                    try:
+                        c.execute("SELECT id FROM milestones WHERE id=?", (milestone_id,))
+                        if not c.fetchone():
+                            self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                            return
+
+                        if len(parts) == 5:
+                            artifact_type_raw = (params.get("artifactType", [""])[0] or "").strip()
+                            artifact_type = ""
+                            if artifact_type_raw:
+                                try:
+                                    artifact_type = _coerce_artifact_type(artifact_type_raw)
+                                except ValueError as exc:
+                                    self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                                    return
+
+                            if artifact_type:
+                                c.execute(
+                                    """
+                                    SELECT * FROM milestone_artifacts
+                                    WHERE milestoneId=? AND artifactType=?
+                                    ORDER BY revision DESC, createdAt DESC
+                                    """,
+                                    (milestone_id, artifact_type),
+                                )
+                            else:
+                                c.execute(
+                                    """
+                                    SELECT * FROM milestone_artifacts
+                                    WHERE milestoneId=?
+                                    ORDER BY artifactType ASC, revision DESC, createdAt DESC
+                                    """,
+                                    (milestone_id,),
+                                )
+                            rows = c.fetchall()
+                            self._send_json(
+                                {
+                                    "ok": True,
+                                    "milestoneId": milestone_id,
+                                    "artifactType": artifact_type,
+                                    "count": len(rows),
+                                    "artifacts": [_artifact_payload(row, include_body=False) for row in rows],
+                                }
+                            )
+                            return
+
+                        if len(parts) == 6 and parts[5] == "latest":
+                            artifact_type_raw = (params.get("artifactType", [""])[0] or "").strip()
+                            if not artifact_type_raw:
+                                self._send_error("artifactType query parameter is required")
+                                return
+                            try:
+                                artifact_type = _coerce_artifact_type(artifact_type_raw)
+                            except ValueError as exc:
+                                self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                                return
+
+                            c.execute(
+                                """
+                                SELECT * FROM milestone_artifacts
+                                WHERE milestoneId=? AND artifactType=?
+                                ORDER BY revision DESC, createdAt DESC
+                                LIMIT 1
+                                """,
+                                (milestone_id, artifact_type),
+                            )
+                            row = c.fetchone()
+                            if not row:
+                                self._send_error("Artifact not found", status=HTTPStatus.NOT_FOUND)
+                                return
+                            self._send_json({"ok": True, "artifact": _artifact_payload(row, include_body=True)})
+                            return
+
+                        if len(parts) == 6:
+                            artifact_id = (parts[5] or "").strip()
+                            if not artifact_id:
+                                self._send_error("artifactId is required")
+                                return
+                            c.execute(
+                                "SELECT * FROM milestone_artifacts WHERE id=? AND milestoneId=?",
+                                (artifact_id, milestone_id),
+                            )
+                            row = c.fetchone()
+                            if not row:
+                                self._send_error("Artifact not found", status=HTTPStatus.NOT_FOUND)
+                                return
+                            self._send_json({"ok": True, "artifact": _artifact_payload(row, include_body=True)})
+                            return
+                    finally:
+                        conn.close()
+
+        if route == "/api/memory/state":
+            board_request = (params.get("boardId", [""])[0] or "").strip()
+            include_deleted = (params.get("includeDeleted", ["0"])[0] or "").strip().lower() in {"1", "true", "yes"}
+            limit = _safe_int(params.get("limit", ["200"])[0], 200, 1, 1000)
+
+            with STORE._lock:
+                conn = STORE.get_conn()
+                c = conn.cursor()
+                try:
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    where = "boardId=?"
+                    query_args: List[Any] = [board_id]
+                    if not include_deleted:
+                        where += " AND isDeleted=0"
+
+                    c.execute(
+                        f"SELECT * FROM memory_objects WHERE {where} ORDER BY updatedAt DESC, memoryKey ASC LIMIT ?",
+                        (*query_args, limit),
+                    )
+                    rows = c.fetchall()
+                    stats = _memory_stats(c, board_id)
+                finally:
+                    conn.close()
+
+            self._send_json(
+                {
+                    "ok": True,
+                    "memory": {
+                        "boardId": board_id,
+                        "objects": _memory_rows_to_payload(rows),
+                        "stats": stats,
+                        "limit": limit,
+                        "includeDeleted": include_deleted,
+                    },
+                }
+            )
+            return
+
+        if route == "/api/memory/query":
+            board_request = (params.get("boardId", [""])[0] or "").strip()
+            search = (params.get("q", [""])[0] or "").strip()
+            source_type = (params.get("sourceType", [""])[0] or "").strip().lower()
+            bucket = (params.get("bucket", [""])[0] or "").strip().lower()
+            tag = (params.get("tag", [""])[0] or "").strip()
+            limit = _safe_int(params.get("limit", ["50"])[0], 50, 1, 500)
+
+            with STORE._lock:
+                conn = STORE.get_conn()
+                c = conn.cursor()
+                try:
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    sql = "SELECT * FROM memory_objects WHERE boardId=? AND isDeleted=0"
+                    query_args: List[Any] = [board_id]
+
+                    if source_type:
+                        sql += " AND sourceType=?"
+                        query_args.append(source_type)
+
+                    if bucket:
+                        sql += " AND bucket=?"
+                        query_args.append(bucket)
+
+                    if search:
+                        like = f"%{search}%"
+                        sql += " AND (memoryKey LIKE ? OR value LIKE ? OR tags LIKE ?)"
+                        query_args.extend([like, like, like])
+
+                    sql += " ORDER BY updatedAt DESC, memoryKey ASC LIMIT ?"
+                    query_args.append(max(limit, 200))
+                    c.execute(sql, tuple(query_args))
+                    rows = c.fetchall()
+                finally:
+                    conn.close()
+
+            candidates = _memory_rows_to_payload(rows)
+            if tag:
+                candidates = [row for row in candidates if tag in row.get("tags", [])]
+            matches = candidates[:limit]
+
+            self._send_json(
+                {
+                    "ok": True,
+                    "memory": {
+                        "boardId": board_id,
+                        "query": {
+                            "q": search,
+                            "sourceType": source_type,
+                            "bucket": bucket,
+                            "tag": tag,
+                            "limit": limit,
+                        },
+                        "matches": matches,
+                        "count": len(matches),
+                    },
+                }
+            )
+            return
+
         if route.startswith("/api/docs/"):
             doc_id = route.split("/")[-1]
             try:
                 content = ""
+                if doc_id in BOARD_ARTIFACT_ALLOWED_TYPES:
+                    with STORE._lock:
+                        conn = STORE.get_conn()
+                        c = conn.cursor()
+                        try:
+                            board_id = _resolve_board_id(c, "")
+                            if board_id:
+                                c.execute(
+                                    """
+                                    SELECT body FROM board_artifacts
+                                    WHERE boardId=? AND artifactType=?
+                                    ORDER BY revision DESC, createdAt DESC
+                                    LIMIT 1
+                                    """,
+                                    (board_id, doc_id),
+                                )
+                                row = c.fetchone()
+                                if row:
+                                    content = str(row.get("body") or "")
+                        finally:
+                            conn.close()
+                    if content:
+                        self._send_json({"ok": True, "content": content})
+                        return
+
                 if doc_id == "charter":
-                    path = DOCS_DIR / "01_Strategy" / "PROJECT_CHARTER.md"
-                    files = sorted((DOCS_DIR / "01_Strategy").glob("*PROJECT_CHARTER.md"), reverse=True)
-                    if files: path = files[0]
+                    path = CONTROL_PLANE_DIR / "PROJECT_CHARTER.md"
+                    files = sorted(CONTROL_PLANE_DIR.glob("*PROJECT_CHARTER.md"), reverse=True)
+                    if files:
+                        path = files[0]
+                    elif (LEGACY_DOCS_DIR / "01_Strategy").exists():
+                        legacy_files = sorted((LEGACY_DOCS_DIR / "01_Strategy").glob("*PROJECT_CHARTER.md"), reverse=True)
+                        if legacy_files:
+                            path = legacy_files[0]
                 elif doc_id == "prd":
-                    path = DOCS_DIR / "01_Strategy" / "HIGH_LEVEL_PRD.md"
-                    files = sorted((DOCS_DIR / "01_Strategy").glob("*HIGH_LEVEL_PRD.md"), reverse=True)
-                    if files: path = files[0]
+                    path = CONTROL_PLANE_DIR / "HIGH_LEVEL_PRD.md"
+                    files = sorted(CONTROL_PLANE_DIR.glob("*HIGH_LEVEL_PRD.md"), reverse=True)
+                    if files:
+                        path = files[0]
+                    elif (LEGACY_DOCS_DIR / "01_Strategy").exists():
+                        legacy_files = sorted((LEGACY_DOCS_DIR / "01_Strategy").glob("*HIGH_LEVEL_PRD.md"), reverse=True)
+                        if legacy_files:
+                            path = legacy_files[0]
                 elif doc_id == "guardrails":
-                    path = DOCS_DIR / "00_Governance" / "GUARDRAILS.md"
+                    path = CONTROL_PLANE_DIR / "GUARDRAILS.md"
+                    if not path.exists():
+                        path = LEGACY_DOCS_DIR / "00_Governance" / "GUARDRAILS.md"
                 elif doc_id == "playbook":
-                    path = DOCS_DIR / "00_Governance" / "MCD_PLAYBOOK.md"
+                    path = CONTROL_PLANE_DIR / "MCD_PLAYBOOK.md"
+                    if not path.exists():
+                        path = LEGACY_DOCS_DIR / "00_Governance" / "MCD_PLAYBOOK.md"
                 elif doc_id == "contract":
-                    active_dir = DOCS_DIR / "03_Contracts" / "active"
-                    archive_dir = DOCS_DIR / "03_Contracts" / "archive"
+                    active_dir = CONTROL_PLANE_DIR / "contracts" / "active"
+                    archive_dir = CONTROL_PLANE_DIR / "contracts" / "archive"
+                    if not active_dir.exists() and not archive_dir.exists():
+                        active_dir = LEGACY_DOCS_DIR / "03_Contracts" / "active"
+                        archive_dir = LEGACY_DOCS_DIR / "03_Contracts" / "archive"
                     
                     active_files = sorted(active_dir.glob("*.md"), reverse=True)
                     archive_files = sorted(archive_dir.glob("*.md"), reverse=True)
@@ -208,7 +2338,9 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     self._send_error("Unknown doc")
                     return
 
-                if path.exists():
+                if doc_id != "contract" and not path.exists():
+                    content = "*Not generated or not found.*"
+                elif path.exists():
                     content = path.read_text(encoding="utf-8")
                     if doc_id == "contract":
                         content = header + content
@@ -254,6 +2386,308 @@ class KanbanHandler(BaseHTTPRequestHandler):
             now = now_iso()
 
             try:
+                if route == "/api/memory/events":
+                    board_request = str(body.get("boardId") or "").strip()
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    memory_key = str(body.get("memoryKey") or "").strip()
+                    if not memory_key:
+                        self._send_error("memoryKey is required")
+                        return
+
+                    source_type = str(body.get("sourceType") or "").strip().lower()
+                    if source_type not in MEMORY_ALLOWED_SOURCES:
+                        self._send_error(
+                            "sourceType must be one of: user, operator, verified-system",
+                            status=HTTPStatus.FORBIDDEN,
+                        )
+                        return
+
+                    event_type = str(body.get("eventType") or "upsert").strip().lower()
+                    if event_type not in MEMORY_ALLOWED_EVENT_TYPES:
+                        self._send_error("eventType must be one of: upsert, delete, touch")
+                        return
+
+                    if event_type == "upsert" and "value" not in body:
+                        self._send_error("value is required for upsert events")
+                        return
+
+                    bucket = str(body.get("bucket") or "misc").strip().lower()
+                    if bucket not in MEMORY_ALLOWED_BUCKETS:
+                        bucket = "misc"
+
+                    raw_tags = body.get("tags", [])
+                    if raw_tags is None:
+                        raw_tags = []
+                    if not isinstance(raw_tags, list):
+                        self._send_error("tags must be an array")
+                        return
+                    tags = [str(tag).strip() for tag in raw_tags if str(tag).strip()][:32]
+                    tags_json = _json_dumps_compact(tags)
+
+                    ttl_seconds = _safe_int(body.get("ttlSeconds"), 0, 0, 31_536_000)
+                    expires_at = ""
+                    if ttl_seconds > 0:
+                        expires_at = (
+                            dt.datetime.utcnow().replace(microsecond=0) + dt.timedelta(seconds=ttl_seconds)
+                        ).isoformat() + "Z"
+
+                    source_ref = str(body.get("sourceRef") or "")
+                    value_json = _json_dumps_compact(body.get("value"))
+                    if event_type != "upsert":
+                        value_json = "null"
+
+                    event_id = new_id("mev")
+                    if event_type == "touch":
+                        c.execute(
+                            "SELECT id FROM memory_objects WHERE boardId=? AND memoryKey=? AND isDeleted=0",
+                            (board_id, memory_key),
+                        )
+                        if not c.fetchone():
+                            self._send_error("Cannot touch missing memoryKey", status=HTTPStatus.NOT_FOUND)
+                            return
+
+                    c.execute(
+                        """
+                        INSERT INTO memory_events (
+                            id, boardId, memoryKey, eventType, sourceType, attested, bucket,
+                            value, tags, ttlSeconds, sourceRef, createdAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            event_id,
+                            board_id,
+                            memory_key,
+                            event_type,
+                            source_type,
+                            1,
+                            bucket,
+                            value_json,
+                            tags_json,
+                            ttl_seconds,
+                            source_ref,
+                            now,
+                        ),
+                    )
+
+                    applied = _apply_memory_event(
+                        c,
+                        board_id=board_id,
+                        event_id=event_id,
+                        now=now,
+                        memory_key=memory_key,
+                        event_type=event_type,
+                        source_type=source_type,
+                        bucket=bucket,
+                        value_json=value_json,
+                        tags_json=tags_json,
+                        expires_at=expires_at or None,
+                    )
+                    conn.commit()
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "memory": {
+                                "boardId": board_id,
+                                "eventId": event_id,
+                                "memoryKey": memory_key,
+                                "applied": applied,
+                                "eventType": event_type,
+                            },
+                        }
+                    )
+                    return
+
+                if route == "/api/memory/compact":
+                    board_request = str(body.get("boardId") or "").strip()
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    result = _compact_memory(c, board_id, now, MemoryBudgets.from_payload(body))
+                    conn.commit()
+                    self._send_json({"ok": True, "memory": {"compact": result}})
+                    return
+
+                if route == "/api/memory/export":
+                    board_request = str(body.get("boardId") or "").strip()
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    path_raw = str(body.get("path") or "").strip()
+                    export_path = (MEMORY_EXPORT_DIR / "agent-memory.json") if not path_raw else Path(path_raw)
+                    try:
+                        result = _export_memory_snapshot(c, board_id, export_path, now)
+                    except ValueError as exc:
+                        self._send_error(str(exc))
+                        return
+
+                    self._send_json({"ok": True, "memory": {"export": result}})
+                    return
+
+                if route == "/api/migration/legacy-state-json/run":
+                    force = bool(body.get("force", False))
+                    report = migrate_legacy_state_json_to_sqlite(DB_FILE, LEGACY_STATE_FILE, force=force)
+                    global LEGACY_MIGRATION_REPORT
+                    LEGACY_MIGRATION_REPORT = report
+                    self._send_json({"ok": report.get("ok", False), "migration": report})
+                    return
+
+                if route.startswith("/api/boards/") and route.endswith("/artifacts"):
+                    parts = route.split("/")
+                    if len(parts) != 5:
+                        self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    board_id = (parts[3] or "").strip()
+                    if not board_id:
+                        self._send_error("boardId is required")
+                        return
+
+                    c.execute("SELECT id FROM boards WHERE id=?", (board_id,))
+                    if not c.fetchone():
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    if "id" in body or "revision" in body:
+                        self._send_error("id and revision are server-assigned; omit both fields")
+                        return
+
+                    try:
+                        artifact_type = _coerce_board_artifact_type(body.get("artifactType"))
+                        title = _coerce_artifact_text(
+                            body.get("title"), "title", ARTIFACT_TITLE_MAX_LEN, required=True
+                        )
+                        summary = _coerce_artifact_text(body.get("summary"), "summary", ARTIFACT_SUMMARY_MAX_LEN)
+                        artifact_body = _coerce_artifact_text(body.get("body"), "body", ARTIFACT_BODY_MAX_LEN)
+                        source_ref = _coerce_artifact_text(
+                            body.get("sourceRef"), "sourceRef", ARTIFACT_SOURCE_REF_MAX_LEN
+                        )
+                    except ValueError as exc:
+                        self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                        return
+
+                    c.execute(
+                        """
+                        SELECT COALESCE(MAX(revision), 0) + 1 AS nextRevision
+                        FROM board_artifacts
+                        WHERE boardId=? AND artifactType=?
+                        """,
+                        (board_id, artifact_type),
+                    )
+                    row = c.fetchone() or {}
+                    next_revision = int(row.get("nextRevision") or 1)
+                    artifact_id = new_id("bfa")
+                    c.execute(
+                        """
+                        INSERT INTO board_artifacts (
+                            id, boardId, artifactType, revision,
+                            title, summary, body, sourceRef, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            artifact_id,
+                            board_id,
+                            artifact_type,
+                            next_revision,
+                            title,
+                            summary,
+                            artifact_body,
+                            source_ref,
+                            now,
+                            now,
+                        ),
+                    )
+                    conn.commit()
+                    c.execute("SELECT * FROM board_artifacts WHERE id=?", (artifact_id,))
+                    created = c.fetchone()
+                    self._send_json({"ok": True, "artifact": _board_artifact_payload(created, include_body=True)})
+                    return
+
+                if route.startswith("/api/milestones/"):
+                    parts = route.split("/")
+                    if len(parts) == 5 and parts[4] == "artifacts":
+                        milestone_id = (parts[3] or "").strip()
+                        if not milestone_id:
+                            self._send_error("milestoneId is required")
+                            return
+
+                        if "id" in body or "revision" in body:
+                            self._send_error("id and revision are server-assigned; omit both fields")
+                            return
+
+                        c.execute("SELECT * FROM milestones WHERE id=?", (milestone_id,))
+                        milestone = c.fetchone()
+                        if not milestone:
+                            self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                            return
+                        if _is_archived_milestone(milestone):
+                            self._send_error(MILESTONE_ARCHIVED_ERROR, status=HTTPStatus.CONFLICT)
+                            return
+
+                        try:
+                            artifact_type = _coerce_artifact_type(body.get("artifactType"))
+                            title = _coerce_artifact_text(
+                                body.get("title"), "title", ARTIFACT_TITLE_MAX_LEN, required=True
+                            )
+                            summary = _coerce_artifact_text(body.get("summary"), "summary", ARTIFACT_SUMMARY_MAX_LEN)
+                            artifact_body = _coerce_artifact_text(body.get("body"), "body", ARTIFACT_BODY_MAX_LEN)
+                            source_card_id = _coerce_artifact_text(
+                                body.get("sourceCardId"), "sourceCardId", ARTIFACT_SOURCE_REF_MAX_LEN
+                            )
+                            source_event_id = _coerce_artifact_text(
+                                body.get("sourceEventId"), "sourceEventId", ARTIFACT_SOURCE_REF_MAX_LEN
+                            )
+                        except ValueError as exc:
+                            self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                            return
+
+                        board_id = str(milestone.get("boardId") or "")
+                        c.execute(
+                            """
+                            SELECT COALESCE(MAX(revision), 0) + 1 AS nextRevision
+                            FROM milestone_artifacts
+                            WHERE boardId=? AND milestoneId=? AND artifactType=?
+                            """,
+                            (board_id, milestone_id, artifact_type),
+                        )
+                        row = c.fetchone() or {}
+                        next_revision = int(row.get("nextRevision") or 1)
+
+                        artifact_id = new_id("mfa")
+                        c.execute(
+                            """
+                            INSERT INTO milestone_artifacts (
+                                id, boardId, milestoneId, artifactType, revision,
+                                title, summary, body, sourceCardId, sourceEventId, createdAt, updatedAt
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                artifact_id,
+                                board_id,
+                                milestone_id,
+                                artifact_type,
+                                next_revision,
+                                title,
+                                summary,
+                                artifact_body,
+                                source_card_id,
+                                source_event_id,
+                                now,
+                                now,
+                            ),
+                        )
+                        conn.commit()
+                        c.execute("SELECT * FROM milestone_artifacts WHERE id=?", (artifact_id,))
+                        created = c.fetchone()
+                        self._send_json({"ok": True, "artifact": _artifact_payload(created, include_body=True)})
+                        return
+
                 if route == "/api/boards":
                     name = str(body.get("name") or "").strip()
                     if not name:
@@ -263,8 +2697,14 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     codename = str(body.get("codename") or "PRJ").strip().upper()[:3]
                     
                     board_id = new_id("board")
-                    c.execute("INSERT INTO boards (id, name, codename, nextIssueNumber, description, projectType, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (board_id, name, codename, 1, description, "standard", now, now))
+                    c.execute(
+                        """
+                        INSERT INTO boards (
+                            id, name, codename, nextIssueNumber, description, projectType, preflightLifecycleInitialized, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+                        """,
+                        (board_id, name, codename, 1, description, "standard", now, now),
+                    )
                     
                     # add default lists
                     statuses = [("backlog", "Backlog"), ("active", "In Progress"), ("blocked", "Blocked"), ("qa", "QA / Review"), ("done", "Done")]
@@ -305,27 +2745,91 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     if not board_id or not title:
                         self._send_error("boardId and title are required")
                         return
+                    try:
+                        meta_contract = _coerce_milestone_text(body.get("metaContract", ""), "metaContract")
+                        goals = _coerce_milestone_text(body.get("goals", ""), "goals")
+                        non_goals = _coerce_milestone_text(body.get("nonGoals", ""), "nonGoals")
+                        risks = _coerce_milestone_text(body.get("risks", ""), "risks")
+                    except ValueError as exc:
+                        self._send_error(str(exc))
+                        return
                     c.execute("SELECT MAX(msOrder) as m FROM milestones WHERE boardId=?", (board_id,))
                     res = c.fetchone()
                     max_ord = (res["m"] + 1) if res and res["m"] is not None else 0
-                    c.execute("INSERT INTO milestones (id, boardId, code, title, msOrder, createdAt, updatedAt) VALUES (?, ?, '', ?, ?, ?, ?)",
-                        (new_id("ms"), board_id, title, max_ord, now, now))
+                    c.execute(
+                        """
+                        INSERT INTO milestones (
+                            id, boardId, code, title, msOrder, kind, acceptsNewCards, writeClosedAt, archivedAt, metaContract, goals, nonGoals, risks, createdAt, updatedAt
+                        ) VALUES (?, ?, '', ?, ?, ?, 1, '', '', ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            new_id("ms"),
+                            board_id,
+                            title,
+                            max_ord,
+                            MILESTONE_KIND_STANDARD,
+                            meta_contract,
+                            goals,
+                            non_goals,
+                            risks,
+                            now,
+                            now,
+                        ),
+                    )
+                    conn.commit()
+                    self._send_json({"ok": True, "state": STORE.snapshot()})
+                    return
+
+                if route.endswith("/restore") and route.startswith("/api/milestones/"):
+                    parts = route.split("/")
+                    if len(parts) < 5:
+                        self._send_error("Milestone id is required")
+                        return
+                    milestone_id = parts[3]
+                    c.execute("SELECT boardId FROM milestones WHERE id=?", (milestone_id,))
+                    row = c.fetchone()
+                    if not row:
+                        self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    board_id = str(row.get("boardId") or "")
+                    c.execute(
+                        "UPDATE milestones SET archivedAt='', updatedAt=? WHERE id=?",
+                        (now, milestone_id),
+                    )
+                    if board_id:
+                        _refresh_preflight_write_state(c, board_id, now)
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
 
                 if route == "/api/cards":
-                    required = ["boardId", "listId", "title"]
+                    required = ["boardId", "listId", "title", "milestoneId"]
                     if any(not str(body.get(key) or "").strip() for key in required):
-                        self._send_error("boardId, listId, and title are required")
+                        self._send_error("boardId, listId, title, and milestoneId are required")
                         return
-                    board_id = body["boardId"]
-                    list_id = body["listId"]
+                    board_id = str(body["boardId"]).strip()
+                    list_id = str(body["listId"]).strip()
+                    milestone_id = str(body.get("milestoneId") or "").strip()
+                    if not milestone_id:
+                        self._send_error(MILESTONE_REQUIRED_ERROR)
+                        return
                     
                     c.execute("SELECT codename, nextIssueNumber FROM boards WHERE id=?", (board_id,))
                     b_row = c.fetchone()
                     if not b_row:
                         self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    _refresh_preflight_write_state(c, board_id, now)
+                    milestone = _get_milestone(c, board_id, milestone_id)
+                    if not milestone:
+                        self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    if _is_archived_milestone(milestone):
+                        self._send_error(MILESTONE_ARCHIVED_ERROR, status=HTTPStatus.CONFLICT)
+                        return
+                    if _is_write_closed_preflight(milestone):
+                        self._send_error(MILESTONE_CLOSED_ERROR, status=HTTPStatus.CONFLICT)
                         return
                     
                     issue_number = f"{b_row['codename']}-{b_row['nextIssueNumber']:03d}"
@@ -336,8 +2840,37 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     max_ord = (res["m"] + 1) if res and res["m"] is not None else 0
 
                     c.execute("INSERT INTO cards (id, boardId, issueNumber, title, description, acceptance, milestoneId, listId, priority, owner, targetDate, cardOrder, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (new_id("card"), board_id, issue_number, body["title"], body.get("description", ""), body.get("acceptance", ""), body.get("milestoneId", ""), list_id, body.get("priority", "P2"), body.get("owner", ""), body.get("targetDate", ""), max_ord, now, now))
+                        (new_id("card"), board_id, issue_number, body["title"], body.get("description", ""), body.get("acceptance", ""), milestone_id, list_id, body.get("priority", "P2"), body.get("owner", ""), body.get("targetDate", ""), max_ord, now, now))
                     
+                    conn.commit()
+                    self._send_json({"ok": True, "state": STORE.snapshot()})
+                    return
+
+                if route == "/api/charts":
+                    required = ["boardId", "title"]
+                    if any(not str(body.get(key) or "").strip() for key in required):
+                        self._send_error("boardId and title are required")
+                        return
+
+                    board_id = str(body.get("boardId") or "").strip()
+                    title = str(body.get("title") or "").strip()
+                    description = str(body.get("description") or "")
+                    try:
+                        markdown = normalize_and_validate_mermaid(str(body.get("markdown") or ""))
+                    except ValueError as exc:
+                        self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                        return
+
+                    c.execute("SELECT id FROM boards WHERE id=?", (board_id,))
+                    if not c.fetchone():
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    c.execute(
+                        "INSERT INTO charts (id, boardId, title, description, markdown, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (new_id("chart"), board_id, title, description, markdown, now, now),
+                    )
+
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
@@ -348,10 +2881,29 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     if not list_id:
                         self._send_error("listId is required")
                         return
+                    c.execute("SELECT * FROM cards WHERE id=?", (card_id,))
+                    card_row = c.fetchone()
+                    if not card_row:
+                        self._send_error("Card not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    board_id = str(card_row.get("boardId") or "")
+                    old_list_id = str(card_row.get("listId") or "")
                     c.execute("SELECT MAX(cardOrder) as m FROM cards WHERE listId=?", (list_id,))
                     res = c.fetchone()
                     max_ord = (res["m"] + 1) if res and res["m"] is not None else 0
                     c.execute("UPDATE cards SET listId=?, cardOrder=?, updatedAt=? WHERE id=?", (list_id, max_ord, now, card_id))
+                    c.execute("SELECT * FROM cards WHERE id=?", (card_id,))
+                    updated_card = c.fetchone()
+
+                    if updated_card and _is_completion_transition(c, board_id, old_list_id, str(updated_card.get("listId") or "")):
+                        _append_findings_for_eval_completion(
+                            c,
+                            updated_card,
+                            now,
+                            source_event_id=f"card-move:{card_id}:{now}",
+                        )
+
+                    _refresh_preflight_write_state(c, board_id, now)
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
@@ -382,6 +2934,15 @@ class KanbanHandler(BaseHTTPRequestHandler):
             c = conn.cursor()
             now = now_iso()
             try:
+                if route.startswith("/api/milestones/") and "/artifacts" in route:
+                    parts = route.split("/")
+                    if len(parts) >= 5 and parts[4] == "artifacts":
+                        self._send_error(
+                            "Milestone artifacts are immutable. Create a new revision with POST /api/milestones/{milestoneId}/artifacts.",
+                            status=HTTPStatus.METHOD_NOT_ALLOWED,
+                        )
+                        return
+
                 if route.startswith("/api/boards/"):
                     board_id = route.split("/")[3]
                     if "name" in body:
@@ -403,17 +2964,57 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     return
 
                 if route.startswith("/api/milestones/"):
-                    milestone_id = route.split("/")[3]
+                    parts = route.split("/")
+                    if len(parts) != 4:
+                        self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    milestone_id = parts[3]
                     if "title" in body:
                         c.execute("UPDATE milestones SET title=?, updatedAt=? WHERE id=?", (body["title"], now, milestone_id))
                     if "order" in body:
                         c.execute("UPDATE milestones SET msOrder=?, updatedAt=? WHERE id=?", (body["order"], now, milestone_id))
+                    for field in MILESTONE_METADATA_FIELDS:
+                        if field in body:
+                            try:
+                                value = _coerce_milestone_text(body.get(field), field)
+                            except ValueError as exc:
+                                self._send_error(str(exc))
+                                return
+                            c.execute(f"UPDATE milestones SET {field}=?, updatedAt=? WHERE id=?", (value, now, milestone_id))
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
 
                 if route.startswith("/api/cards/"):
                     card_id = route.split("/")[3]
+                    c.execute("SELECT * FROM cards WHERE id=?", (card_id,))
+                    current_card = c.fetchone()
+                    if not current_card:
+                        self._send_error("Card not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    board_id = str(current_card.get("boardId") or "")
+                    old_list_id = str(current_card.get("listId") or "")
+                    _refresh_preflight_write_state(c, board_id, now)
+
+                    if "milestoneId" in body:
+                        new_milestone_id = str(body.get("milestoneId") or "").strip()
+                        if not new_milestone_id:
+                            self._send_error(MILESTONE_REQUIRED_ERROR)
+                            return
+                        old_milestone_id = str(current_card.get("milestoneId") or "")
+                        if new_milestone_id != old_milestone_id:
+                            milestone = _get_milestone(c, board_id, new_milestone_id)
+                            if not milestone:
+                                self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                                return
+                            if _is_archived_milestone(milestone):
+                                self._send_error(MILESTONE_ARCHIVED_ERROR, status=HTTPStatus.CONFLICT)
+                                return
+                            if _is_write_closed_preflight(milestone):
+                                self._send_error(MILESTONE_CLOSED_ERROR, status=HTTPStatus.CONFLICT)
+                                return
+                        body["milestoneId"] = new_milestone_id
+
                     fields = ["title", "description", "acceptance", "owner", "targetDate", "priority", "milestoneId", "listId"]
                     for f in fields:
                         if f in body:
@@ -425,7 +3026,55 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         res = c.fetchone()
                         max_ord = (res["m"] + 1) if res and res["m"] is not None else 0
                         c.execute("UPDATE cards SET cardOrder=? WHERE id=?", (max_ord, card_id))
-                        
+
+                    c.execute("SELECT * FROM cards WHERE id=?", (card_id,))
+                    updated_card = c.fetchone()
+                    if updated_card and "listId" in body and _is_completion_transition(
+                        c,
+                        board_id,
+                        old_list_id,
+                        str(updated_card.get("listId") or ""),
+                    ):
+                        _append_findings_for_eval_completion(
+                            c,
+                            updated_card,
+                            now,
+                            source_event_id=f"card-patch:{card_id}:{now}",
+                        )
+
+                    _refresh_preflight_write_state(c, board_id, now)
+                    conn.commit()
+                    self._send_json({"ok": True, "state": STORE.snapshot()})
+                    return
+
+                if route.startswith("/api/charts/"):
+                    chart_id = route.split("/")[3]
+                    c.execute("SELECT id FROM charts WHERE id=?", (chart_id,))
+                    if not c.fetchone():
+                        self._send_error("Chart not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    if "title" in body and not str(body.get("title") or "").strip():
+                        self._send_error("title cannot be empty")
+                        return
+
+                    updated = False
+                    for field in ["title", "description", "markdown"]:
+                        if field in body:
+                            value = str(body.get(field) or "")
+                            if field == "markdown":
+                                try:
+                                    value = normalize_and_validate_mermaid(value)
+                                except ValueError as exc:
+                                    self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                                    return
+                            c.execute(f"UPDATE charts SET {field}=?, updatedAt=? WHERE id=?", (value, now, chart_id))
+                            updated = True
+
+                    if not updated:
+                        self._send_error("No updatable chart fields provided")
+                        return
+
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
@@ -447,6 +3096,10 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     c.execute("DELETE FROM lists WHERE boardId=?", (board_id,))
                     c.execute("DELETE FROM milestones WHERE boardId=?", (board_id,))
                     c.execute("DELETE FROM charts WHERE boardId=?", (board_id,))
+                    c.execute("DELETE FROM milestone_artifacts WHERE boardId=?", (board_id,))
+                    c.execute("DELETE FROM board_artifacts WHERE boardId=?", (board_id,))
+                    c.execute("DELETE FROM memory_events WHERE boardId=?", (board_id,))
+                    c.execute("DELETE FROM memory_objects WHERE boardId=?", (board_id,))
                     # fallback active board
                     c.execute("SELECT id FROM boards LIMIT 1")
                     res = c.fetchone()
@@ -472,9 +3125,40 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     return
 
                 if route.startswith("/api/milestones/"):
-                    milestone_id = route.split("/")[3]
-                    c.execute("UPDATE cards SET milestoneId='' WHERE milestoneId=?", (milestone_id,))
-                    c.execute("DELETE FROM milestones WHERE id=?", (milestone_id,))
+                    parts = route.split("/")
+                    if len(parts) >= 5 and parts[4] == "artifacts":
+                        self._send_error(
+                            "Milestone artifacts are immutable and cannot be deleted.",
+                            status=HTTPStatus.METHOD_NOT_ALLOWED,
+                        )
+                        return
+                    if len(parts) != 4:
+                        self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    milestone_id = parts[3]
+                    c.execute("SELECT * FROM milestones WHERE id=?", (milestone_id,))
+                    row = c.fetchone()
+                    if not row:
+                        self._send_error("Milestone not found", status=HTTPStatus.NOT_FOUND)
+                        return
+                    was_archived = bool(str(row.get("archivedAt") or "").strip())
+                    now = now_iso()
+                    if not was_archived:
+                        _append_outcomes_for_milestone_closeout(
+                            c,
+                            row,
+                            now,
+                            source_event_id=f"milestone-closeout:{milestone_id}:{now}",
+                        )
+                    c.execute(
+                        """
+                        UPDATE milestones
+                        SET archivedAt=COALESCE(NULLIF(archivedAt, ''), ?),
+                            updatedAt=?
+                        WHERE id=?
+                        """,
+                        (now, now, milestone_id),
+                    )
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return

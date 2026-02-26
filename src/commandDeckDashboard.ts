@@ -1,15 +1,13 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { recordCommandIntentFromChatInput } from './memoryHooks';
+import { ServerController } from './serverController';
 
 export class CommandDeckDashboard {
     public static currentPanel: CommandDeckDashboard | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
 
-    public static createOrShow(extensionUri: vscode.Uri) {
+    public static createOrShow(extensionUri: vscode.Uri, serverController: ServerController) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
@@ -30,21 +28,29 @@ export class CommandDeckDashboard {
             }
         );
 
-        CommandDeckDashboard.currentPanel = new CommandDeckDashboard(panel);
+        CommandDeckDashboard.currentPanel = new CommandDeckDashboard(panel, serverController);
     }
 
-    private constructor(panel: vscode.WebviewPanel) {
-        this._panel = panel;
-        this._update();
-        this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
-
-        this._panel.webview.onDidReceiveMessage(
+    public static registerMessageHandlers(
+        webview: vscode.Webview,
+        disposables: vscode.Disposable[],
+        serverController: ServerController
+    ) {
+        webview.onDidReceiveMessage(
             async (message) => {
                 const workspaceFolders = vscode.workspace.workspaceFolders;
                 const root = workspaceFolders && workspaceFolders.length > 0 ? workspaceFolders[0].uri : undefined;
 
                 switch (message.command) {
                     case 'openChatInput':
+                        if (root) {
+                            const chatText = typeof message.text === 'string' ? message.text : '';
+                            void recordCommandIntentFromChatInput(root.fsPath, chatText).then((result) => {
+                                if (result.attempted && !result.recorded) {
+                                    console.warn(`[AmphionAgent] Memory hook skipped: ${result.reason ?? 'unknown'}`);
+                                }
+                            });
+                        }
                         vscode.commands.executeCommand('workbench.action.chat.open', { query: message.text });
                         return;
                     case 'runTerminalCommand':
@@ -78,13 +84,20 @@ export class CommandDeckDashboard {
 
                     case 'openDynamicDoc':
                         if (root) {
-                            const folder = message.folder; // e.g. '01_Strategy'
                             const suffix = message.suffix; // e.g. 'PROJECT_CHARTER.md'
-                            const searchPattern = new vscode.RelativePattern(
-                                vscode.Uri.joinPath(root, 'referenceDocs', folder),
+                            const controlPlanePattern = new vscode.RelativePattern(
+                                vscode.Uri.joinPath(root, '.amphion', 'control-plane'),
                                 `*${suffix}`
                             );
-                            const files = await vscode.workspace.findFiles(searchPattern, null, 1);
+                            const legacyFolder = message.folder || '01_Strategy';
+                            const legacyPattern = new vscode.RelativePattern(
+                                vscode.Uri.joinPath(root, 'referenceDocs', legacyFolder),
+                                `*${suffix}`
+                            );
+                            const controlPlaneFiles = await vscode.workspace.findFiles(controlPlanePattern, null, 1);
+                            const files = controlPlaneFiles.length > 0
+                                ? controlPlaneFiles
+                                : await vscode.workspace.findFiles(legacyPattern, null, 1);
                             if (files.length > 0) {
                                 vscode.commands.executeCommand('markdown.showPreview', files[0]);
                             } else {
@@ -94,56 +107,46 @@ export class CommandDeckDashboard {
                         return;
 
                     case 'startServer':
-                        if (root) {
-                            let port = '8765';
-                            try {
-                                const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
-                                const fileData = await vscode.workspace.fs.readFile(configUri);
-                                const parsed = JSON.parse(new TextDecoder().decode(fileData));
-                                if (parsed.port) port = parsed.port;
-                            } catch { }
-
-                            // Surgically clear the port before starting
-                            try {
-                                await execAsync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
-                            } catch { }
-
-                            let terminal = vscode.window.terminals.find(t => t.name === 'Amphion Agent');
-                            if (!terminal) {
-                                terminal = vscode.window.createTerminal('Amphion Agent');
+                        if (!root) {
+                            vscode.window.showErrorMessage('AmphionAgent: No workspace folder open to start server.');
+                            return;
+                        }
+                        {
+                            const result = await serverController.start(root);
+                            if (result.ok) {
+                                vscode.window.showInformationMessage(result.message);
+                            } else {
+                                vscode.window.showWarningMessage(result.message);
                             }
-                            terminal.show();
-                            terminal.sendText(`python3 ops/launch-command-deck/server.py --port ${port}`);
-                            vscode.window.showInformationMessage(`AmphionAgent: Starting Command Deck on port ${port}`);
                         }
                         return;
 
                     case 'stopServer':
-                        if (root) {
-                            let port = '8765';
-                            try {
-                                const configUri = vscode.Uri.joinPath(root, 'ops', 'amphion.json');
-                                const fileData = await vscode.workspace.fs.readFile(configUri);
-                                const parsed = JSON.parse(new TextDecoder().decode(fileData));
-                                if (parsed.port) port = parsed.port;
-                            } catch { }
-
-                            try {
-                                // Surgically kill by port using child_process for deterministic execution
-                                await execAsync(`lsof -ti:${port} | xargs kill -9`);
-                                vscode.window.showInformationMessage(`AmphionAgent: Stopped server on port ${port}`);
-                            } catch (err) {
-                                // If no process found, lsof returns non-zero, catch it silently or log
-                                console.log('No server found on port or kill failed', err);
-                                vscode.window.showWarningMessage(`AmphionAgent: No active server found on port ${port}`);
+                        if (!root) {
+                            vscode.window.showErrorMessage('AmphionAgent: No workspace folder open to stop server.');
+                            return;
+                        }
+                        {
+                            const result = await serverController.stop(root);
+                            if (result.ok) {
+                                vscode.window.showInformationMessage(result.message);
+                            } else {
+                                vscode.window.showWarningMessage(result.message);
                             }
                         }
                         return;
                 }
             },
             null,
-            this._disposables
+            disposables
         );
+    }
+
+    private constructor(panel: vscode.WebviewPanel, serverController: ServerController) {
+        this._panel = panel;
+        this._update();
+        this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+        CommandDeckDashboard.registerMessageHandlers(this._panel.webview, this._disposables, serverController);
     }
 
     public dispose() {
@@ -158,10 +161,10 @@ export class CommandDeckDashboard {
     }
 
     private _update() {
-        this._panel.webview.html = this._getHtmlForWebview();
+        this._panel.webview.html = CommandDeckDashboard.getHtmlForWebview();
     }
 
-    private _getHtmlForWebview() {
+    public static getHtmlForWebview() {
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -297,7 +300,7 @@ export class CommandDeckDashboard {
             <h2>Documents</h2>
             <div class="details-section" style="margin-top: -8px;">
                 <ul class="details-list">
-                    <li><a onclick="vscode.postMessage({command: 'previewFile', path: 'referenceDocs/00_Governance/MCD_PLAYBOOK.md'})">• Canonical MCD Commands</a></li>
+                    <li><a onclick="vscode.postMessage({command: 'previewFile', path: '.amphion/control-plane/MCD_PLAYBOOK.md'})">• Canonical MCD Commands</a></li>
                     <li><a onclick="vscode.postMessage({command: 'openDynamicDoc', folder: '01_Strategy', suffix: 'PROJECT_CHARTER.md'})">• Project Charter</a></li>
                     <li><a onclick="vscode.postMessage({command: 'openDynamicDoc', folder: '01_Strategy', suffix: 'HIGH_LEVEL_PRD.md'})">• High-Level PRD</a></li>
                 </ul>
@@ -319,20 +322,16 @@ export class CommandDeckDashboard {
                     <span class="command-tag">1. /evaluate</span>
                     <span class="command-desc">research & scope</span>
                 </div>
-                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/board'})">
-                    <span class="command-tag">2. /board</span>
-                    <span class="command-desc">create board items</span>
-                </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/contract'})">
-                    <span class="command-tag">3. /contract</span>
+                    <span class="command-tag">2. /contract</span>
                     <span class="command-desc">define execution plan</span>
                 </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/execute'})">
-                    <span class="command-tag">4. /execute</span>
+                    <span class="command-tag">3. /execute</span>
                     <span class="command-desc">implement contract</span>
                 </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/closeout'})">
-                    <span class="command-tag">5. /closeout</span>
+                    <span class="command-tag">4. /closeout</span>
                     <span class="command-desc">archive and complete</span>
                 </div>
             </div>

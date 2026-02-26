@@ -8,6 +8,7 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-panel-tile-bottom: calc(var(--space-2) + 8px);
 
   --radius-sm: 8px;
   --radius-md: 10px;
@@ -427,7 +428,9 @@ html[data-sidebar-collapsed="true"] .sidebar-header {
 html[data-sidebar-collapsed="true"] .sidebar .panel,
 html[data-sidebar-collapsed="true"] .sidebar h2,
 html[data-sidebar-collapsed="true"] .sidebar .board-list,
+html[data-sidebar-collapsed="true"] .sidebar .boards-accordion,
 html[data-sidebar-collapsed="true"] .sidebar .milestone-list,
+html[data-sidebar-collapsed="true"] .sidebar .utilities-accordion,
 html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   opacity: 0;
   pointer-events: none;
@@ -453,6 +456,76 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
 .utility-actions {
   display: grid;
   gap: var(--space-2);
+}
+
+.milestone-panel-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.milestone-panel-actions .btn {
+  width: 100%;
+}
+
+.boards-accordion,
+.utilities-accordion {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--divider-soft);
+  background: var(--surface-elevated);
+  padding: 8px;
+}
+
+.boards-accordion summary,
+.utilities-accordion summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.boards-summary-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.boards-summary-active {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.boards-accordion summary::-webkit-details-marker,
+.utilities-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.boards-accordion summary .chevron,
+.utilities-accordion summary .chevron {
+  opacity: 0.6;
+  transition: transform var(--motion-base);
+}
+
+.boards-accordion[open] summary .chevron,
+.utilities-accordion[open] summary .chevron {
+  transform: rotate(180deg);
+}
+
+.boards-accordion[open] summary,
+.utilities-accordion[open] summary {
+  margin-bottom: var(--space-2);
 }
 
 .board-item,
@@ -483,21 +556,100 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 72%, transparent);
 }
 
+.board-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.board-item strong {
+  font-size: 0.94rem;
+}
+
+.board-item-desc {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
 .milestone-item {
   border-radius: var(--radius-sm);
   background: var(--surface-elevated);
   border: 1px solid var(--divider-soft);
-  padding: var(--space-2);
+  padding: var(--space-2) var(--space-2) calc(var(--space-2) + 4px);
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  transition: border-color var(--motion-fast), background var(--motion-fast), transform var(--motion-fast);
 }
 
-.milestone-item header {
-  display: flex;
-  justify-content: space-between;
+.milestone-item:hover {
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-elevated) 82%, var(--accent-primary) 18%);
+  transform: translateY(-1px);
+}
+
+.milestone-item.is-write-closed {
+  border-color: color-mix(in srgb, var(--accent-danger) 42%, var(--divider-soft) 58%);
+}
+
+.milestone-item.is-ready-to-close {
+  border-color: color-mix(in srgb, var(--accent-danger) 46%, var(--divider-soft) 54%);
+}
+
+.milestone-item.is-ready-to-close:hover {
+  border-color: color-mix(in srgb, var(--accent-danger) 58%, var(--divider-soft) 42%);
+  background: color-mix(in srgb, var(--surface-elevated) 84%, var(--accent-danger) 16%);
+}
+
+.milestone-title-row {
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.milestone-utility-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--space-2);
-  font-size: 0.75rem;
+  gap: 6px;
+}
+
+.milestone-score {
   color: var(--text-secondary);
-  margin-bottom: 6px;
+  justify-self: start;
+}
+
+.milestone-disposition {
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.milestone-disposition.is-ready-to-close {
+  color: var(--accent-danger);
+}
+
+.milestone-status-badge {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-danger) 58%, transparent);
+  padding: 2px 8px;
+  font-size: 0.67rem;
+  color: var(--accent-danger);
+}
+
+.milestone-delete-btn,
+.milestone-archive-btn {
+  padding: 2px 8px;
+  min-height: 24px;
+}
+
+.milestone-archive-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .progress-track {
@@ -513,11 +665,23 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   background: linear-gradient(90deg, var(--accent-success), color-mix(in srgb, var(--accent-success) 70%, var(--accent-primary) 30%));
 }
 
+.milestone-identifier {
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
 .workspace {
   display: grid;
   grid-template-rows: auto auto 1fr;
   min-height: 0;
   min-width: 0;
+}
+
+#boardView {
+  position: relative;
+  overflow: hidden;
 }
 
 .view-surface {
@@ -795,6 +959,18 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   flex-wrap: wrap;
 }
 
+.milestone-policy-hint {
+  border-bottom: 1px solid var(--divider-soft);
+  padding: 8px var(--space-3);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-toolbar) 90%, transparent);
+}
+
+.milestone-policy-hint.warning {
+  color: color-mix(in srgb, var(--accent-danger) 78%, var(--text-primary) 22%);
+}
+
 .left-tools,
 .right-tools {
   display: flex;
@@ -842,6 +1018,197 @@ textarea:focus {
   min-height: 0;
   align-items: stretch;
   scroll-behavior: smooth;
+}
+
+#boardView.panel-open .kanban-columns {
+  padding-right: min(440px, 92vw);
+}
+
+.milestone-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  max-width: 100vw;
+  border-left: 1px solid var(--border-subtle);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-panel);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  transform: translateX(105%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform var(--motion-base);
+  z-index: 240;
+}
+
+.milestone-detail-panel.is-open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.milestone-detail-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "back spacer close"
+    "title title title";
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: 6px;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--divider-soft);
+}
+
+.milestone-detail-title {
+  grid-area: title;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+#btnMilestonePanelBack {
+  grid-area: back;
+  justify-self: start;
+}
+
+#btnMilestonePanelClose {
+  grid-area: close;
+  justify-self: end;
+}
+
+.milestone-detail-content {
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.milestone-detail-body {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.milestone-detail-view,
+.milestone-task-detail-view,
+.milestone-artifact-detail-view {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+}
+
+.milestone-detail-section {
+  border: 1px solid var(--divider-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-layer);
+  padding: var(--space-2) var(--space-2) var(--space-panel-tile-bottom);
+  display: grid;
+  gap: 6px;
+}
+
+.milestone-detail-section h4 {
+  margin: 0;
+  font-size: 0.79rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.milestone-detail-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.milestone-artifact-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: 8px;
+  background: linear-gradient(180deg, var(--surface-panel) 0%, var(--surface-panel) calc(100% - 8px), transparent 100%);
+}
+
+.milestone-artifact-actions .btn {
+  width: 100%;
+}
+
+.milestone-task-group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.milestone-task-group-title {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.milestone-task-list {
+  display: grid;
+  gap: 6px;
+}
+
+.milestone-task-link {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  text-align: left;
+  padding: var(--space-2) 10px var(--space-panel-tile-bottom);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  transition: border-color var(--motion-fast), transform var(--motion-fast), background var(--motion-fast);
+}
+
+.milestone-task-link:hover {
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--surface-elevated) 84%, var(--accent-primary) 16%);
+}
+
+.milestone-task-link strong {
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+
+.milestone-task-link span {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.milestone-detail-empty {
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-2) var(--space-panel-tile-bottom);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.task-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.task-detail-grid .milestone-detail-section {
+  padding: var(--space-2) var(--space-2) var(--space-panel-tile-bottom);
+}
+
+.task-detail-grid .milestone-detail-text {
+  font-size: 0.78rem;
 }
 
 .column {
@@ -921,6 +1288,10 @@ textarea:focus {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
+}
+
+.card header {
+  justify-content: flex-end;
 }
 
 .card h4 {
@@ -1103,6 +1474,49 @@ textarea:focus {
 .doc-dialog {
   width: min(860px, 95vw);
   max-height: 90vh;
+}
+
+.milestone-archives-dialog {
+  width: min(620px, 95vw);
+  max-height: 82vh;
+}
+
+.milestone-archives-list {
+  display: grid;
+  gap: var(--space-2);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.milestone-archive-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border: 1px solid var(--divider-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-layer);
+  padding: 10px;
+}
+
+.milestone-archive-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.milestone-archive-info {
+  display: grid;
+  gap: 4px;
+}
+
+.milestone-archive-info strong {
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+
+.milestone-archive-info span {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
 }
 
 .doc-dialog-form {
@@ -1332,6 +1746,14 @@ menu {
     grid-auto-columns: minmax(300px, 86vw);
   }
 
+  .milestone-detail-panel {
+    width: 100%;
+  }
+
+  #boardView.panel-open .kanban-columns {
+    padding-right: var(--space-3);
+  }
+
   .charts-layout {
     grid-template-columns: 1fr;
   }
@@ -1357,6 +1779,16 @@ menu {
 
   .attribution-link-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .milestone-panel-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .milestone-artifact-actions {
+    grid-template-columns: 1fr;
   }
 }
 

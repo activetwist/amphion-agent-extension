@@ -1,6 +1,16 @@
 import * as vscode from 'vscode';
 import { migrateEnvironment } from './scaffolder';
-import { CommandDeckDashboard } from './commandDeckDashboard';
+import { AgentControlsSidebarProvider } from './agentControlsSidebar';
+import { ServerController } from './serverController';
+import {
+    detectAdapterGaps,
+    detectIdeTargets,
+    ensureAdaptersForTargets,
+    readEnvironmentState,
+    readRuntimeConfig,
+    toProjectConfig,
+    writeEnvironmentState,
+} from './environment';
 
 interface AmphionEnvironmentConfig {
     mcdVersion?: string;
@@ -33,8 +43,8 @@ function compareVersions(a: string, b: string): number {
 
 async function readEnvironmentConfig(root: vscode.Uri): Promise<AmphionEnvironmentConfig | undefined> {
     try {
-        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, 'ops', 'amphion.json'));
-        return JSON.parse(new TextDecoder().decode(bytes)) as AmphionEnvironmentConfig;
+        const runtime = await readRuntimeConfig(root);
+        return { mcdVersion: runtime.mcdVersion };
     } catch {
         return undefined;
     }
@@ -81,7 +91,82 @@ async function maybePromptEnvironmentUpdate(context: vscode.ExtensionContext, ro
     }
 }
 
+async function maybePromptIdeAdapters(root: vscode.Uri): Promise<void> {
+    const runtime = await readRuntimeConfig(root);
+    const project = toProjectConfig(runtime);
+    const environmentState = await readEnvironmentState(root);
+    const detected = await detectIdeTargets(root);
+    const gaps = await detectAdapterGaps(root, detected);
+    const reminderWindowMs = UPDATE_DEFER_HOURS * 60 * 60 * 1000;
+    const promptTargets = gaps.filter((target) => {
+        const prior = environmentState.adapterDecisions[target];
+        if (!prior) {
+            return true;
+        }
+        if (prior.policy === 'never') {
+            return false;
+        }
+        if (prior.policy === 'remind-later') {
+            const updatedAtMs = Date.parse(prior.updatedAt);
+            if (Number.isFinite(updatedAtMs) && Date.now() - updatedAtMs < reminderWindowMs) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    environmentState.detectedIdeTargets = detected;
+    if (promptTargets.length === 0) {
+        await writeEnvironmentState(root, environmentState);
+        return;
+    }
+
+    const list = promptTargets.map((target) => target.toUpperCase()).join(', ');
+    const action = await vscode.window.showInformationMessage(
+        `Detected IDE adapter gap (${list}). Generate required rules/workflows now?`,
+        'Generate now',
+        'Remind later',
+        'Never for this IDE'
+    );
+
+    if (action === 'Generate now') {
+        await ensureAdaptersForTargets(root, project, promptTargets);
+        const ts = new Date().toISOString();
+        for (const target of promptTargets) {
+            environmentState.adapterDecisions[target] = {
+                policy: 'accepted',
+                updatedAt: ts,
+            };
+        }
+        environmentState.lastPromptAt = ts;
+        await writeEnvironmentState(root, environmentState);
+        vscode.window.showInformationMessage(`Generated adapters for ${list}.`);
+        return;
+    }
+
+    const policy = action === 'Never for this IDE' ? 'never' : 'remind-later';
+    const ts = new Date().toISOString();
+    for (const target of promptTargets) {
+        environmentState.adapterDecisions[target] = {
+            policy,
+            updatedAt: ts,
+        };
+    }
+    environmentState.lastPromptAt = ts;
+    await writeEnvironmentState(root, environmentState);
+}
+
 export function activate(context: vscode.ExtensionContext) {
+    const serverController = new ServerController(context);
+    const sidebarProvider = new AgentControlsSidebarProvider(context.extensionUri, serverController);
+    const sidebarProviderDisposable = vscode.window.registerWebviewViewProvider(
+        AgentControlsSidebarProvider.viewType,
+        sidebarProvider,
+        {
+            webviewOptions: { retainContextWhenHidden: true },
+        }
+    );
+
     const disposable = vscode.commands.registerCommand('mcd.init', async () => {
         // Determine target workspace folder
         const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -99,37 +184,73 @@ export function activate(context: vscode.ExtensionContext) {
         OnboardingPanel.createOrShow(context.extensionUri, root);
     });
 
-    const dashboardDisposable = vscode.commands.registerCommand('mcd.openDashboard', () => {
-        CommandDeckDashboard.createOrShow(context.extensionUri);
+    const dashboardDisposable = vscode.commands.registerCommand('mcd.openDashboard', async () => {
+        await sidebarProvider.reveal();
     });
 
-    context.subscriptions.push(disposable, dashboardDisposable);
+    const startServerDisposable = vscode.commands.registerCommand('mcd.startServer', async (rootArg?: vscode.Uri) => {
+        const root = rootArg ?? (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0]?.uri);
+        return serverController.start(root);
+    });
+
+    const stopServerDisposable = vscode.commands.registerCommand('mcd.stopServer', async (rootArg?: vscode.Uri) => {
+        const root = rootArg ?? (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0]?.uri);
+        return serverController.stop(root);
+    });
+
+    const generateAdaptersDisposable = vscode.commands.registerCommand('mcd.generateAdaptersForDetectedIde', async () => {
+        const folders = vscode.workspace.workspaceFolders;
+        if (!folders || folders.length === 0) {
+            vscode.window.showErrorMessage('AmphionAgent: No workspace folder open.');
+            return;
+        }
+        const root = folders[0].uri;
+        const runtime = await readRuntimeConfig(root);
+        const project = toProjectConfig(runtime);
+        const targets = await detectIdeTargets(root);
+        await ensureAdaptersForTargets(root, project, targets);
+        vscode.window.showInformationMessage(`Generated adapters for: ${targets.join(', ')}.`);
+    });
+
+    context.subscriptions.push(
+        disposable,
+        dashboardDisposable,
+        startServerDisposable,
+        stopServerDisposable,
+        generateAdaptersDisposable,
+        sidebarProviderDisposable
+    );
 
     // Show init prompt for workspaces that don't already have an MCD scaffold
     const folders = vscode.workspace.workspaceFolders;
     if (folders && folders.length > 0) {
         const root = folders[0].uri;
+        const controlPlaneUri = vscode.Uri.joinPath(root, '.amphion');
         const refDocsUri = vscode.Uri.joinPath(root, 'referenceDocs');
-        vscode.workspace.fs.stat(refDocsUri).then(
-            () => {
-                // referenceDocs exists — MCD scaffold already present, auto-open dashboard
-                vscode.commands.executeCommand('mcd.openDashboard');
+        Promise.allSettled([
+            vscode.workspace.fs.stat(controlPlaneUri),
+            vscode.workspace.fs.stat(refDocsUri),
+        ]).then((results) => {
+            const hasControlPlane = results[0].status === 'fulfilled';
+            const hasLegacyScaffold = results[1].status === 'fulfilled';
+            if (hasControlPlane || hasLegacyScaffold) {
+                void vscode.commands.executeCommand('mcd.openDashboard');
                 void maybePromptEnvironmentUpdate(context, root);
-            },
-            () => {
-                // referenceDocs does not exist — offer initialization
-                vscode.window
-                    .showInformationMessage(
-                        'Initialize an AmphionAgent project in this workspace?',
-                        'Initialize'
-                    )
-                    .then((selection) => {
-                        if (selection === 'Initialize') {
-                            vscode.commands.executeCommand('mcd.init');
-                        }
-                    });
+                void maybePromptIdeAdapters(root);
+                return;
             }
-        );
+
+            vscode.window
+                .showInformationMessage(
+                    'Initialize an AmphionAgent project in this workspace?',
+                    'Initialize'
+                )
+                .then((selection) => {
+                    if (selection === 'Initialize') {
+                        vscode.commands.executeCommand('mcd.init');
+                    }
+                });
+        });
     }
 }
 

@@ -21,8 +21,9 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 
 ### 2. `@[/board]`
 *Track the work visually.*
-- **Action**: Translates the evaluation findings into atomic work units by generating Task Cards inside the local Command Deck database (`state.json`).
+- **Action**: Translates the evaluation findings into atomic work units by generating Task Cards through the live Command Deck API-backed board runtime (SQLite canonical store).
 - **Output**: Distinct task cards bearing `issueNumber` badges (e.g., `AM-042`) rendered natively inside the Command Deck browser UI.
+- **Milestone Rule**: Every new card must target an active milestone. If work is net-new, create/request a new milestone first. Do not place new work into write-closed pre-flight.
 
 ### 3. `@[/contract]`
 *Authorize the work.*

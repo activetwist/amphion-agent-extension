@@ -9,10 +9,9 @@ Initial Version: \`${config.initialVersion}\`
 ## Execution Model
 All work follows this strict sequence:
 1. Evaluate
-2. Board (Optional)
-3. Contract
-4. Execute
-5. Closeout
+2. Contract
+3. Execute
+4. Closeout
 
 No phase skipping is permitted.
 
@@ -25,6 +24,7 @@ No phase skipping is permitted.
 ### 2) Contract
 - Create or reference an explicit contract before modifying core files.
 - Contracts must include acceptance criteria and affected file paths.
+- Contract output is canonical in milestone/card records (DB/API), not flat-file artifacts.
 - If a request conflicts with an active contract, stop and flag the conflict.
 
 ### 3) Execute
@@ -37,7 +37,7 @@ Utility commands can run between lifecycle phases but never replace phase transi
 
 ### \`/remember\` (Utility-Only)
 - \`/remember\` is a manual checkpoint command, not a lifecycle phase.
-- Purpose: update compact operational memory in \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- Purpose: write compact operational memory events through \`/api/memory/events\` into SQLite authority, with optional compatibility export to \`.amphion/memory/agent-memory.json\`.
 - Allowed triggers:
   - Long sessions where context continuity risk increases.
   - Material scope changes under approved contracts.
@@ -47,25 +47,25 @@ Utility commands can run between lifecycle phases but never replace phase transi
 - Guardrail: \`/remember\` must not auto-advance the lifecycle or execute code changes by itself.
 
 ## Agent Memory Policy
-- Canonical memory directory: \`referenceDocs/06_AgentMemory/\`
-- Canonical memory file: \`referenceDocs/06_AgentMemory/agent-memory.json\`
-- Memory model: compact bounded snapshot with rolling \`hist\` context window.
+- Canonical memory authority: SQLite (\`.amphion/command-deck/data/amphion.db\`) via \`/api/memory/*\`.
+- Canonical workflow write boundary: API-mediated writes only (no direct raw-SQL mutation as standard agent path).
+- Memory model: append-only event log + deterministic LWW materialized state with budgeted compaction.
+- Compatibility export file (optional): \`.amphion/memory/agent-memory.json\`.
 - Memory updates must remain concise, deduplicated, and constrained by documented caps.
-- Human-readable records in \`05_Records/\` remain the source for detailed narrative evidence.
+- Narrative evidence should be recorded in DB artifacts first; local file mirrors are optional and only created when a dependent workflow requires them.
 
 ## Closeout Procedure
 Closeout is a governed step that follows the completion of all contracted work within a version. A version is not considered closed until all of the following are satisfied:
 
 ### Closeout Requirements
-1. **Contracts resolved**: All active contracts have been executed and archived to \`03_Contracts/archive/\`.
+1. **Contracts resolved**: All contract cards in scope have been executed and reviewed.
 2. **Compliance verified**: The compliance checklist below has been reviewed and all items pass.
-3. **Closeout record written**: A closeout record has been created in \`05_Records/\` documenting contracts executed, deliverables produced, and compliance status.
+3. **Outcomes recorded**: A closeout outcomes artifact exists in milestone records documenting completed/deferred/blocked results.
 4. **Artifacts staged**: All generated artifacts are present and accounted for, including:
    - Updated strategy/architecture/governance documents
-   - Agent memory artifact (\`referenceDocs/06_AgentMemory/agent-memory.json\`)
-   - Build logs (\`05_Records/buildLogs/\`)
-   - Chat logs (\`05_Records/chatLogs/\`)
-   - Closeout record (\`05_Records/\`)
+   - Agent memory DB state (\`.amphion/command-deck/data/amphion.db\`) and compatibility export (if produced)
+   - Milestone/card artifacts in SQLite (\`amphion.db\`)
+   - Required source changes
 5. **Git commit**: A commit must be made with all artifacts staged. No version closeout is valid without a committed state.
 
 ### Commit Message Format
@@ -90,7 +90,7 @@ YYYYMMDDHHMM-[DOCUMENT_TITLE].md
 - \`HH\`: Two-digit hour (24-hour format)
 - \`MM\`: Two-digit minute
 
-This convention applies to all documents across all reference directories (Governance, Strategy, Architecture, Contracts, Records). When a document is substantively revised, it receives a new timestamp prefix reflecting the revision time.
+This convention applies to canonical local control-plane documents under \`.amphion/control-plane/\` and any optional local mirrors. When a document is substantively revised, it receives a new timestamp prefix reflecting the revision time.
 
 **Exception**: \`GUARDRAILS.md\` retains its basename without timestamp prefix for operator discoverability.
 
@@ -109,8 +109,8 @@ This convention applies to all documents across all reference directories (Gover
 - [ ] Naming/versioning remains deterministic.
 - [ ] Document naming convention followed (YYYYMMDDHHMM prefix).
 - [ ] Conflicts with active contracts have been flagged.
-- [ ] Agent memory updated and validated (\`referenceDocs/06_AgentMemory/agent-memory.json\`) when applicable.
-- [ ] Closeout record exists (when closing a version).
+- [ ] Agent memory updated and validated via \`/api/memory/*\` (and compatibility export when applicable).
+- [ ] Outcomes artifact exists for closed milestone/version.
 - [ ] Git commit completed with all artifacts staged (when closing a version).
 `;
 }

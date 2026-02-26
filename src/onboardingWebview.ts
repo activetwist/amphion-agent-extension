@@ -4,6 +4,7 @@ import { runManualPath, runSourceDocsPath } from './charterWizard';
 import { buildScaffold, launchCommandDeck } from './scaffolder';
 import { FoundationState } from './foundation/foundationSchema';
 import { InitMode } from './onboarding/initMode';
+import { flushPendingBoardArtifacts, writeBoardArtifact } from './canonicalDocs';
 
 interface GuidedSubmissionData {
     targetUsers: string[];
@@ -115,9 +116,14 @@ export class OnboardingPanel {
                         return;
                     case 'importDocs':
                         if (!scaffoldComplete) return;
-                        const importPrompts = await runSourceDocsPath(root, this._config!, this._terminal!);
-                        if (importPrompts) {
-                            this._panel.webview.postMessage({ command: 'handoffReady', data: importPrompts });
+                        try {
+                            const importPrompts = await runSourceDocsPath(root, this._config!, this._terminal!);
+                            if (importPrompts) {
+                                this._panel.webview.postMessage({ command: 'handoffReady', data: importPrompts });
+                            }
+                        } catch (error) {
+                            console.error('Import docs error', error);
+                            vscode.window.showErrorMessage('Failed to import source documents for onboarding.');
                         }
                         return;
                     case 'submitGuided':
@@ -142,20 +148,20 @@ export class OnboardingPanel {
                             }
 
                             const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
-                            const encoder = new TextEncoder();
-
-                            await vscode.workspace.fs.writeFile(
-                                vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
-                                encoder.encode(renderCharterFromFoundation(foundationState, timestamp))
+                            await writeBoardArtifact(
+                                root,
+                                'charter',
+                                `Project Charter · ${this._config.projectName}`,
+                                'Generated from guided onboarding foundation.',
+                                renderCharterFromFoundation(foundationState, timestamp),
                             );
-
-                            await vscode.workspace.fs.writeFile(
-                                vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
-                                encoder.encode(renderPrdFromFoundation(foundationState, timestamp))
+                            await writeBoardArtifact(
+                                root,
+                                'prd',
+                                `High-Level PRD · ${this._config.projectName}`,
+                                'Generated from guided onboarding foundation.',
+                                renderPrdFromFoundation(foundationState, timestamp),
                             );
-
-                            this._terminal.sendText('git add referenceDocs/');
-                            this._terminal.sendText(`git commit -m "docs(${this._config.initialVersion}): generate SIP-1 foundation + artifacts"`);
                             this._panel.webview.postMessage({ command: 'manualComplete' });
                         } catch (e) {
                             console.error('Guided Init error', e);
@@ -173,6 +179,9 @@ export class OnboardingPanel {
 
                         if (action === 'Launch Command Deck') {
                             await launchCommandDeck(root, this._config!);
+                            setTimeout(() => {
+                                void flushPendingBoardArtifacts(root, false);
+                            }, 3500);
                         }
                         return;
                     case 'copyToClipboard':
@@ -181,6 +190,9 @@ export class OnboardingPanel {
                     case 'launchCommandDeck':
                         this._panel.dispose();
                         await launchCommandDeck(root, this._config!);
+                        setTimeout(() => {
+                            void flushPendingBoardArtifacts(root, false);
+                        }, 3500);
                         return;
                 }
             },
@@ -823,7 +835,7 @@ export class OnboardingPanel {
         <div id="manual-success-view" class="view">
             <div class="card" style="text-align: center;">
                 <h3 style="color: #2ea043; margin-bottom: 8px;">✅ System Architecture Locked!</h3>
-                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated and committed to the repository. The project is ready for Micro-Contracting.</p>
+                <p style="color: #8b949e; font-size: 14px; margin-bottom: 24px;">Your Project Charter and High-Level PRD have been generated as canonical board artifacts. The project is ready for Micro-Contracting.</p>
                 <div style="padding: 24px; background: rgba(240, 246, 252, 0.02); border: 1px solid var(--mcd-border); border-radius: 6px; margin-bottom: 24px;">
                     <p style="margin: 0;">Open the Command Deck to partition your work into Micro-Contracts and begin execution.</p>
                 </div>

@@ -49,7 +49,7 @@ ${data.nonGoals}
 
 ## Operating Constraints
 - All development follows the MCD (Micro-Contract Development) methodology
-- Every code change must be authorized by an active contract in \`03_Contracts/active/\`
+- Every code change must be authorized by approved contract cards in the Command Deck
 - No contracted work begins without operator approval of the contract
 - All versions are closed with a git commit using the format: \`closeout: {VERSION} {description}\`
 

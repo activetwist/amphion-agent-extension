@@ -11,7 +11,7 @@ An AI agent executing a phase (like Evaluate or Contract) is strictly forbidden 
 
 ---
 
-## The 5-Phase Sequence & IDE Slash Commands
+## The 4-Phase Sequence & IDE Slash Commands
 To utilize the MCD protocol, the human Operator guides the AI through these discrete phases using explicit Slash Commands in the IDE chat interface:
 
 ### 1. \`@[/evaluate]\`
@@ -20,29 +20,24 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 - **Output**: A new markdown file in \`04_Analysis/findings/\`.
 - **Rule**: Absolutely no project code is modified during Evaluation.
 
-### 2. \`@[/board]\`
-*Track the work visually.*
-- **Action**: Translates the evaluation findings into atomic work units by generating Task Cards inside the local Command Deck database (\`state.json\`).
-- **Output**: Distinct task cards bearing \`issueNumber\` badges (e.g., \`AM-042\`) rendered natively inside the Command Deck browser UI.
-
-### 3. \`@[/contract]\`
+### 2. \`@[/contract]\`
 *Authorize the work.*
-- **Action**: Drafts a binding Micro-Contract detailing the exact files to be changed (AFPs), the acceptance criteria, and the scope boundaries.
-- **Output**: A timestamped Markdown file in \`03_Contracts/active/\` (e.g., \`202602221500-CONTRACT_FEATURE.md\`).
+- **Action**: Drafts binding contract scope and sequenced micro-contract cards in the Command Deck API-backed board runtime.
+- **Output**: Milestone/card contract records with deterministic issue sequencing and acceptance criteria.
 - **Rule**: The operator must grant approval before the agent proceeds to Execution.
 
-### 4. \`@[/execute]\`
+### 3. \`@[/execute]\`
 *Build to specification.*
 - **Action**: The AI modifies the Approved File Paths (AFPs) exactly as defined in the active contract.
 - **Rule**: If a roadblock occurs that requires changing the *scope* of the contract, the execute phase halts immediately. A new contract must be evaluated and authorized.
 
-### 5. \`@[/closeout]\`
+### 4. \`@[/closeout]\`
 *Formalize the release.*
-- **Action**: Verifies the acceptance criteria, archives the contract, writes a persistent formal record, and commits the code to the repository.
+- **Action**: Verifies acceptance criteria, closes/archives the milestone, appends outcomes artifact, and commits code when applicable.
 - **Output**: 
-  1. Contract moved to \`03_Contracts/archive/\`.
-  2. Closeout Record mapped to \`05_Records/\`.
-  3. Updated compact memory snapshot (\`referenceDocs/06_AgentMemory/agent-memory.json\`).
+  1. Outcomes artifact appended to milestone records in DB.
+  2. Milestone archived/closed in board runtime.
+  3. Updated DB-backed memory state via \`/api/memory/*\` with optional compatibility projection (\`.amphion/memory/agent-memory.json\`).
   4. Strict \`closeout: {description}\` Git Commit.
 
 ---
@@ -50,7 +45,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ## Utility Command: \`@[/remember]\`
 \`/remember\` is a utility checkpoint, not a lifecycle phase.
 
-- **Purpose**: Manually capture compact operational context into \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- **Purpose**: Manually capture compact operational context into DB-backed memory authority (\`amphion.db\`) through \`/api/memory/*\`, with optional compatibility projection.
 - **When to Use**:
   1. Long sessions where context continuity is at risk.
   2. Material scope shifts under approved contracts.

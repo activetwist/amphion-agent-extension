@@ -2,7 +2,7 @@
     "name": "amphion-agent",
     "displayName": "AmphionAgent",
     "description": "Scaffold operator-gated Micro-Contract Development workspaces with governance docs and a local Command Deck.",
-    "version": "1.28.8",
+    "version": "1.9.4",
     "license": "Proprietary",
     "icon": "icon.png",
     "publisher": "active-twist",
@@ -42,9 +42,27 @@
             },
             {
                 "command": "mcd.openDashboard",
-                "title": "MCD: Open Command Deck Dashboard"
+                "title": "MCD: Open Amphion Agent Controls"
             }
         ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "amphionAgent",
+                    "title": "Amphion",
+                    "icon": "icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "amphionAgent": [
+                {
+                    "type": "webview",
+                    "id": "amphionAgent.controlsView",
+                    "name": "Agent Controls"
+                }
+            ]
+        },
         "menus": {
             "explorer/context": [
                 {

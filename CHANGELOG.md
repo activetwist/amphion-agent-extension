@@ -2,11 +2,42 @@
 
 All notable changes to this extension are documented in this file.
 
-## [1.28.8] - 2026-02-24
+## [Unreleased]
+
+_No changes yet._
+
+## [1.29.0] - 2026-02-25
+
+### Added
+- Added sidebar-native **Amphion Agent Controls** via a dedicated Activity Bar container and webview view provider.
+- Added extension-host `ServerController` process management for deterministic Command Deck server lifecycle control.
 
 ### Fixed
-- **Definitive Branding Alignment**: Updated the Command Deck's HTML title and state-backed board name to consistently reflect the **Amphion Agent Controls** identity.
-- **Title Synchronization**: Ensured the browser tab title matches the global header and IDE dashboard.
+- Enforced strict Mermaid chart write contract on chart APIs: raw Mermaid-starting payloads are canonicalized to fenced Mermaid, non-Mermaid payloads are rejected with `422`, and legacy raw Mermaid rows are canonicalized on startup.
+- Added pre-flight milestone write-closure enforcement: once pre-flight cards are completed, API rejects new card assignment/reassignment into that milestone while still allowing deletion.
+
+### Changed
+- Updated `mcd.openDashboard` to reveal/focus sidebar Agent Controls instead of creating an editor-tab panel.
+- Decoupled Start/Stop server controls from terminal `sendText` dependency and routed them through managed process APIs on the configured `ops/amphion.json` port.
+- Adjusted Charts Library Mermaid viewer zoom baseline to open at bird's-eye scale (`0.25`) with deeper zoom-out floor and reset aligned to that baseline.
+- Milestone governance now requires new cards to bind to a milestone; UI guidance and selectors direct users to continue in active milestones or create new milestones.
+- Added milestone delete controls and closed-state indicators in Command Deck milestone progress UI.
+- Replaced milestone hard-delete behavior with archive/restore lifecycle, added Archives modal recovery, and blocked new card assignment into archived milestones.
+- Refactored sidebar controls: board selector now shows title + short description, `+ Milestone` moved into Milestone panel, and Utilities now lives in a collapsed accordion without `Reload State`.
+- Refined sidebar hierarchy and affordances: Milestone panel actions now render as equal-width full-span controls above the Milestone Progress heading; Boards moved to a chevron-based accordion list; Utilities accordion now shows explicit chevron state feedback.
+- Boards accordion now defaults to collapsed and shows the active board name in the summary row for at-a-glance context when closed.
+
+## [1.28.8] - 2026-02-25
+
+### Fixed
+- **Nomenclature Split (Surgical):** Enforced the intended naming boundary:
+  - Browser Command Deck surfaces now read **Amphion Command Deck**.
+  - IDE panel/dashboard surfaces remain **Amphion Agent Controls**.
+- **Board Write Canonicalization:** Standardized board/card persistence guidance to SQLite/API-backed writes (runtime canonical path), preventing invisible-card regressions caused by direct `state.json` edits.
+- **Chart API Write Path:** Added missing chart write endpoints in SQLite runtime copies:
+  - `POST /api/charts`
+  - `PATCH /api/charts/:id`
+- **Chart State Visibility:** Confirmed chart mutations return fresh snapshots so `/api/state` reflects chart create/update operations without restart.
 
 ## [1.28.7] - 2026-02-24
 
@@ -20,6 +51,13 @@ All notable changes to this extension are documented in this file.
 ### Changed
 - Rebranded IDE Dashboard to "Amphion Agent Controls" to establish a functional distinction between the IDE command interface and the browser-based collaboration platform ("Amphion Command Deck").
 - Updated panel titles, HTML titles, and primary headers within the VS Code UI.
+
+## [1.28.5] - 2026-02-24
+
+### Changed
+- Finalized repository hygiene and polish across extension workspace and release documentation.
+- Cemented IDE-facing identity as **Amphion Agent Controls** while preserving browser-facing **Amphion Command Deck** naming intent.
+- Synchronized closeout records, memory state, and metadata for a stable internal freeze point.
 
 ## [1.28.4] - 2026-02-24
 

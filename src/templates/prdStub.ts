@@ -19,7 +19,7 @@ export function renderPrdStub(
 
 > [!IMPORTANT]
 > **AI Derivation Required.** This document was initialized with source materials.
-> Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+> Complete each section below by reading the following files in \`.amphion/context/\`:
 ${fileList}
 
 > [!AGENT INSTRUCTION]

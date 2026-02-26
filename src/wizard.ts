@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 export interface ProjectConfig {
     projectName: string;
-    serverLang: 'python' | 'node';
+    serverLang: 'python';
     codename: string;
     initialVersion: string;
     port: string;

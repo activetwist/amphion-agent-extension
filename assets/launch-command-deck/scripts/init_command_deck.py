@@ -64,6 +64,7 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             description TEXT,
             projectType TEXT,
             foundationPath TEXT,
+            preflightLifecycleInitialized INTEGER DEFAULT 0,
             createdAt TEXT,
             updatedAt TEXT
         );
@@ -84,6 +85,10 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             code TEXT,
             title TEXT,
             msOrder INTEGER,
+            kind TEXT DEFAULT 'standard',
+            acceptsNewCards INTEGER DEFAULT 1,
+            writeClosedAt TEXT DEFAULT '',
+            archivedAt TEXT DEFAULT '',
             createdAt TEXT,
             updatedAt TEXT
         );
@@ -114,6 +119,82 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             createdAt TEXT,
             updatedAt TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS memory_events (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            memoryKey TEXT,
+            eventType TEXT,
+            sourceType TEXT,
+            attested INTEGER,
+            bucket TEXT,
+            value TEXT,
+            tags TEXT,
+            ttlSeconds INTEGER,
+            sourceRef TEXT,
+            createdAt TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS memory_objects (
+            id TEXT PRIMARY KEY,
+            boardId TEXT,
+            memoryKey TEXT,
+            bucket TEXT,
+            value TEXT,
+            tags TEXT,
+            sourceType TEXT,
+            isDeleted INTEGER,
+            version INTEGER,
+            lastEventId TEXT,
+            createdAt TEXT,
+            updatedAt TEXT,
+            lastTouchedAt TEXT,
+            expiresAt TEXT,
+            UNIQUE(boardId, memoryKey)
+        );
+
+        CREATE TABLE IF NOT EXISTS milestone_artifacts (
+            id TEXT PRIMARY KEY,
+            boardId TEXT NOT NULL,
+            milestoneId TEXT NOT NULL,
+            artifactType TEXT NOT NULL CHECK (artifactType IN ('findings', 'outcomes')),
+            revision INTEGER NOT NULL CHECK (revision > 0),
+            title TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL DEFAULT '',
+            sourceCardId TEXT NOT NULL DEFAULT '',
+            sourceEventId TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            UNIQUE(boardId, milestoneId, artifactType, revision)
+        );
+
+        CREATE TABLE IF NOT EXISTS board_artifacts (
+            id TEXT PRIMARY KEY,
+            boardId TEXT NOT NULL,
+            artifactType TEXT NOT NULL CHECK (artifactType IN ('charter', 'prd', 'guardrails', 'playbook')),
+            revision INTEGER NOT NULL CHECK (revision > 0),
+            title TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            body TEXT NOT NULL DEFAULT '',
+            sourceRef TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL,
+            UNIQUE(boardId, artifactType, revision)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_memory_events_board_created ON memory_events(boardId, createdAt);
+        CREATE INDEX IF NOT EXISTS idx_memory_events_board_key ON memory_events(boardId, memoryKey);
+        CREATE INDEX IF NOT EXISTS idx_memory_objects_board_updated ON memory_objects(boardId, updatedAt);
+        CREATE INDEX IF NOT EXISTS idx_memory_objects_board_bucket ON memory_objects(boardId, bucket);
+        CREATE INDEX IF NOT EXISTS idx_milestone_artifacts_lookup
+            ON milestone_artifacts(boardId, milestoneId, artifactType, revision DESC);
+        CREATE INDEX IF NOT EXISTS idx_milestone_artifacts_type_updated
+            ON milestone_artifacts(artifactType, updatedAt DESC);
+        CREATE INDEX IF NOT EXISTS idx_board_artifacts_lookup
+            ON board_artifacts(boardId, artifactType, revision DESC);
+        CREATE INDEX IF NOT EXISTS idx_board_artifacts_type_updated
+            ON board_artifacts(artifactType, updatedAt DESC);
     ''')
     conn.commit()
 
@@ -125,9 +206,118 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
 
     now = now_iso()
     c.execute('''
-        INSERT INTO boards (id, name, codename, nextIssueNumber, description, projectType, foundationPath, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (board_id, f"{project_name} Launch Command Deck", codename.upper()[:3], 1, f"Command deck for {project_name} ({codename}) using MCD protocol.", project_type, "referenceDocs/01_Strategy/foundation.json", now, now))
+        INSERT INTO boards (
+            id, name, codename, nextIssueNumber, description, projectType, foundationPath, preflightLifecycleInitialized, createdAt, updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ''', (
+        board_id,
+        f"{project_name} Launch Command Deck",
+        codename.upper()[:3],
+        1,
+        f"Command deck for {project_name} ({codename}) using MCD protocol.",
+        project_type,
+        ".amphion/control-plane/foundation.json",
+        now,
+        now,
+    ))
+
+    # 2.5 Seed foundational board artifacts (DB-canonical docs)
+    foundational_artifacts = [
+        (
+            "charter",
+            f"Project Charter · {project_name}",
+            "Initial charter placeholder. Update via board artifact API to establish canonical project charter.",
+            f"# Project Charter\\n\\nProject: {project_name}\\nCodename: {codename.upper()[:3]}\\nVersion: {initial_version}\\n\\n## Intent\\nDefine mission, constraints, and success criteria.",
+        ),
+        (
+            "prd",
+            f"High-Level PRD · {project_name}",
+            "Initial PRD placeholder. Update via board artifact API to establish canonical PRD.",
+            f"# High-Level PRD\\n\\nProject: {project_name}\\n\\n## Scope\\nDefine high-level product requirements and acceptance goals.",
+        ),
+        (
+            "guardrails",
+            f"Guardrails · {project_name}",
+            "Canonical governance guardrails artifact (initial revision).",
+            f"# Governance Guardrails\\n\\nCodename: {codename}\\nInitial Version: {initial_version}\\n\\nCanonical lifecycle: Evaluate -> Contract -> Execute -> Closeout.",
+        ),
+        (
+            "playbook",
+            f"MCD Playbook · {project_name}",
+            "Canonical playbook artifact (initial revision).",
+            """# The Micro-Contract Development (MCD) Playbook: Operator's Guide
+
+Welcome directly to the **Command Deck**. This platform operates on the Micro-Contract Development (MCD) methodology. MCD is designed for solo operators working alongside advanced AI agents in modern IDEs like Windsurf and Cursor.
+
+The core philosophy is **Deterministic Versioning**: zero hallucination, zero scope creep, and total traceability. Every line of code written must be explicitly authorized by a text-based contract, and AI agents are structurally barred from chaining operations together without operator consent.
+
+## The "Halt and Prompt" Safety Rail
+The most critical rule of the MCD protocol is **Halt and Prompt**.
+An AI agent executing a phase (like Evaluate or Contract) is strictly forbidden from automatically starting the next phase. Once a phase's outputs are generated, the agent MUST explicitly halt tool execution, present the results to the human Operator, and prompt the user for the next Slash Command. This prevents runaway agent logic and guarantees the human is always the supreme arbiter of state.
+
+---
+
+## The 4-Phase Sequence & IDE Slash Commands
+To utilize the MCD protocol, the human Operator guides the AI through these discrete phases using explicit Slash Commands in the IDE chat interface:
+
+### 1. `@[/evaluate]`
+*Understand before building.*
+- **Action**: Assess the current state of the application, read related documentation, and write a formal evaluation determining what needs to be built or fixed.
+- **Output**: A new markdown file in `04_Analysis/findings/`.
+- **Rule**: Absolutely no project code is modified during Evaluation.
+
+### 2. `@[/contract]`
+*Authorize the work.*
+- **Action**: Drafts binding contract scope and sequenced micro-contract cards in the Command Deck API-backed board runtime.
+- **Output**: Milestone/card contract records with deterministic issue sequencing and acceptance criteria.
+- **Rule**: The operator must grant approval before the agent proceeds to Execution.
+
+### 3. `@[/execute]`
+*Build to specification.*
+- **Action**: The AI modifies the Approved File Paths (AFPs) exactly as defined in the active contract.
+- **Rule**: If a roadblock occurs that requires changing the *scope* of the contract, the execute phase halts immediately. A new contract must be evaluated and authorized.
+
+### 4. `@[/closeout]`
+*Formalize the release.*
+- **Action**: Verifies acceptance criteria, closes/archives the milestone, appends outcomes artifact, and commits code when applicable.
+- **Output**:
+  1. Outcomes artifact appended to milestone records in DB.
+  2. Milestone archived/closed in board runtime.
+  3. Updated DB-backed memory state via `/api/memory/*` with optional compatibility projection (`.amphion/memory/agent-memory.json`).
+  4. Strict `closeout: {description}` Git Commit.
+
+---
+
+## Utility Command: `@[/remember]`
+`/remember` is a utility checkpoint, not a lifecycle phase.
+
+- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`, with optional compatibility projection.
+- **When to Use**:
+  1. Long sessions where context continuity is at risk.
+  2. Material scope shifts under approved contracts.
+  3. Durable troubleshooting/architecture decisions worth preserving.
+- **Mandatory Use**: At closeout completion for each completed version/slice.
+- **Rule**: `/remember` does not auto-transition phases and does not authorize code changes by itself.
+
+---
+
+## Core Operational Rules (`GUARDRAILS.md`)
+1. **Local Only**: MCD runs locally. No cloud dependencies or unprompted package manager usage.
+2. **Mermaid.js Required**: All systemic architecture documents utilize Mermaid.js syntax for version-controllable diagrams.
+3. **Immutability**: Once a contract is archived or a closeout record is spun down, it cannot be edited. Remediating errors requires an entirely fresh Evaluation -> Contract pipeline.
+""",
+        ),
+    ]
+    for artifact_type, title, summary, body in foundational_artifacts:
+        c.execute(
+            """
+            INSERT OR IGNORE INTO board_artifacts (
+                id, boardId, artifactType, revision, title, summary, body, sourceRef, createdAt, updatedAt
+            ) VALUES (?, ?, ?, 1, ?, ?, ?, 'init_command_deck.py', ?, ?)
+            """,
+            (new_id("bfa", f"{board_seed}_{artifact_type}"), board_id, artifact_type, title, summary, body, now, now),
+        )
 
     # 3. Setup Lists
     lists = board_status_lists(board_seed)
@@ -142,9 +332,20 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
     # 4. Setup Milestone
     milestone_id = new_id("ms", f"{board_seed}_{initial_version}")
     c.execute('''
-        INSERT INTO milestones (id, boardId, code, title, msOrder, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (milestone_id, board_id, initial_version.lower().replace(".", "").replace("-", ""), milestone_title, 0, now, now))
+        INSERT INTO milestones (
+            id, boardId, code, title, msOrder, kind, acceptsNewCards, writeClosedAt, archivedAt, createdAt, updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 1, '', '', ?, ?)
+    ''', (
+        milestone_id,
+        board_id,
+        initial_version.lower().replace(".", "").replace("-", ""),
+        milestone_title,
+        0,
+        "preflight",
+        now,
+        now,
+    ))
 
     # 5. Setup Charts (Sample IA)
     chart_id = new_id("chart", f"{board_seed}_sample_ia")

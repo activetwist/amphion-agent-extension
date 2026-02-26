@@ -2,6 +2,11 @@ const state = {
   data: null,
   charts: [],
   selectedChartId: "",
+  milestonePanel: {
+    open: false,
+    view: null,
+    history: [],
+  },
   filters: {
     milestoneId: "",
     search: "",
@@ -15,12 +20,18 @@ const state = {
   pollInterval: null,
 };
 
+const FILTERS_STORAGE_KEY = "mcd_board_filters_v1";
+const EXPECTED_RUNTIME_FINGERPRINT = "launch-command-deck:python:sqlite";
+let runtimeValidationPromise = null;
+
 const el = {
-  boardList: document.querySelector("#boardList"),
+  boardsList: document.querySelector("#boardsList"),
+  boardsSummaryActive: document.querySelector("#boardsSummaryActive"),
   milestoneProgress: document.querySelector("#milestoneProgress"),
   kanbanColumns: document.querySelector("#kanbanColumns"),
   boardName: document.querySelector("#boardName"),
   boardDescription: document.querySelector("#boardDescription"),
+  milestonePolicyHint: document.querySelector("#milestonePolicyHint"),
   milestoneFilter: document.querySelector("#milestoneFilter"),
   searchInput: document.querySelector("#searchInput"),
   viewSelector: document.querySelector("#viewSelector"),
@@ -32,7 +43,7 @@ const el = {
   btnCloneBoard: document.querySelector("#btnCloneBoard"),
   btnExportBoard: document.querySelector("#btnExportBoard"),
   btnImportBoard: document.querySelector("#btnImportBoard"),
-  btnReloadState: document.querySelector("#btnReloadState"),
+  btnMilestoneArchives: document.querySelector("#btnMilestoneArchives"),
 
   dashboardView: document.querySelector("#dashboardView"),
   chartsView: document.querySelector("#chartsView"),
@@ -77,8 +88,16 @@ const el = {
   btnDeleteCard: document.querySelector("#btnDeleteCard"),
   btnCancelCard: document.querySelector("#btnCancelCard"),
   cardTemplate: document.querySelector("#cardTemplate"),
+  milestoneDetailPanel: document.querySelector("#milestoneDetailPanel"),
+  milestoneDetailContent: document.querySelector("#milestoneDetailContent"),
+  milestonePanelTitle: document.querySelector("#milestonePanelTitle"),
+  btnMilestonePanelClose: document.querySelector("#btnMilestonePanelClose"),
+  btnMilestonePanelBack: document.querySelector("#btnMilestonePanelBack"),
   whyMcdDialog: document.querySelector("#whyMcdDialog"),
   attributionDialog: document.querySelector("#attributionDialog"),
+  milestoneArchivesDialog: document.querySelector("#milestoneArchivesDialog"),
+  milestoneArchivesList: document.querySelector("#milestoneArchivesList"),
+  milestoneArchivesEmpty: document.querySelector("#milestoneArchivesEmpty"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnAttributionInfo: document.querySelector("#btnAttributionInfo"),
   btnThemeToggle: document.querySelector("#btnThemeToggle"),
@@ -102,6 +121,72 @@ async function api(path, method = "GET", body = null) {
 
 function getCurrentTheme() {
   return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+function normalizeFilters(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    milestoneId: String(source.milestoneId || "").trim(),
+    search: String(source.search || ""),
+  };
+}
+
+function readBoardFilterStore() {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function writeBoardFilterStore(store) {
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(store));
+  } catch (error) {
+    // Ignore storage write failures and continue with in-memory filters.
+  }
+}
+
+function restoreFiltersForActiveBoard() {
+  const boardId = String(state.data?.activeBoardId || "").trim();
+  if (!boardId) {
+    state.filters.milestoneId = "";
+    state.filters.search = "";
+    return;
+  }
+
+  const store = readBoardFilterStore();
+  const saved = normalizeFilters(store[boardId]);
+  state.filters.milestoneId = saved.milestoneId;
+  state.filters.search = saved.search;
+}
+
+function persistFiltersForActiveBoard() {
+  const boardId = String(state.data?.activeBoardId || "").trim();
+  if (!boardId) return;
+
+  const store = readBoardFilterStore();
+  const next = normalizeFilters(state.filters);
+
+  if (!next.milestoneId && !next.search) {
+    delete store[boardId];
+  } else {
+    store[boardId] = next;
+  }
+
+  writeBoardFilterStore(store);
+}
+
+function syncFilterInputs() {
+  if (el.milestoneFilter && el.milestoneFilter.value !== state.filters.milestoneId) {
+    el.milestoneFilter.value = state.filters.milestoneId;
+  }
+  if (el.searchInput && el.searchInput.value !== state.filters.search) {
+    el.searchInput.value = state.filters.search;
+  }
 }
 
 function configureMermaidTheme() {
@@ -134,7 +219,8 @@ function configureMermaidTheme() {
 
 const MERMAID_VIEWPORT_CLASS = "mcd-mermaid-viewport";
 const MERMAID_CONTROLS_CLASS = "mcd-mermaid-controls";
-const MERMAID_MIN_SCALE = 0.4;
+const MERMAID_DEFAULT_SCALE = 0.25;
+const MERMAID_MIN_SCALE = 0.08;
 const MERMAID_MAX_SCALE = 3;
 const MERMAID_BUTTON_ZOOM_FACTOR = 1.18;
 const MERMAID_WHEEL_SENSITIVITY = 0.0014;
@@ -163,11 +249,11 @@ function mermaidZoomAtPoint(controller, host, x, y, nextScale) {
 }
 
 function resetMermaidTransform(controller, host) {
-  controller.scale = 1;
+  controller.scale = MERMAID_DEFAULT_SCALE;
   controller.tx = 0;
   controller.ty = 0;
   applyMermaidTransform(controller);
-  host.dataset.mcdScale = "1.00";
+  host.dataset.mcdScale = controller.scale.toFixed(2);
 }
 
 function ensureMermaidControls(host, controller) {
@@ -282,7 +368,7 @@ function attachMermaidPanZoom(container) {
 
     const controller = {
       svg,
-      scale: 1,
+      scale: MERMAID_DEFAULT_SCALE,
       tx: 0,
       ty: 0,
     };
@@ -411,9 +497,475 @@ function getListKeyMap(board) {
   return map;
 }
 
+function boardSummary(board) {
+  const description = String(board?.description || "").trim();
+  if (description) {
+    return description.length > 72 ? `${description.slice(0, 69)}...` : description;
+  }
+  const code = String(board?.codename || "").trim();
+  return code ? `Code: ${code}` : "No description";
+}
+
+function isPreflightMilestone(milestone) {
+  return String(milestone?.kind || "").toLowerCase() === "preflight";
+}
+
+function isArchivedMilestone(milestone) {
+  return Boolean(String(milestone?.archivedAt || "").trim());
+}
+
+function isWriteClosedPreflight(milestone) {
+  if (!milestone) return false;
+  const accepts = Number(milestone.acceptsNewCards ?? 1);
+  return isPreflightMilestone(milestone) && accepts !== 1;
+}
+
+function milestoneDisplayTitle(milestone) {
+  if (!milestone) return "Unassigned";
+  if (isArchivedMilestone(milestone)) {
+    return `${milestone.title} (Archived)`;
+  }
+  if (isWriteClosedPreflight(milestone)) {
+    return `${milestone.title} (Closed)`;
+  }
+  return milestone.title;
+}
+
+function milestoneDisplayIdentifier(milestone) {
+  if (!milestone) return "";
+  const code = String(milestone.code || "").trim();
+  if (code) return code;
+  const title = String(milestone.title || "").trim();
+  const match = title.match(/^([A-Z]+-\d+)/);
+  return match ? match[1] : "";
+}
+
+function getActiveMilestones(board) {
+  return sorted(board.milestones).filter((milestone) => !isArchivedMilestone(milestone));
+}
+
+function getArchivedMilestones(board) {
+  return sorted(board.milestones).filter((milestone) => isArchivedMilestone(milestone));
+}
+
+function getOpenMilestones(board) {
+  return getActiveMilestones(board).filter((milestone) => !isWriteClosedPreflight(milestone));
+}
+
 function milestoneTitle(board, milestoneId) {
   const item = board.milestones.find((ms) => ms.id === milestoneId);
-  return item ? item.title : "No milestone";
+  return milestoneDisplayTitle(item);
+}
+
+function getListMeta(board, listId) {
+  return board.lists.find((item) => item.id === listId) || null;
+}
+
+function getMilestoneMetaText(value, fallback) {
+  const text = String(value || "").trim();
+  return text || fallback;
+}
+
+function getTaskCompletionBucket(listKey) {
+  const key = String(listKey || "").toLowerCase();
+  if (key === "qa" || key === "done") return "complete";
+  return "incomplete";
+}
+
+function getDismissibleDialogs() {
+  return [
+    el.cardDialog,
+    el.docDialog,
+    el.whyMcdDialog,
+    el.attributionDialog,
+    el.milestoneArchivesDialog,
+  ].filter(Boolean);
+}
+
+function hasOpenDismissibleDialog() {
+  return getDismissibleDialogs().some((dialog) => dialog.open);
+}
+
+function registerDialogBackdropDismiss(dialog) {
+  if (!dialog) return;
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) {
+      dialog.close();
+    }
+  });
+}
+
+function mountMilestonePanelLayer() {
+  if (!el.milestoneDetailPanel) return;
+  if (el.milestoneDetailPanel.dataset.layerMounted === "1") return;
+  document.body.appendChild(el.milestoneDetailPanel);
+  el.milestoneDetailPanel.dataset.layerMounted = "1";
+}
+
+function openMilestonePanel(milestoneId) {
+  if (!milestoneId) return;
+  state.milestonePanel.open = true;
+  state.milestonePanel.view = { type: "milestone", milestoneId };
+  state.milestonePanel.history = [];
+  renderMilestoneDetailPanel();
+}
+
+function openMilestoneTaskDetail(milestoneId, taskId) {
+  if (!milestoneId || !taskId) return;
+  if (state.milestonePanel.view) {
+    state.milestonePanel.history.push({ ...state.milestonePanel.view });
+  }
+  state.milestonePanel.open = true;
+  state.milestonePanel.view = { type: "task", milestoneId, taskId };
+  renderMilestoneDetailPanel();
+}
+
+function openMilestoneArtifactDetail(milestoneId, artifactType) {
+  if (!milestoneId || !artifactType) return;
+  state.milestonePanel.history = [{ type: "milestone", milestoneId }];
+  state.milestonePanel.open = true;
+  state.milestonePanel.view = { type: "artifact", milestoneId, artifactType: String(artifactType).toLowerCase() };
+  renderMilestoneDetailPanel();
+}
+
+function closeMilestonePanel() {
+  state.milestonePanel.open = false;
+  state.milestonePanel.view = null;
+  state.milestonePanel.history = [];
+  renderMilestoneDetailPanel();
+}
+
+function milestonePanelBack() {
+  if (!state.milestonePanel.history.length) return;
+  const previous = state.milestonePanel.history.pop();
+  state.milestonePanel.view = previous;
+  renderMilestoneDetailPanel();
+}
+
+function buildDetailSection(title, text) {
+  const section = document.createElement("section");
+  section.className = "milestone-detail-section";
+
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  section.appendChild(heading);
+
+  const body = document.createElement("p");
+  body.className = "milestone-detail-text";
+  body.textContent = text;
+  section.appendChild(body);
+
+  return section;
+}
+
+function buildMilestoneArtifactActionRow() {
+  const row = document.createElement("div");
+  row.className = "milestone-artifact-actions";
+
+  const actions = [
+    { key: "findings", label: "Findings" },
+    { key: "outcomes", label: "Outcomes" },
+  ];
+
+  for (const action of actions) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-sm milestone-artifact-action-btn";
+    button.dataset.artifactType = action.key;
+    button.setAttribute("aria-label", `Open ${action.label}`);
+    button.textContent = action.label;
+    row.appendChild(button);
+  }
+
+  return row;
+}
+
+async function fetchLatestMilestoneArtifact(milestoneId, artifactType) {
+  const safeMilestoneId = String(milestoneId || "").trim();
+  const safeType = String(artifactType || "").trim().toLowerCase();
+  if (!safeMilestoneId || !safeType) {
+    throw new Error("milestoneId and artifactType are required");
+  }
+  await assertCanonicalRuntime();
+  const query = new URLSearchParams({ artifactType: safeType });
+  const response = await fetch(`/api/milestones/${encodeURIComponent(safeMilestoneId)}/artifacts/latest?${query.toString()}`, {
+    method: "GET",
+  });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    const parseError = new Error(`Invalid JSON response from Command Deck API (${response.status}).`);
+    parseError.status = response.status;
+    throw parseError;
+  }
+  if (!response.ok || !payload.ok) {
+    const reason = payload.error || `Request failed: ${response.status}`;
+    const error = new Error(reason);
+    error.status = response.status;
+    throw error;
+  }
+  return payload.artifact;
+}
+
+async function assertCanonicalRuntime() {
+  if (!runtimeValidationPromise) {
+    runtimeValidationPromise = (async () => {
+      const response = await fetch("/api/health", { method: "GET" });
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        const parseError = new Error(`Invalid health response from Command Deck API (${response.status}).`);
+        parseError.status = response.status;
+        throw parseError;
+      }
+      if (!response.ok || !payload || payload.ok !== true) {
+        const reason = payload?.error || `Health check failed: ${response.status}`;
+        const healthError = new Error(reason);
+        healthError.status = response.status;
+        throw healthError;
+      }
+
+      const runtime = payload.runtime || {};
+      const explicit = String(runtime.fingerprint || "").trim();
+      const computed = [runtime.server, runtime.implementation, runtime.datastore]
+        .map((value) => String(value || "").trim())
+        .join(":");
+      const observed = explicit || computed;
+      if (observed !== EXPECTED_RUNTIME_FINGERPRINT) {
+        const mismatch = new Error(
+          `Non-canonical Command Deck runtime detected (${observed || "unknown"}). Expected ${EXPECTED_RUNTIME_FINGERPRINT}.`
+        );
+        mismatch.status = 409;
+        throw mismatch;
+      }
+      return true;
+    })().catch((error) => {
+      runtimeValidationPromise = null;
+      throw error;
+    });
+  }
+  return runtimeValidationPromise;
+}
+
+function renderArtifactPlaceholderView(artifactType) {
+  const normalized = String(artifactType || "").toLowerCase();
+  const title = normalized === "outcomes" ? "Outcomes" : "Findings";
+  const message = normalized === "outcomes"
+    ? "Outcomes are recorded during milestone closeout. No closeout artifact is available yet."
+    : "No findings artifact is recorded for this milestone yet.";
+
+  const container = document.createElement("div");
+  container.className = "milestone-artifact-detail-view";
+  container.appendChild(buildDetailSection(title, message));
+  return container;
+}
+
+function renderArtifactErrorView(artifactType, errorMessage) {
+  const normalized = String(artifactType || "").toLowerCase();
+  const title = normalized === "outcomes" ? "Outcomes" : "Findings";
+  const container = document.createElement("div");
+  container.className = "milestone-artifact-detail-view";
+  const message = String(errorMessage || "").trim() || "Unable to load artifact.";
+  container.appendChild(buildDetailSection(title, `Unable to load artifact.\n${message}`));
+  return container;
+}
+
+function renderArtifactDetailView(artifact, artifactType) {
+  if (!artifact || typeof artifact !== "object") {
+    return renderArtifactPlaceholderView(artifactType);
+  }
+
+  const normalized = String(artifactType || "").toLowerCase();
+  const fallbackTitle = normalized === "outcomes" ? "Outcomes" : "Findings";
+  const container = document.createElement("div");
+  container.className = "milestone-artifact-detail-view";
+
+  container.appendChild(buildDetailSection("Type", fallbackTitle));
+  container.appendChild(buildDetailSection("Revision", String(artifact.revision || "1")));
+  container.appendChild(buildDetailSection("Title", getMilestoneMetaText(artifact.title, `Untitled ${fallbackTitle}`)));
+  container.appendChild(buildDetailSection("Summary", getMilestoneMetaText(artifact.summary, "No summary provided.")));
+  container.appendChild(buildDetailSection("Body", getMilestoneMetaText(artifact.body, "No body provided.")));
+
+  const provenance = [
+    artifact.sourceCardId ? `Card: ${artifact.sourceCardId}` : "",
+    artifact.sourceEventId ? `Event: ${artifact.sourceEventId}` : "",
+    artifact.updatedAt ? `Updated: ${artifact.updatedAt}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  container.appendChild(buildDetailSection("Provenance", provenance || "No provenance recorded."));
+
+  return container;
+}
+
+function renderMilestoneTaskList(board, milestoneId, title, cards) {
+  const wrapper = document.createElement("section");
+  wrapper.className = "milestone-task-group";
+
+  const heading = document.createElement("h4");
+  heading.className = "milestone-task-group-title";
+  heading.textContent = title;
+  wrapper.appendChild(heading);
+
+  if (!cards.length) {
+    const empty = document.createElement("div");
+    empty.className = "milestone-detail-empty";
+    empty.textContent = "No tasks in this section.";
+    wrapper.appendChild(empty);
+    return wrapper;
+  }
+
+  const list = document.createElement("div");
+  list.className = "milestone-task-list";
+
+  for (const card of cards) {
+    const listMeta = getListMeta(board, card.listId);
+    const statusTitle = listMeta?.title || "Unknown Status";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "milestone-task-link";
+
+    const taskTitle = document.createElement("strong");
+    taskTitle.textContent = `${card.issueNumber || "—"} · ${card.title}`;
+    button.appendChild(taskTitle);
+
+    const taskMeta = document.createElement("span");
+    taskMeta.textContent = `${statusTitle} · ${card.priority || "P2"}`;
+    button.appendChild(taskMeta);
+
+    button.addEventListener("click", () => openMilestoneTaskDetail(milestoneId, card.id));
+    list.appendChild(button);
+  }
+
+  wrapper.appendChild(list);
+  return wrapper;
+}
+
+function renderMilestoneView(board, milestone) {
+  const container = document.createElement("div");
+  container.className = "milestone-detail-view";
+  container.appendChild(buildDetailSection("Meta Contract", getMilestoneMetaText(milestone.metaContract, "No meta contract recorded yet.")));
+  container.appendChild(buildDetailSection("Goals", getMilestoneMetaText(milestone.goals, "No goals recorded yet.")));
+  container.appendChild(buildDetailSection("Non-Goals", getMilestoneMetaText(milestone.nonGoals, "No non-goals recorded yet.")));
+  container.appendChild(buildDetailSection("Risks", getMilestoneMetaText(milestone.risks, "No risks recorded yet.")));
+
+  const milestoneCards = sorted(board.cards.filter((card) => card.milestoneId === milestone.id));
+  const grouped = { incomplete: [], complete: [] };
+  for (const card of milestoneCards) {
+    const listMeta = getListMeta(board, card.listId);
+    const bucket = getTaskCompletionBucket(listMeta?.key);
+    grouped[bucket].push(card);
+  }
+
+  container.appendChild(renderMilestoneTaskList(board, milestone.id, "Incomplete", grouped.incomplete));
+  container.appendChild(renderMilestoneTaskList(board, milestone.id, "Complete", grouped.complete));
+  return container;
+}
+
+function renderTaskDetailView(board, milestone, card) {
+  const container = document.createElement("div");
+  container.className = "milestone-task-detail-view";
+  const listMeta = getListMeta(board, card.listId);
+
+  const detailGrid = document.createElement("div");
+  detailGrid.className = "task-detail-grid";
+  detailGrid.appendChild(buildDetailSection("Issue", card.issueNumber || "—"));
+  detailGrid.appendChild(buildDetailSection("Status", listMeta?.title || "Unknown"));
+  detailGrid.appendChild(buildDetailSection("Priority", card.priority || "P2"));
+  detailGrid.appendChild(buildDetailSection("Milestone", milestoneDisplayTitle(milestone)));
+  detailGrid.appendChild(buildDetailSection("Owner", card.owner ? `@${card.owner}` : "Unassigned"));
+  detailGrid.appendChild(buildDetailSection("Target Date", card.targetDate || "Not set"));
+  container.appendChild(detailGrid);
+  container.appendChild(buildDetailSection("Description", getMilestoneMetaText(card.description, "No description provided.")));
+  container.appendChild(buildDetailSection("Acceptance", getMilestoneMetaText(card.acceptance, "No acceptance criteria provided.")));
+  return container;
+}
+
+async function renderMilestoneDetailPanel() {
+  const board = getActiveBoard();
+  if (!board || !el.milestoneDetailPanel || !el.milestoneDetailContent || !el.milestonePanelTitle || !el.btnMilestonePanelBack) return;
+
+  const view = state.milestonePanel.view;
+  const canRender = state.milestonePanel.open && view && view.milestoneId;
+  if (!canRender) {
+    el.milestoneDetailPanel.classList.remove("is-open");
+    el.boardView.classList.remove("panel-open");
+    el.milestonePanelTitle.textContent = "Milestone Details";
+    el.milestoneDetailContent.textContent = "Select a milestone to inspect its contract details and tasks.";
+    el.btnMilestonePanelBack.style.visibility = "hidden";
+    return;
+  }
+
+  const milestone = board.milestones.find((item) => item.id === view.milestoneId);
+  if (!milestone) {
+    closeMilestonePanel();
+    return;
+  }
+
+  el.milestoneDetailPanel.classList.add("is-open");
+  el.boardView.classList.add("panel-open");
+  el.btnMilestonePanelBack.style.visibility = state.milestonePanel.history.length ? "visible" : "hidden";
+  el.milestonePanelTitle.textContent = milestoneDisplayTitle(milestone);
+  el.milestoneDetailContent.innerHTML = "";
+  const artifactActions = buildMilestoneArtifactActionRow();
+  artifactActions.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const button = target.closest(".milestone-artifact-action-btn");
+    if (!(button instanceof HTMLButtonElement)) return;
+    const artifactType = String(button.dataset.artifactType || "").trim().toLowerCase();
+    if (!artifactType) return;
+    openMilestoneArtifactDetail(milestone.id, artifactType);
+  });
+  el.milestoneDetailContent.appendChild(artifactActions);
+
+  const detailBody = document.createElement("div");
+  detailBody.className = "milestone-detail-body";
+  el.milestoneDetailContent.appendChild(detailBody);
+
+  if (view.type === "artifact" && view.artifactType) {
+    const artifactType = String(view.artifactType || "").toLowerCase();
+    const heading = artifactType === "outcomes" ? "Outcomes" : "Findings";
+    el.milestonePanelTitle.textContent = `${milestoneDisplayTitle(milestone)} · ${heading}`;
+    try {
+      const artifact = await fetchLatestMilestoneArtifact(milestone.id, artifactType);
+      const latestView = state.milestonePanel.view;
+      if (!latestView || latestView.type !== "artifact" || latestView.milestoneId !== milestone.id || latestView.artifactType !== artifactType) {
+        return;
+      }
+      detailBody.innerHTML = "";
+      detailBody.appendChild(renderArtifactDetailView(artifact, artifactType));
+    } catch (error) {
+      const latestView = state.milestonePanel.view;
+      if (!latestView || latestView.type !== "artifact" || latestView.milestoneId !== milestone.id || latestView.artifactType !== artifactType) {
+        return;
+      }
+      detailBody.innerHTML = "";
+      const reason = String(error?.message || "").toLowerCase();
+      const isArtifactMissing = error && Number(error.status) === 404 && reason.includes("artifact not found");
+      if (isArtifactMissing) {
+        detailBody.appendChild(renderArtifactPlaceholderView(artifactType));
+      } else {
+        detailBody.appendChild(renderArtifactErrorView(artifactType, error?.message));
+      }
+    }
+    return;
+  }
+
+  if (view.type === "task" && view.taskId) {
+    const task = board.cards.find((item) => item.id === view.taskId && item.milestoneId === milestone.id);
+    if (!task) {
+      milestonePanelBack();
+      return;
+    }
+    el.milestonePanelTitle.textContent = `${task.issueNumber || "—"} · ${task.title}`;
+    detailBody.appendChild(renderTaskDetailView(board, milestone, task));
+    return;
+  }
+
+  detailBody.appendChild(renderMilestoneView(board, milestone));
 }
 
 function formatDate(value) {
@@ -448,28 +1000,43 @@ function cardMatchesFilter(board, card) {
 
 function renderKanbanList() {
   const activeBoard = getActiveBoard();
-  el.boardList.innerHTML = "";
+  if (el.boardsSummaryActive) {
+    el.boardsSummaryActive.textContent = activeBoard?.name || "No active board";
+  }
+  if (!el.boardsList) return;
+  el.boardsList.innerHTML = "";
+
+  if (!state.data.boards.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.textContent = "No boards available.";
+    el.boardsList.appendChild(empty);
+    return;
+  }
 
   for (const board of state.data.boards) {
     const button = document.createElement("button");
-    button.className = `board-item ${activeBoard && board.id === activeBoard.id ? "active" : ""}`;
+    button.type = "button";
+    button.className = "board-item";
+    if (activeBoard && board.id === activeBoard.id) {
+      button.classList.add("active");
+    }
 
-    const titleDiv = document.createElement("div");
-    titleDiv.style.fontWeight = "600";
-    titleDiv.textContent = board.name;
-    button.appendChild(titleDiv);
+    const title = document.createElement("strong");
+    title.textContent = board.name || "Untitled board";
 
-    const codeSpan = document.createElement("span");
-    codeSpan.style.fontSize = "0.75rem";
-    codeSpan.style.opacity = "0.6";
-    codeSpan.textContent = board.codename || "KANBAN";
-    button.appendChild(codeSpan);
+    const description = document.createElement("span");
+    description.className = "board-item-desc";
+    description.textContent = boardSummary(board);
 
+    button.appendChild(title);
+    button.appendChild(description);
     button.addEventListener("click", async () => {
+      if (board.id === state.data?.activeBoardId) return;
       await api(`/api/boards/${board.id}/activate`, "POST", {});
       await refresh();
     });
-    el.boardList.appendChild(button);
+    el.boardsList.appendChild(button);
   }
 }
 
@@ -483,6 +1050,12 @@ function renderKanbanMeta() {
 function renderMilestoneFilter() {
   const board = getActiveBoard();
   if (!board) return;
+  const activeMilestones = getActiveMilestones(board);
+
+  if (state.filters.milestoneId && !activeMilestones.some((milestone) => milestone.id === state.filters.milestoneId)) {
+    state.filters.milestoneId = "";
+    persistFiltersForActiveBoard();
+  }
 
   el.milestoneFilter.innerHTML = "";
   const all = document.createElement("option");
@@ -490,50 +1063,134 @@ function renderMilestoneFilter() {
   all.textContent = "All";
   el.milestoneFilter.appendChild(all);
 
-  for (const milestone of sorted(board.milestones)) {
+  for (const milestone of activeMilestones) {
     const option = document.createElement("option");
     option.value = milestone.id;
-    option.textContent = milestone.title;
+    option.textContent = milestoneDisplayTitle(milestone);
     if (state.filters.milestoneId === milestone.id) {
       option.selected = true;
     }
     el.milestoneFilter.appendChild(option);
   }
+
+  syncFilterInputs();
+}
+
+function renderMilestonePolicyHint(board) {
+  if (!el.milestonePolicyHint) return;
+  el.milestonePolicyHint.classList.remove("warning");
+
+  const activeMilestones = getActiveMilestones(board);
+  if (!activeMilestones.length) {
+    el.milestonePolicyHint.textContent = "No active milestones exist yet. Add a milestone before creating new tasks.";
+    el.milestonePolicyHint.classList.add("warning");
+    return;
+  }
+
+  const openMilestones = activeMilestones.filter((milestone) => !isWriteClosedPreflight(milestone));
+  if (!openMilestones.length) {
+    el.milestonePolicyHint.textContent = "All milestones are write-closed. Add a new milestone to start new work.";
+    el.milestonePolicyHint.classList.add("warning");
+    return;
+  }
+
+  el.milestonePolicyHint.textContent = "New work must be attached to an active milestone. Continue in an existing milestone or add a new milestone.";
 }
 
 function renderMilestoneProgress() {
   const board = getActiveBoard();
   if (!board) return;
+  const activeMilestones = getActiveMilestones(board);
 
   const listKeyMap = getListKeyMap(board);
   const doneListIds = board.lists.filter((item) => item.key === "done").map((item) => item.id);
 
   el.milestoneProgress.innerHTML = "";
 
-  if (!board.milestones.length) {
+  if (!activeMilestones.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.textContent = "No milestones yet. Add one from toolbar.";
+    empty.textContent = "No active milestones yet. Add one from the Milestone panel.";
     el.milestoneProgress.appendChild(empty);
     return;
   }
 
-  for (const milestone of sorted(board.milestones)) {
+  for (const milestone of activeMilestones) {
     const cards = board.cards.filter((card) => card.milestoneId === milestone.id);
     const done = cards.filter((card) => doneListIds.includes(card.listId)).length;
     const total = cards.length || 0;
     const ratio = total === 0 ? 0 : Math.round((done / total) * 100);
+    const writeClosed = isWriteClosedPreflight(milestone);
+    const readyToClose = total > 0 && done === total;
 
     const wrapper = document.createElement("div");
     wrapper.className = "milestone-item";
+    wrapper.tabIndex = 0;
+    if (writeClosed) {
+      wrapper.classList.add("is-write-closed");
+    }
+    if (readyToClose) {
+      wrapper.classList.add("is-ready-to-close");
+    }
+    wrapper.addEventListener("click", () => openMilestonePanel(milestone.id));
+    wrapper.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openMilestonePanel(milestone.id);
+      }
+    });
 
-    const header = document.createElement("header");
-    const name = document.createElement("span");
+    const name = document.createElement("div");
+    name.className = "milestone-title-row";
     name.textContent = milestone.title;
+
+    const utilityRow = document.createElement("div");
+    utilityRow.className = "milestone-utility-row";
+
     const score = document.createElement("span");
+    score.className = "milestone-score";
     score.textContent = `${done}/${total}`;
-    header.appendChild(name);
-    header.appendChild(score);
+    utilityRow.appendChild(score);
+
+    const canArchive = total > 0 && done === total;
+    const archiveButton = document.createElement("button");
+    archiveButton.className = "btn btn-sm milestone-archive-btn";
+    archiveButton.textContent = "Archive";
+    archiveButton.disabled = !canArchive;
+    archiveButton.setAttribute(
+      "aria-disabled",
+      canArchive ? "false" : "true"
+    );
+    archiveButton.title = canArchive
+      ? "Archive milestone"
+      : "Archive is available only when all tasks are complete (0/X remaining).";
+    archiveButton.addEventListener("click", async (event) => {
+      if (!canArchive) return;
+      event.stopPropagation();
+      event.preventDefault();
+      const warning = `Archive milestone "${milestone.title}"? It will be hidden from active work until restored.`;
+      if (!confirm(warning)) return;
+      try {
+        await api(`/api/milestones/${milestone.id}`, "DELETE");
+        if (state.filters.milestoneId === milestone.id) {
+          state.filters.milestoneId = "";
+        }
+        if (state.milestonePanel.view?.milestoneId === milestone.id) {
+          closeMilestonePanel();
+        }
+        await refresh();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+    utilityRow.appendChild(archiveButton);
+
+    const disposition = document.createElement("div");
+    disposition.className = "milestone-disposition";
+    disposition.textContent = readyToClose ? "Ready to Close" : "Accepting Work";
+    if (readyToClose) {
+      disposition.classList.add("is-ready-to-close");
+    }
 
     const track = document.createElement("div");
     track.className = "progress-track";
@@ -542,9 +1199,88 @@ function renderMilestoneProgress() {
     fill.style.width = `${ratio}%`;
     track.appendChild(fill);
 
-    wrapper.appendChild(header);
+    const milestoneIdentifier = document.createElement("div");
+    milestoneIdentifier.className = "milestone-identifier";
+    milestoneIdentifier.textContent = milestoneDisplayIdentifier(milestone) || "—";
+
+    wrapper.appendChild(name);
+    wrapper.appendChild(utilityRow);
+    wrapper.appendChild(disposition);
     wrapper.appendChild(track);
+    wrapper.appendChild(milestoneIdentifier);
     el.milestoneProgress.appendChild(wrapper);
+  }
+}
+
+function formatArchiveTimestamp(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Unknown";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleString();
+}
+
+function renderMilestoneArchives() {
+  const board = getActiveBoard();
+  if (!board || !el.milestoneArchivesList || !el.milestoneArchivesEmpty) return;
+  const archivedMilestones = getArchivedMilestones(board);
+
+  el.milestoneArchivesList.innerHTML = "";
+  if (!archivedMilestones.length) {
+    el.milestoneArchivesEmpty.style.display = "block";
+    return;
+  }
+
+  el.milestoneArchivesEmpty.style.display = "none";
+  for (const milestone of archivedMilestones) {
+    const row = document.createElement("div");
+    row.className = "milestone-archive-item";
+
+    const info = document.createElement("div");
+    info.className = "milestone-archive-info";
+
+    const title = document.createElement("strong");
+    title.textContent = milestone.title;
+    info.appendChild(title);
+
+    const meta = document.createElement("span");
+    meta.textContent = `Archived ${formatArchiveTimestamp(milestone.archivedAt)}`;
+    info.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "milestone-archive-actions";
+
+    const viewButton = document.createElement("button");
+    viewButton.className = "btn btn-sm";
+    viewButton.type = "button";
+    viewButton.textContent = "View";
+    viewButton.addEventListener("click", () => {
+      if (el.milestoneArchivesDialog?.open) {
+        el.milestoneArchivesDialog.close();
+      }
+      openMilestonePanel(milestone.id);
+    });
+
+    const restoreButton = document.createElement("button");
+    restoreButton.className = "btn btn-sm";
+    restoreButton.type = "button";
+    restoreButton.textContent = "Restore";
+    restoreButton.addEventListener("click", async () => {
+      try {
+        await api(`/api/milestones/${milestone.id}/restore`, "POST", {});
+        await refresh();
+        renderMilestoneArchives();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    actions.appendChild(viewButton);
+    actions.appendChild(restoreButton);
+
+    row.appendChild(info);
+    row.appendChild(actions);
+    el.milestoneArchivesList.appendChild(row);
   }
 }
 
@@ -554,9 +1290,6 @@ function createCardNode(board, card) {
 
   node.dataset.cardId = card.id;
   node.draggable = true;
-
-  const milestone = node.querySelector(".milestone-badge");
-  milestone.textContent = milestoneTitle(board, card.milestoneId);
 
   const priority = node.querySelector(".priority-badge");
   priority.textContent = card.priority || "P2";
@@ -606,7 +1339,8 @@ function renderColumns() {
 
     const count = document.createElement("span");
     const listCards = sorted(board.cards.filter((card) => card.listId === list.id));
-    count.textContent = `${listCards.length}`;
+    const visibleCards = listCards.filter((card) => cardMatchesFilter(board, card));
+    count.textContent = `${visibleCards.length}`;
 
     header.appendChild(title);
     header.appendChild(count);
@@ -633,7 +1367,6 @@ function renderColumns() {
       await refresh();
     });
 
-    const visibleCards = listCards.filter((card) => cardMatchesFilter(board, card));
     if (!visibleCards.length) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
@@ -659,17 +1392,28 @@ function renderColumns() {
   }
 }
 
-function populateCardSelects(board) {
+function populateCardSelects(board, selectedMilestoneId = "") {
   el.cardMilestone.innerHTML = "";
-  const noneOption = document.createElement("option");
-  noneOption.value = "";
-  noneOption.textContent = "No milestone";
-  el.cardMilestone.appendChild(noneOption);
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select milestone (required)";
+  placeholder.disabled = Boolean(selectedMilestoneId);
+  placeholder.selected = !selectedMilestoneId;
+  el.cardMilestone.appendChild(placeholder);
 
-  for (const milestone of sorted(board.milestones)) {
+  const visibleMilestones = sorted(board.milestones).filter((milestone) => (
+    !isArchivedMilestone(milestone) || milestone.id === selectedMilestoneId
+  ));
+  for (const milestone of visibleMilestones) {
     const option = document.createElement("option");
     option.value = milestone.id;
-    option.textContent = milestone.title;
+    option.textContent = milestoneDisplayTitle(milestone);
+    if (isWriteClosedPreflight(milestone) && milestone.id !== selectedMilestoneId) {
+      option.disabled = true;
+    }
+    if (milestone.id === selectedMilestoneId) {
+      option.selected = true;
+    }
     el.cardMilestone.appendChild(option);
   }
 
@@ -685,7 +1429,15 @@ function populateCardSelects(board) {
 function openCardDialog(cardId = "", defaultListId = "") {
   const board = getActiveBoard();
   if (!board) return;
-  populateCardSelects(board);
+  let selectedMilestoneId = "";
+  if (cardId) {
+    const card = board.cards.find((item) => item.id === cardId);
+    if (!card) return;
+    selectedMilestoneId = card.milestoneId || "";
+  } else {
+    selectedMilestoneId = getOpenMilestones(board)[0]?.id || "";
+  }
+  populateCardSelects(board, selectedMilestoneId);
 
   if (cardId) {
     const card = board.cards.find((item) => item.id === cardId);
@@ -694,7 +1446,8 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardDialogTitle.textContent = "Edit Task";
     el.cardId.value = card.id;
     el.cardTitle.value = card.title;
-    el.cardMilestone.value = card.milestoneId || "";
+    el.cardMilestone.value = selectedMilestoneId;
+    el.cardDialog.dataset.originalMilestoneId = card.milestoneId || "";
     el.cardPriority.value = card.priority || "P2";
     el.cardList.value = card.listId;
     el.cardTargetDate.value = card.targetDate || "";
@@ -711,7 +1464,8 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardDialogTitle.textContent = "New Task";
     el.cardId.value = "";
     el.cardTitle.value = "";
-    el.cardMilestone.value = "";
+    el.cardMilestone.value = selectedMilestoneId;
+    el.cardDialog.dataset.originalMilestoneId = "";
     el.cardPriority.value = "P1";
     el.cardList.value = fallbackListId;
     el.cardTargetDate.value = "";
@@ -749,6 +1503,26 @@ async function saveCardFromDialog() {
     return;
   }
 
+  if (!payload.milestoneId) {
+    alert("Milestone is required. Add to an active milestone or create a new milestone.");
+    return;
+  }
+
+  const selectedMilestone = board.milestones.find((item) => item.id === payload.milestoneId);
+  if (!selectedMilestone) {
+    alert("Selected milestone was not found. Reload and try again.");
+    return;
+  }
+  const originalMilestoneId = String(el.cardDialog.dataset.originalMilestoneId || "");
+  if (isArchivedMilestone(selectedMilestone) && payload.milestoneId !== originalMilestoneId) {
+    alert("Milestone is archived. Restore it from Archives before assigning new work.");
+    return;
+  }
+  if (isWriteClosedPreflight(selectedMilestone) && payload.milestoneId !== originalMilestoneId) {
+    alert("Pre-flight milestone is write-closed. Select an active milestone or create a new one.");
+    return;
+  }
+
   if (el.cardId.value) {
     await api(`/api/cards/${el.cardId.value}`, "PATCH", payload);
   } else {
@@ -762,6 +1536,7 @@ async function saveCardFromDialog() {
 async function refresh() {
   const payload = await api("/api/state");
   state.data = payload.state;
+  restoreFiltersForActiveBoard();
 
   loadChartsFromState();
   if (state.selectedChartId && !state.charts.some((item) => item.id === state.selectedChartId)) {
@@ -781,7 +1556,11 @@ function render() {
   if (!board) return;
   renderKanbanList();
   renderKanbanMeta();
+  renderMilestonePolicyHint(board);
   renderMilestoneProgress();
+  if (el.milestoneArchivesDialog?.open) {
+    renderMilestoneArchives();
+  }
 
   // Update View Selector UI State
   const viewMap = {
@@ -815,6 +1594,8 @@ function render() {
     renderMilestoneFilter();
     renderColumns();
   }
+
+  renderMilestoneDetailPanel();
 }
 
 async function renderGuide() {
@@ -850,7 +1631,7 @@ async function renderDashboard() {
   el.dashboardPhase.textContent = `Active Phase: ${phaseText}`;
 
   // Burn-down (Current Milestone)
-  const ms = board.milestones[0];
+  const ms = getActiveMilestones(board)[0];
   if (ms) {
     const msCards = board.cards.filter(c => c.milestoneId === ms.id);
     const doneCards = msCards.filter(c => board.lists.find(l => l.id === c.listId)?.key === "done").length;
@@ -921,6 +1702,19 @@ function registerEvents() {
     }
   });
 
+  for (const dialog of getDismissibleDialogs()) {
+    registerDialogBackdropDismiss(dialog);
+  }
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!state.milestonePanel.open || !el.milestoneDetailPanel?.classList.contains("is-open")) return;
+    if (hasOpenDismissibleDialog()) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (el.milestoneDetailPanel.contains(target)) return;
+    closeMilestonePanel();
+  }, true);
+
   el.navTabs.forEach((tab) => {
     tab.addEventListener("click", (e) => {
       const nextView = e.target.closest(".nav-tab").dataset.view;
@@ -975,11 +1769,6 @@ function registerEvents() {
     await refresh();
   });
 
-  el.btnReloadState.addEventListener("click", async () => {
-    await api("/api/reload", "POST", {});
-    await refresh();
-  });
-
   el.btnSaveBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
@@ -1009,6 +1798,33 @@ function registerEvents() {
     });
     await refresh();
   });
+
+  if (el.btnMilestoneArchives && el.milestoneArchivesDialog) {
+    el.btnMilestoneArchives.addEventListener("click", () => {
+      renderMilestoneArchives();
+      el.milestoneArchivesDialog.showModal();
+    });
+
+    const archivesClose = el.milestoneArchivesDialog.querySelector("button[value='close']");
+    if (archivesClose) {
+      archivesClose.addEventListener("click", (event) => {
+        event.preventDefault();
+        el.milestoneArchivesDialog.close();
+      });
+    }
+  }
+
+  if (el.btnMilestonePanelClose) {
+    el.btnMilestonePanelClose.addEventListener("click", () => {
+      closeMilestonePanel();
+    });
+  }
+
+  if (el.btnMilestonePanelBack) {
+    el.btnMilestonePanelBack.addEventListener("click", () => {
+      milestonePanelBack();
+    });
+  }
 
   el.btnAddList.addEventListener("click", async () => {
     const board = getActiveBoard();
@@ -1060,11 +1876,13 @@ function registerEvents() {
 
   el.milestoneFilter.addEventListener("change", () => {
     state.filters.milestoneId = el.milestoneFilter.value;
+    persistFiltersForActiveBoard();
     renderColumns();
   });
 
   el.searchInput.addEventListener("input", () => {
     state.filters.search = el.searchInput.value;
+    persistFiltersForActiveBoard();
     renderColumns();
   });
 
@@ -1188,6 +2006,7 @@ async function bootstrap() {
     window.marked.use({ renderer });
   }
 
+  mountMilestonePanelLayer();
   registerEvents();
   if (el.btnThemeToggle) {
     const theme = localStorage.getItem("mcd_theme") || "dark";

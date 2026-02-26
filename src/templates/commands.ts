@@ -21,8 +21,9 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
 3. **Scoping**: Define the specific boundaries of the work. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine if new Architecture Primitives are required.
-5. **Card Update**: Create or update a Kanban card in \`ops/launch-command-deck/data/state.json\` with your findings and acceptance criteria to ensure the Product Owner can observe the plan.
-6. **Phase Isolation**: Do not draft the implementation contract during this phase. Scoping must be finalized and cardinality established before planning the 'How'.
+5. **Card Update (SQLite/API Canonical)**: Create or update a Kanban card through the live Command Deck runtime (API-backed board state stored in SQLite). Do not use direct \`state.json\` mutation as the authoritative board write path.
+6. **Visibility Verification**: Verify the card is visible in active board state (\`/api/state\`) or directly in the board UI before closing Evaluate.
+7. **Phase Isolation**: Do not draft the implementation contract during this phase. Scoping must be finalized and cardinality established before planning the 'How'.
 
 **CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
@@ -35,30 +36,26 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 export function renderBoard(config: ProjectConfig): string {
     return `# BOARD · ${config.projectName}
 
-**Phase:** 1.5 (Board Population)
-**Status:** Canonical Instruction Set
+**Status:** Deprecated Lifecycle Command
 **Codename:** \`${config.codename}\`
 
-## When to Use
-Invoke this command after an Evaluation has been presented, and the user has chosen to populate the Command Board.
+## Canonical Change
+\`BOARD\` is no longer a first-class lifecycle phase.
 
-## Inputs
-- [ ] Evaluation Findings
+Canonical lifecycle:
+1. Evaluate
+2. Contract
+3. Execute
+4. Closeout
 
-## Instructions
-1. **Drafting**: Create new contract file(s) in \`03_Contracts/active/\` based on the evaluation findings, using the standard MCD template.
-2. **Breakdown**: Divide the work into logical, deterministic steps within the contract.
-3. **Board Population**: Create corresponding task cards in the Command Deck (\`ops/launch-command-deck/data/state.json\`) for each contract drafted. 
-   - Note the parent board's \`codename\` and \`nextIssueNumber\`.
-   - On the new card object, assign \`"issueNumber": "{codename}-{00X}"\` where \`00X\` is the zero-padded \`nextIssueNumber\`.
-   - Increment the board's \`nextIssueNumber\` by 1 for each new card.
-   - Ensure the task cards reference the contract name and include acceptance criteria.
-4. **AFP Enumeration**: List every file that will be created, modified, or deleted in the contract.
-5. **Approval**: Inform the user that the Command Deck has been populated and the contracts are ready. Tell them they can request execution of a specific issue number or contract name.
+## Replacement Behavior
+Board population is mandatory work embedded in \`CONTRACT\`:
+- Create/update sequenced task cards via API/SQLite runtime.
+- Bind all cards to active milestones.
+- Verify visibility in \`/api/state\` and board UI.
 
-## Output
-- [ ] Drafted Contract file(s) in \`03_Contracts/active/\`.
-- [ ] Populated task cards in the Command Deck.
+## Operator Guidance
+If \`/board\` is invoked, route to \`/contract\` behavior and continue with Contract-based task population.
 `;
 }
 
@@ -78,18 +75,19 @@ Invoke this command after Evaluation is complete and scope is locked. This phase
 - [ ] Affected File Paths (AFPs)
 
 ## Instructions
-1. **Drafting**: Create a new contract file in \`03_Contracts/active/\` using the standard MCD template.
-2. **Breakdown**: Divide the work into logical, deterministic steps.
-3. **Risk Assessment**: identify potential side effects or breaking changes.
-4. **AFP Enumeration**: List every file that will be created, modified, or deleted.
-5. **Approval**: Present the contract to the operator for formal approval.
-6. **Trigger-Based Execution**: Generating this contract does NOT authorize execution. Implementation must only begin after explicit operator approval and the invocation of the \`/execute\` command.
+1. **Contract Authoring (DB Canonical)**: Draft contract scope directly in milestone/card records (macro contract on milestone, micro-contracts on cards).
+2. **Breakdown**: Divide work into sequenced, deterministic cards with sufficient execution detail.
+3. **Board Population (Required)**: Create/update task cards through live Command Deck API-backed operations (SQLite canonical store).
+4. **Risk Assessment**: identify potential side effects or breaking changes.
+5. **AFP Enumeration**: List every file that will be created, modified, or deleted.
+6. **Approval**: Present the contract card set to the operator for formal approval.
+7. **Trigger-Based Execution**: Generating this contract does NOT authorize execution. Implementation must only begin after explicit operator approval and the invocation of the \`/execute\` command.
 
 **CRITICAL AGENT INSTRUCTION:** After generating the Contract, you MUST halt execution. Do not proceed to the Execute phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
 
 ## Output
-- [ ] Approved Contract file in \`03_Contracts/active/\`.
-- [ ] Implementation Plan artifact created and reviewed.
+- [ ] Approved contract card set on board (milestone-bound, sequenced).
+- [ ] Contract context stored canonically in DB-backed milestone/card records.
 `;
 }
 
@@ -101,10 +99,10 @@ export function renderExecute(config: ProjectConfig): string {
 **Codename:** \`${config.codename}\`
 
 ## When to Use
-Invoke this command ONLY when an approved contract exists in \`03_Contracts/active/\`.
+Invoke this command ONLY when approved contract cards exist on the board for the active milestone.
 
 ## Inputs
-- [ ] Approved Contract
+- [ ] Approved Contract Cards
 - [ ] Current Repository State
 - [ ] Test Harness / Environment
 
@@ -112,12 +110,11 @@ Invoke this command ONLY when an approved contract exists in \`03_Contracts/acti
 1. **Implementation**: Execute the changes exactly as authorized by the contract. Do not deviate from the Approved AFPs.
 2. **Verification**: Run all automated tests and perform manual validation as defined in the contract's Verification Plan.
 3. **Iteration**: Fix bugs discovered during verification. If a fundamental design change is needed, stop and return to the Contract phase.
-4. **Documentation**: Record outcomes and build details in \`05_Records/buildLogs/\`.
+4. **Documentation**: Record outcomes and build details in milestone/card DB artifacts, and write local files only when explicitly required by tooling.
 
 ## Output
-- [ ] Verified implementation matching all Acceptance Criteria.
-- [ ] Build Log documenting the execution results.
-- [ ] Walkthrough artifact demonstrating the completed work.
+- [ ] Verified implementation matching all acceptance criteria.
+- [ ] Card status + milestone context updated to reflect execution outcome.
 `;
 }
 
@@ -137,19 +134,23 @@ Use this command to capture a compact memory checkpoint without changing lifecyc
 - [ ] Current milestone/slice identifier
 
 ## Instructions
-1. **Read Current Memory**: Load \`referenceDocs/06_AgentMemory/agent-memory.json\` if it exists; initialize it if missing.
-2. **Capture Snapshot**: Update \`cur\` with concise state (\`st\`, \`ms\`, \`ct\`, \`dec\`, \`trb\`, \`lrn\`, \`nx\`, \`ref\`) and refresh \`upd\` timestamp.
-3. **Bounded History**: Push previous \`cur\` into \`hist\` and keep only the latest bounded window (2-3 snapshots).
-4. **Density Control**: Keep entries compact, deduplicated, and within documented cap limits.
-5. **No Phase Transition**: Confirm checkpoint completion and remain in current lifecycle phase.
+1. **Resolve Board Context**: Use active board context (or explicit \`boardId\`) as memory scope authority.
+2. **Write Memory Events**: Record checkpoint facts via \`POST /api/memory/events\` with attested \`sourceType\` (\`user\`, \`operator\`, \`verified-system\`) and deterministic \`memoryKey\`.
+3. **Materialized State Check**: Validate checkpoint presence via \`GET /api/memory/state\` or \`GET /api/memory/query\`.
+4. **Compaction Control**: If needed, run \`POST /api/memory/compact\` to enforce bounded memory budgets.
+5. **Compatibility Export (Optional)**: Produce \`.amphion/memory/agent-memory.json\` using \`POST /api/memory/export\` when downstream tooling expects file-based snapshot.
+6. **No Phase Transition**: Confirm checkpoint completion and remain in current lifecycle phase.
 
 ## Guardrails
-- \`/remember\` is utility-only and cannot replace Evaluate/Board/Contract/Execute/Closeout.
+- \`/remember\` is utility-only and cannot replace Evaluate/Contract/Execute/Closeout.
+- Canonical write boundary is \`/api/memory/*\` routes; avoid direct SQL mutation as standard workflow.
 - Do not include long prose; use short slug-like entries.
 - Do not write speculative or unverified facts into memory.
 
 ## Output
-- [ ] Updated \`referenceDocs/06_AgentMemory/agent-memory.json\`.
+- [ ] Memory event(s) recorded in SQLite authority via \`/api/memory/events\`.
+- [ ] Memory state verification evidence (\`/api/memory/state\` or \`/api/memory/query\`).
+- [ ] Optional compatibility export updated at \`.amphion/memory/agent-memory.json\` (when required).
 - [ ] Brief user-facing confirmation that memory checkpoint was recorded.
 `;
 }
@@ -168,20 +169,19 @@ Invoke this command when all contracted work for a version is verified and compl
 - [ ] All executed contracts for the version.
 - [ ] Build Logs & Verification results.
 - [ ] Final Repository State.
-- [ ] \`referenceDocs/06_AgentMemory/agent-memory.json\` baseline (existing or to be initialized).
+- [ ] DB-backed memory baseline (\`/api/memory/state\`) and optional compatibility export requirement.
 
 ## Instructions
-1. **Archiving**: Move executed contracts from \`03_Contracts/active/\` to \`03_Contracts/archive/\`.
-2. **Memory Update**: Update compact operational memory in \`referenceDocs/06_AgentMemory/agent-memory.json\`.
-3. **Validation**: Final check against Governance Guardrails and run closeout hygiene validation (\`referenceDocs/04_Analysis/scripts/validate_closeout_hygiene.py\` when available).
-4. **Record Keeping**: Write a formal Closeout Record in \`05_Records/\`.
-5. **Persistence**: Ensure all artifacts are staged and committed to the repository.
-6. **Versioning**: Tag or finalize the version in \`package.json\` or relevant metadata.
+1. **Milestone Closeout**: Close/archive the milestone through API, which appends deterministic outcomes artifact (\`outcomes\`) in DB.
+2. **Memory Update**: Write closeout memory events through \`/api/memory/events\`, verify via \`/api/memory/state\` or \`/api/memory/query\`, and export compatibility snapshot only when needed.
+3. **Validation**: Final check against Governance Guardrails and run closeout hygiene validation scripts from \`.amphion/control-plane\` or runtime tooling when available.
+4. **Record Keeping**: Ensure outcomes artifact is complete and provenance is present.
+5. **Persistence**: Ensure runtime state and required source edits are committed when applicable.
+6. **Versioning**: Tag or finalize version metadata only if explicitly in scope.
 
 ## Output
-- [ ] Formal Closeout Record in \`05_Records/\`.
-- [ ] Updated \`referenceDocs/06_AgentMemory/agent-memory.json\`.
-- [ ] Clean directory state (\`03_Contracts/active/\` is empty).
+- [ ] Outcomes artifact recorded for milestone closeout in DB.
+- [ ] DB-backed memory checkpoint validated (\`/api/memory/*\`) with compatibility export updated when required.
 - [ ] Final Git commit using the \`closeout:\` prefix.
 `;
 }

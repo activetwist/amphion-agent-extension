@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Amphion Agent Controls</title>
+  <title>Amphion Command Deck</title>
   <link rel="icon" type="image/png" href="/application-logo.png" />
   <link rel="stylesheet" href="/styles.css" />
   <script>
@@ -32,7 +32,7 @@
     <header class="global-header">
       <div class="global-header-main">
         <img src="/application-logo.png" alt="Amphion Logo" class="app-logo" />
-        <h1>Amphion Agent Controls</h1>
+        <h1>Amphion Command Deck</h1>
         <div class="view-selector" id="viewSelector">
           <button class="view-selector-toggle" id="viewSelectorToggle">
             <span id="currentViewLabel">Kanban</span>
@@ -62,25 +62,46 @@
         <button id="btnToggleSidebar" class="btn-sidebar-toggle" title="Toggle Sidebar">«</button>
       </header>
       <section class="panel">
-        <h2>Boards</h2>
-        <div id="boardList" class="board-list"></div>
+        <details class="boards-accordion">
+          <summary>
+            <span class="boards-summary-text">
+              <span>Boards</span>
+              <span id="boardsSummaryActive" class="boards-summary-active">No active board</span>
+            </span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </summary>
+          <div id="boardsList" class="board-list"></div>
+        </details>
       </section>
 
       <section class="panel">
-        <h2>Milestone Progress</h2>
+        <h2>Milestones</h2>
+        <div class="milestone-panel-actions">
+          <button id="btnAddMilestone" class="btn btn-sm">+ Milestone</button>
+          <button id="btnMilestoneArchives" class="btn btn-sm">Archives</button>
+        </div>
         <div id="milestoneProgress" class="milestone-list"></div>
       </section>
 
       <section class="panel">
-        <h2>Utilities</h2>
-        <div class="utility-actions">
-          <button id="btnCloneBoard" class="btn">Clone Active</button>
-          <button id="btnExportBoard" class="btn">Export JSON</button>
-          <button id="btnImportBoard" class="btn">Import JSON</button>
-          <button id="btnReloadState" class="btn">Reload State</button>
-
-          <input id="importFile" type="file" accept="application/json" hidden />
-        </div>
+        <details class="utilities-accordion">
+          <summary>
+            <span>Utilities</span>
+            <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+          </summary>
+          <div class="utility-actions">
+            <button id="btnCloneBoard" class="btn">Clone Active</button>
+            <button id="btnExportBoard" class="btn">Export JSON</button>
+            <button id="btnImportBoard" class="btn">Import JSON</button>
+            <input id="importFile" type="file" accept="application/json" hidden />
+          </div>
+        </details>
       </section>
     </aside>
 
@@ -184,7 +205,6 @@
       <section class="toolbar">
         <div class="left-tools">
           <button id="btnAddCard" class="btn primary">+ Task</button>
-          <button id="btnAddMilestone" class="btn">+ Milestone</button>
           <button id="btnAddList" class="btn">+ Column</button>
         </div>
         <div class="right-tools">
@@ -198,8 +218,20 @@
           </label>
         </div>
       </section>
+      <div id="milestonePolicyHint" class="milestone-policy-hint"></div>
 
       <section id="kanbanColumns" class="kanban-columns"></section>
+
+      <aside id="milestoneDetailPanel" class="milestone-detail-panel" aria-label="Milestone detail panel">
+        <header class="milestone-detail-header">
+          <button id="btnMilestonePanelBack" class="btn btn-sm">Back</button>
+          <h3 id="milestonePanelTitle" class="milestone-detail-title">Milestone Details</h3>
+          <button id="btnMilestonePanelClose" class="btn btn-sm">Close</button>
+        </header>
+        <div id="milestoneDetailContent" class="milestone-detail-content">
+          Select a milestone to inspect its contract details and tasks.
+        </div>
+      </aside>
     </main>
   </div>
 
@@ -279,6 +311,17 @@
     </div>
   </dialog>
 
+  <dialog id="milestoneArchivesDialog" class="card-dialog milestone-archives-dialog">
+    <form method="dialog" class="doc-dialog-form">
+      <header class="modal-header">
+        <h3 class="modal-title">Archived Milestones</h3>
+        <button value="close" class="btn">Close</button>
+      </header>
+      <div id="milestoneArchivesList" class="milestone-archives-list"></div>
+      <div id="milestoneArchivesEmpty" class="empty-state">No archived milestones for this board.</div>
+    </form>
+  </dialog>
+
   <dialog id="cardDialog" class="card-dialog">
     <form id="cardForm" method="dialog">
       <div class="card-dialog-header">
@@ -337,7 +380,6 @@
   <template id="cardTemplate">
     <article class="card" draggable="true">
       <header>
-        <span class="milestone-badge"></span>
         <span class="priority-badge"></span>
       </header>
       <h4></h4>

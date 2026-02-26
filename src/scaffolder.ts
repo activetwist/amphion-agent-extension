@@ -8,39 +8,39 @@ import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
 import { renderEvaluate, renderBoard, renderContract, renderExecute, renderCloseout, renderRemember } from './templates/commands';
 import { generateMermaidExampleTemplate } from './templates/mermaidExample';
+import {
+    detectIdeTargets,
+    ensureAdaptersForTargets,
+    ensureAmphionCore,
+    readRuntimeConfig,
+    resolveCommandDeckPath,
+    toProjectConfig,
+    writeRuntimeConfig,
+} from './environment';
+import { flushPendingBoardArtifacts } from './canonicalDocs';
 // Adapters and workflows are loaded dynamically in buildScaffold/deployWorkflows
 
 const DIRS = [
-    'referenceDocs/00_Governance/mcd',
-    'referenceDocs/01_Strategy',
-    'referenceDocs/02_Architecture/primitives',
-    'referenceDocs/03_Contracts/active',
-    'referenceDocs/03_Contracts/archive',
-    'referenceDocs/04_Analysis/findings',
-    'referenceDocs/04_Analysis/scripts',
-    'referenceDocs/05_Records/buildLogs',
-    'referenceDocs/05_Records/chatLogs',
-    'referenceDocs/05_Records/documentation/helperContext',
-    'referenceDocs/06_AgentMemory',
-    '.agents/workflows',
-    '.cursor/rules',
-    '.cursor/commands',
-    '.windsurf/workflows',
+    '.amphion',
+    '.amphion/memory',
+    '.amphion/control-plane/mcd',
+    '.amphion/context',
     'ops',
 ];
 
 const CONFLICT_CHECK_DIRS = [
-    'referenceDocs',
-    'ops/launch-command-deck',
+    '.amphion/command-deck',
+    'ops/launch-command-deck', // legacy fallback/migration path
 ];
 
 interface AmphionConfigFile {
     port?: string | number;
-    serverLang?: 'python' | 'node' | string;
+    serverLang?: 'python' | string;
     codename?: string;
     projectName?: string;
     initialVersion?: string;
     mcdVersion?: string;
+    commandDeckPath?: string;
 }
 
 async function writeFile(root: vscode.Uri, relativePath: string, content: string): Promise<void> {
@@ -94,7 +94,7 @@ function copyDirSync(src: string, dest: string): void {
 
 /**
  * Recursively copies a directory but skips specific files if they already exist in the destination.
- * This is used during migration to avoid overwriting user data (like state.json).
+ * This is used during migration to avoid overwriting user data (like amphion.db).
  */
 function copyDirSafeSync(src: string, dest: string, skipIfExist: string[] = []): void {
     if (!fs.existsSync(dest)) {
@@ -108,6 +108,9 @@ function copyDirSafeSync(src: string, dest: string, skipIfExist: string[] = []):
         if (entry.isDirectory()) {
             copyDirSafeSync(srcPath, destPath, skipIfExist);
         } else {
+            if (entry.name === 'state.json') {
+                continue;
+            }
             // Check if this file should be skipped if it already exists
             const isSkippable = skipIfExist.some(skipPath => destPath.endsWith(skipPath));
             if (isSkippable && fs.existsSync(destPath)) {
@@ -116,6 +119,61 @@ function copyDirSafeSync(src: string, dest: string, skipIfExist: string[] = []):
             fs.copyFileSync(srcPath, destPath);
         }
     }
+}
+
+function collectChangedFilesForBackup(src: string, dest: string, skipIfExist: string[] = []): Array<{ src: string; dest: string; rel: string }> {
+    const changed: Array<{ src: string; dest: string; rel: string }> = [];
+    const walk = (srcDir: string, destDir: string, relBase: string) => {
+        if (!fs.existsSync(srcDir)) {
+            return;
+        }
+        const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+        for (const entry of entries) {
+            const srcPath = path.join(srcDir, entry.name);
+            const rel = relBase ? path.join(relBase, entry.name) : entry.name;
+            const destPath = path.join(destDir, entry.name);
+            if (entry.isDirectory()) {
+                walk(srcPath, destPath, rel);
+                continue;
+            }
+            if (entry.name === 'state.json') {
+                continue;
+            }
+            const isSkippable = skipIfExist.some((skipPath) => destPath.endsWith(skipPath));
+            if (isSkippable) {
+                continue;
+            }
+            if (!fs.existsSync(destPath)) {
+                continue;
+            }
+            try {
+                const srcBytes = fs.readFileSync(srcPath);
+                const destBytes = fs.readFileSync(destPath);
+                if (!srcBytes.equals(destBytes)) {
+                    changed.push({ src: srcPath, dest: destPath, rel });
+                }
+            } catch {
+                // If compare fails, conservatively back it up.
+                changed.push({ src: srcPath, dest: destPath, rel });
+            }
+        }
+    };
+    walk(src, dest, '');
+    return changed;
+}
+
+function backupChangedRuntimeFiles(root: vscode.Uri, changed: Array<{ src: string; dest: string; rel: string }>): string | undefined {
+    if (changed.length === 0) {
+        return undefined;
+    }
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupRoot = path.join(root.fsPath, '.amphion', 'control-plane', 'backups', 'runtime', timestamp);
+    for (const item of changed) {
+        const backupPath = path.join(backupRoot, item.rel);
+        fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+        fs.copyFileSync(item.dest, backupPath);
+    }
+    return backupRoot;
 }
 
 async function pathExists(root: vscode.Uri, relativePath: string): Promise<boolean> {
@@ -158,7 +216,7 @@ function runShellCommand(cwd: string, command: string): Promise<string> {
 function normalizeProjectConfig(raw: AmphionConfigFile): ProjectConfig {
     return {
         projectName: typeof raw.projectName === 'string' && raw.projectName.trim().length > 0 ? raw.projectName : 'Amphion Project',
-        serverLang: raw.serverLang === 'node' ? 'node' : 'python',
+        serverLang: 'python',
         codename: typeof raw.codename === 'string' && raw.codename.trim().length > 0 ? raw.codename : 'BLACKCLAW',
         initialVersion: typeof raw.initialVersion === 'string' && raw.initialVersion.trim().length > 0 ? raw.initialVersion : '0.1.0',
         port: String(raw.port ?? '8765')
@@ -198,11 +256,8 @@ export async function migrateEnvironment(
     extensionUri: vscode.Uri,
     targetVersion: string
 ): Promise<boolean> {
-    let rawConfig = await readJsonFile<AmphionConfigFile>(root, 'ops/amphion.json');
-    if (!rawConfig) {
-        rawConfig = {};
-    }
-    const config = normalizeProjectConfig(rawConfig);
+    const runtimeConfig = await readRuntimeConfig(root);
+    runtimeConfig.mcdVersion = targetVersion;
 
     try {
         const status = await runShellCommand(root.fsPath, 'git status --porcelain');
@@ -221,78 +276,58 @@ export async function migrateEnvironment(
         // No git repo or git unavailable. Continue with non-blocking behavior.
     }
 
-    const mcdDir = 'referenceDocs/00_Governance/mcd';
-    await createDir(root, 'referenceDocs/00_Governance/mcd');
-    await createDir(root, 'referenceDocs/06_AgentMemory');
-    await createDir(root, '.agents/workflows');
-    await createDir(root, '.cursor/rules');
-    await createDir(root, '.cursor/commands');
-    await createDir(root, '.windsurf/workflows');
+    await ensureAmphionCore(root, runtimeConfig);
+
+    const mcdDir = '.amphion/control-plane/mcd';
+    await createDir(root, mcdDir);
 
     // Allowlist: generator-owned governance + command surfaces.
-    await writeFile(root, 'referenceDocs/00_Governance/GUARDRAILS.md', renderGuardrails(config));
-    await writeFile(root, 'referenceDocs/00_Governance/MCD_PLAYBOOK.md', getPlaybookContent());
-    await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(config));
-    await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(config));
-    await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(config));
-    await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(config));
-    await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));
-    await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(config));
+    const projectConfig = toProjectConfig(runtimeConfig);
+    await writeFile(root, '.amphion/control-plane/GUARDRAILS.md', renderGuardrails(projectConfig));
+    await writeFile(root, '.amphion/control-plane/MCD_PLAYBOOK.md', getPlaybookContent());
+    await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(projectConfig));
+    await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(projectConfig));
+    await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(projectConfig));
+    await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(projectConfig));
+    await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(projectConfig));
+    await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(projectConfig));
 
-    // Allowlist: generator-owned adapters/workflows.
-    const { renderClaudeMd, renderAgentsMd, renderCursorRules } = await import('./templates/adapters');
-    await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
-    await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
-    await appendOrWriteFile(root, '.cursorrules', renderCursorRules(config));
-    await appendOrWriteFile(root, '.clinerules', renderCursorRules(config));
-    await deployWorkflows(root, config);
-
-    // Include memory/governance additions when missing.
+    // Include compatibility memory snapshot when missing.
+    await createDir(root, '.amphion/memory');
     await ensureFileExists(
         root,
-        'referenceDocs/06_AgentMemory/agent-memory.json',
+        '.amphion/memory/agent-memory.json',
         JSON.stringify(buildDefaultAgentMemorySnapshot('migration'), null, 2)
     );
     await ensureFileExists(
         root,
-        'referenceDocs/06_AgentMemory/README.md',
-        '# Agent Memory\n\nThis directory stores compact operational memory for agent continuity.\n\n- Canonical file: `agent-memory.json`\n- Update policy: mandatory at closeout, optional via `/remember` during long sessions.\n- Keep entries compact and bounded; detailed narratives stay in `referenceDocs/05_Records/`.\n'
+        '.amphion/memory/README.md',
+        '# Agent Memory\n\nThis directory stores compatibility projections for agent continuity.\n\n- Canonical memory authority: SQLite (`.amphion/command-deck/data/amphion.db`) via `/api/memory/*`.\n- Compatibility snapshot (optional): `agent-memory.json`.\n- Update policy: closeout and `/remember` should write via API first; export snapshot only when downstream tooling requires it.\n'
     );
 
-    const nextConfig = {
-        ...rawConfig,
-        port: config.port,
-        serverLang: config.serverLang,
-        codename: config.codename,
-        projectName: config.projectName,
-        initialVersion: config.initialVersion,
-        mcdVersion: targetVersion
-    };
-
-    await writeFile(root, 'ops/amphion.json', JSON.stringify(nextConfig, null, 2));
-
-    // Synchronize the Command Deck assets (safe migration)
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
-    const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
-    copyDirSafeSync(deckSrc.fsPath, deckDest, ['state.json']);
+    const deckDest = resolveCommandDeckPath(root, runtimeConfig);
+    // Migrate legacy ops runtime into canonical path first, then overlay latest assets.
+    const legacyDeckPath = path.join(root.fsPath, 'ops', 'launch-command-deck');
+    if (fs.existsSync(legacyDeckPath) && !fs.existsSync(deckDest)) {
+        copyDirSafeSync(legacyDeckPath, deckDest);
+    }
+
+    // Synchronize the Command Deck assets (safe migration, no data overwrite)
+    const skipPaths = ['amphion.db'];
+    const changedRuntimeFiles = collectChangedFilesForBackup(deckSrc.fsPath, deckDest, skipPaths);
+    const backupPath = backupChangedRuntimeFiles(root, changedRuntimeFiles);
+    copyDirSafeSync(deckSrc.fsPath, deckDest, skipPaths);
+    if (backupPath) {
+        vscode.window.showInformationMessage(`AmphionAgent: Backed up ${changedRuntimeFiles.length} modified runtime file(s) to ${backupPath}.`);
+    }
+
+    // Populate adapters for currently-detected IDEs.
+    const targets = await detectIdeTargets(root);
+    await ensureAdaptersForTargets(root, projectConfig, targets);
+    await writeRuntimeConfig(root, runtimeConfig);
 
     return true;
-}
-
-async function deployWorkflows(root: vscode.Uri, config: ProjectConfig): Promise<void> {
-    const commands = ['evaluate', 'board', 'contract', 'execute', 'closeout', 'remember', 'docs'];
-    const { renderAntigravityWorkflow, renderCursorRule, renderCursorCommand, renderWindsurfWorkflow } = await import('./templates/adapters');
-
-    for (const cmd of commands) {
-        // Antigravity
-        await writeFile(root, `.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, config));
-        // Cursor Rules (background)
-        await writeFile(root, `.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, config));
-        // Cursor Commands (slash menu)
-        await writeFile(root, `.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, config));
-        // Windsurf
-        await writeFile(root, `.windsurf/workflows/${cmd}.md`, renderWindsurfWorkflow(cmd, config));
-    }
 }
 
 export async function buildScaffold(
@@ -332,43 +367,37 @@ export async function buildScaffold(
         await createDir(root, dir);
     }
 
-    // 1.5 Write config context
-    await writeFile(
-        root,
-        'ops/amphion.json',
-        JSON.stringify({
-            port: config.port,
-            serverLang: config.serverLang,
-            codename: config.codename,
-            projectName: config.projectName,
-            initialVersion: config.initialVersion,
-            mcdVersion: extensionVersion
-        }, null, 2)
-    );
+    // 1.5 Write config context (.amphion canonical with ops compatibility mirror).
+    const runtimeConfig = {
+        port: config.port,
+        serverLang: 'python' as const,
+        codename: config.codename,
+        projectName: config.projectName,
+        initialVersion: config.initialVersion,
+        mcdVersion: extensionVersion,
+        commandDeckPath: '.amphion/command-deck',
+    };
+    await ensureAmphionCore(root, runtimeConfig);
 
-    // 2. Write GUARDRAILS.md
+    // 2. Write canonical control-plane docs
     await writeFile(
         root,
-        'referenceDocs/00_Governance/GUARDRAILS.md',
+        '.amphion/control-plane/GUARDRAILS.md',
         renderGuardrails(config)
     );
 
-    // 2.5 Write Example Architecture Chart
-    await writeFile(
-        root,
-        'referenceDocs/02_Architecture/EXAMPLE_MARKETING_IA.md',
-        generateMermaidExampleTemplate(config.codename)
-    );
+    // Optional architecture sample retained in control-plane only.
+    await writeFile(root, '.amphion/control-plane/EXAMPLE_MARKETING_IA.md', generateMermaidExampleTemplate(config.codename));
 
     // 3. Write MCD_PLAYBOOK.md
     await writeFile(
         root,
-        'referenceDocs/00_Governance/MCD_PLAYBOOK.md',
+        '.amphion/control-plane/MCD_PLAYBOOK.md',
         getPlaybookContent()
     );
 
     // 4. Write Canonical Commands
-    const mcdDir = 'referenceDocs/00_Governance/mcd';
+    const mcdDir = '.amphion/control-plane/mcd';
     await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(config));
     await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(config));
     await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(config));
@@ -376,42 +405,35 @@ export async function buildScaffold(
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(config));
 
-    // 4.5 Write default compact memory artifacts
+    // 4.5 Write compatibility memory artifacts in .amphion
+    await createDir(root, '.amphion/memory');
     await writeFile(
         root,
-        'referenceDocs/06_AgentMemory/agent-memory.json',
+        '.amphion/memory/agent-memory.json',
         JSON.stringify(buildDefaultAgentMemorySnapshot('bootstrap'), null, 2)
     );
     await writeFile(
         root,
-        'referenceDocs/06_AgentMemory/README.md',
-        '# Agent Memory\n\nThis directory stores compact operational memory for agent continuity.\n\n- Canonical file: `agent-memory.json`\n- Update policy: mandatory at closeout, optional via `/remember` during long sessions.\n- Keep entries compact and bounded; detailed narratives stay in `referenceDocs/05_Records/`.\n'
+        '.amphion/memory/README.md',
+        '# Agent Memory\n\nThis directory stores compatibility projections for agent continuity.\n\n- Canonical memory authority: SQLite (`.amphion/command-deck/data/amphion.db`) via `/api/memory/*`.\n- Compatibility snapshot (optional): `agent-memory.json`.\n- Update policy: closeout and `/remember` should write via API first; export snapshot only when downstream tooling requires it.\n'
     );
 
-    // 5. Write Agent Adapters
-    const { renderClaudeMd, renderAgentsMd, renderCursorRules } = await import('./templates/adapters');
-    await writeFile(root, 'CLAUDE.md', renderClaudeMd(config));
-    await writeFile(root, 'AGENTS.md', renderAgentsMd(config));
-    await appendOrWriteFile(root, '.cursorrules', renderCursorRules(config));
-    await appendOrWriteFile(root, '.clinerules', renderCursorRules(config));
+    // 5. Generate only adapters needed for detected environment.
+    const targets = await detectIdeTargets(root);
+    await ensureAdaptersForTargets(root, config, targets);
 
-    // 6. Deploy Multi-IDE Workflows
-    await deployWorkflows(root, config);
-
-    // 7. Copy the bundled Command Deck into ops/
+    // 6. Copy the bundled Command Deck into canonical .amphion path.
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
-    const deckDest = path.join(root.fsPath, 'ops', 'launch-command-deck');
+    const deckDest = resolveCommandDeckPath(root, runtimeConfig);
     copyDirSync(deckSrc.fsPath, deckDest);
 
-    // 5. Initialize the Command Deck board for this project
+    // 7. Initialize the Command Deck board for this project
     // (initTerminal replaces the old internal instantiation)
 
     const initScript = path.join(
-        root.fsPath,
-        'ops',
-        'launch-command-deck',
+        deckDest,
         'scripts',
-        'init_command_deck.py'
+        'init_command_deck.py',
     );
 
     initTerminal.sendText(
@@ -442,21 +464,20 @@ export async function buildScaffold(
 }
 
 export async function launchCommandDeck(root: vscode.Uri, config: ProjectConfig): Promise<void> {
-    const serverTerminal = vscode.window.createTerminal({
-        name: `Command Deck :${config.port}`,
-        cwd: root.fsPath,
-    });
-    serverTerminal.show();
+    const result = await vscode.commands.executeCommand<{ ok: boolean; message: string; state: string; port: string }>('mcd.startServer', root);
+    if (!result || !result.ok) {
+        const message = result?.message ?? 'AmphionAgent: Failed to start Command Deck server.';
+        vscode.window.showWarningMessage(message);
+        return;
+    }
+    vscode.window.showInformationMessage(result.message);
 
-    serverTerminal.sendText(
-        `python3 ops/launch-command-deck/server.py --port ${config.port}`
-    );
-
-    const url = `http://localhost:${config.port}`;
+    const url = `http://localhost:${result.port || config.port}`;
 
     setTimeout(() => {
-        // Launch the internal IDE dashboard
+        // Reveal the sidebar-hosted Agent Controls view
         vscode.commands.executeCommand('mcd.openDashboard');
+        void flushPendingBoardArtifacts(root, false);
 
         // Also open the browser Command Deck
         const platform = os.platform();

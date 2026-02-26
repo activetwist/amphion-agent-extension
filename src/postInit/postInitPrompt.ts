@@ -16,23 +16,21 @@ export async function promptPostInitReview(root: vscode.Uri, config: ProjectConf
             { title: 'Select Artifact to Review', ignoreFocusOut: true }
         );
 
-        let targetPattern = '';
-        if (reviewChoice === 'Review Charter') targetPattern = '*PROJECT_CHARTER.md';
-        else if (reviewChoice === 'Review PRD') targetPattern = '*HIGH_LEVEL_PRD.md';
-        else if (reviewChoice === 'Review Architecture') targetPattern = '*SYSTEM_ARCHITECTURE.md';
-
-        if (targetPattern) {
-            const files = await vscode.workspace.findFiles(`referenceDocs/01_Strategy/${targetPattern}`);
-            if (files.length > 0) {
-                // Open the newest one if multiple exist
-                const sortedFiles = files.sort((a, b) => b.fsPath.localeCompare(a.fsPath));
-                await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(sortedFiles[0]), {
+        if (reviewChoice === 'Review Charter') {
+            vscode.window.showInformationMessage('Charter is now DB-canonical. Open Command Deck docs to review.');
+        } else if (reviewChoice === 'Review PRD') {
+            vscode.window.showInformationMessage('PRD is now DB-canonical. Open Command Deck docs to review.');
+        } else if (reviewChoice === 'Review Architecture') {
+            const architecturePath = vscode.Uri.joinPath(root, '.amphion/control-plane/EXAMPLE_MARKETING_IA.md');
+            try {
+                await vscode.workspace.fs.stat(architecturePath);
+                await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(architecturePath), {
                     viewColumn: vscode.ViewColumn.Beside,
                     preserveFocus: true,
                     preview: false
                 });
-            } else {
-                vscode.window.showInformationMessage('Artifact not found.');
+            } catch {
+                vscode.window.showInformationMessage('Architecture example not found in control-plane.');
             }
         }
     } else {

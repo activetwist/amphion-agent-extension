@@ -7,7 +7,7 @@ export async function writeFoundationJson(
     root: vscode.Uri,
     state: FoundationState
 ): Promise<boolean> {
-    const strategyDir = path.join(root.fsPath, 'referenceDocs', '01_Strategy');
+    const strategyDir = path.join(root.fsPath, '.amphion', 'control-plane');
     const foundationPath = path.join(strategyDir, 'foundation.json');
 
     // Ensure directory exists
@@ -20,7 +20,7 @@ export async function writeFoundationJson(
     // Handle Collision
     if (fs.existsSync(foundationPath)) {
         const choice = await vscode.window.showWarningMessage(
-            'A foundation.json file already exists in 01_Strategy. Do you want to overwrite it, or create a timestamped backup of the new state?',
+            'A foundation.json file already exists in .amphion/control-plane. Do you want to overwrite it, or create a timestamped backup of the new state?',
             { modal: true },
             'Overwrite (Destructive)',
             'Create Timestamped File',

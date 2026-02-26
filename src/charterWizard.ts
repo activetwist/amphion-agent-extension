@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import { ProjectConfig } from './wizard';
 import { renderCharter, CharterData } from './templates/charter';
 import { renderPrd, PrdData } from './templates/prd';
 import { renderCharterStub, getCharterAgentInstruction } from './templates/charterStub';
 import { renderPrdStub, getPrdAgentInstruction } from './templates/prdStub';
 import { launchCommandDeck } from './scaffolder';
+import { writeBoardArtifact } from './canonicalDocs';
 
 function nowTimestamp(): string {
     const d = new Date();
@@ -27,9 +26,8 @@ export async function runManualPath(
         successMetric: string;
     }
 ): Promise<void> {
-    // ── Write documents ──────────────────────────────────────────────────────
+    // ── Write canonical DB artifacts ────────────────────────────────────────
     const timestamp = nowTimestamp();
-    const encoder = new TextEncoder();
 
     const charterData: CharterData = {
         targetUsers: data.targetUsers,
@@ -42,32 +40,23 @@ export async function runManualPath(
         successMetric: data.successMetric
     };
 
-    await vscode.workspace.fs.writeFile(
-        vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
-        encoder.encode(renderCharter(config, charterData, timestamp))
+    const charterBody = renderCharter(config, charterData, timestamp);
+    const prdBody = renderPrd(config, charterData, prdData, timestamp);
+    await writeBoardArtifact(
+        root,
+        'charter',
+        `Project Charter · ${config.projectName}`,
+        'Generated from manual onboarding inputs.',
+        charterBody,
     );
-
-    await vscode.workspace.fs.writeFile(
-        vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
-        encoder.encode(renderPrd(config, charterData, prdData, timestamp))
+    await writeBoardArtifact(
+        root,
+        'prd',
+        `High-Level PRD · ${config.projectName}`,
+        'Generated from manual onboarding inputs.',
+        prdBody,
     );
-
-    // ── Stage and commit ─────────────────────────────────────────────────────
-    terminal.sendText('git add referenceDocs/01_Strategy/');
-    terminal.sendText(
-        `git commit -m "docs(${config.initialVersion}): add Project Charter and High-Level PRD for ${config.codename}"`
-    );
-
-    vscode.window.showInformationMessage(
-        `✅ Project Charter and PRD created in referenceDocs/01_Strategy/ and committed.`
-    );
-
-    const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath), {
-        viewColumn: vscode.ViewColumn.Beside,
-        preserveFocus: true,
-        preview: false
-    });
+    vscode.window.showInformationMessage('✅ Project Charter and PRD were saved to canonical DB artifacts.');
 }
 
 export async function runSourceDocsPath(
@@ -94,57 +83,30 @@ export async function runSourceDocsPath(
         return;
     }
 
-    // ── Step 2: Copy files to helperContext/ ─────────────────────────────────
-    const helperContextDir = path.join(
-        root.fsPath,
-        'referenceDocs',
-        '05_Records',
-        'documentation',
-        'helperContext'
-    );
-
-    if (!fs.existsSync(helperContextDir)) {
-        fs.mkdirSync(helperContextDir, { recursive: true });
-    }
-
+    // ── Step 2: Build context references without workspace duplication ──────
     const copiedFileNames: string[] = [];
     for (const fileUri of selected) {
-        const filename = path.basename(fileUri.fsPath);
-        const destPath = path.join(helperContextDir, filename);
-        fs.copyFileSync(fileUri.fsPath, destPath);
+        const filename = fileUri.path.split('/').pop() || fileUri.fsPath;
         copiedFileNames.push(filename);
     }
 
-    // ── Step 3: Write stub Charter ───────────────────────────────────────────
+    // ── Step 3: Write stub Charter/PRD as DB artifacts ──────────────────────
     const timestamp = nowTimestamp();
-    const encoder = new TextEncoder();
-
-    await vscode.workspace.fs.writeFile(
-        vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`),
-        encoder.encode(renderCharterStub(config, copiedFileNames, timestamp))
+    await writeBoardArtifact(
+        root,
+        'charter',
+        `Project Charter · ${config.projectName}`,
+        'Stub charter generated from imported source-document references.',
+        renderCharterStub(config, copiedFileNames, timestamp),
     );
-
-    // ── Step 4: Write stub PRD ───────────────────────────────────────────────
-    await vscode.workspace.fs.writeFile(
-        vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-HIGH_LEVEL_PRD.md`),
-        encoder.encode(renderPrdStub(config, copiedFileNames, timestamp))
+    await writeBoardArtifact(
+        root,
+        'prd',
+        `High-Level PRD · ${config.projectName}`,
+        'Stub PRD generated from imported source-document references.',
+        renderPrdStub(config, copiedFileNames, timestamp),
     );
-
-    // ── Step 5: Stage and commit ─────────────────────────────────────────────
-    terminal.sendText('git add referenceDocs/');
-    terminal.sendText(
-        `git commit -m "docs(${config.initialVersion}): add source documents + Charter/PRD stubs for AI derivation"`
-    );
-
-    // ── Step 6: Product Owner Agent Handoff ──────────────────────────────────
-    const charterPath = vscode.Uri.joinPath(root, `referenceDocs/01_Strategy/${timestamp}-PROJECT_CHARTER.md`);
-
-    // Guide user to Charter unconditionally — the embedded agent block handles the rest
-    await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(charterPath), {
-        viewColumn: vscode.ViewColumn.Beside,
-        preserveFocus: true,
-        preview: false
-    });
+    vscode.window.showInformationMessage('✅ Stub Charter/PRD saved to canonical DB artifacts (no helperContext duplication).');
 
     return {
         charterPrompt: getCharterAgentInstruction(copiedFileNames),

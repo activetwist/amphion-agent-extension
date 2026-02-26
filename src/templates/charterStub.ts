@@ -19,7 +19,7 @@ export function renderCharterStub(
 
 > [!IMPORTANT]
 > **AI Derivation Required.** This document was initialized with source materials.
-> Complete each section below by reading the following files in \`referenceDocs/05_Records/documentation/helperContext/\`:
+> Complete each section below by reading the following files in \`.amphion/context/\`:
 ${fileList}
 
 > [!AGENT INSTRUCTION]
@@ -62,7 +62,7 @@ This document establishes the foundational intent, scope, and boundaries of the 
 
 ## Operating Constraints
 - All development follows the MCD (Micro-Contract Development) methodology
-- Every code change must be authorized by an active contract in \`03_Contracts/active/\`
+- Every code change must be authorized by approved contract cards in the Command Deck
 - No contracted work begins without operator approval of the contract
 - All versions are closed with a git commit using the format: \`closeout: {VERSION} {description}\`
 
