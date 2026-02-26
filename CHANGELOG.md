@@ -6,6 +6,17 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.50.0] - 2026-02-26
+
+### Changed
+- Bumped release line to `1.50.0` to maintain semantic-version upgrade continuity over prior `1.28.x` marketplace releases.
+- Consolidated server lifecycle launch paths under managed `ServerController` startup APIs for deterministic Start/Stop behavior across onboarding and panel controls.
+
+### Fixed
+- Corrected DB-canonical playbook seeding to ship full MCD Playbook markdown with proper newlines.
+- Added startup repair migration to append corrected playbook artifact revisions for boards that still contain legacy stub/escaped playbook content.
+- Hardened onboarding artifact persistence with queued DB write fallback (`pending-artifacts.jsonl`) and automatic flush when the runtime becomes reachable.
+
 ## [1.29.0] - 2026-02-25
 
 ### Added

@@ -56,7 +56,7 @@ In-IDE command flow and server controls for running MCD from the development env
 1. Open Extensions view in your IDE.
 2. Use "Install from VSIX...".
 3. Select the packaged file, for example:
-   - `amphion-agent-1.28.8.vsix` (current release line)
+   - `amphion-agent-1.50.0.vsix` (current release line)
 
 ### Marketplace
 
