@@ -22,10 +22,8 @@ import { flushPendingBoardArtifacts } from './canonicalDocs';
 
 const DIRS = [
     '.amphion',
-    '.amphion/memory',
     '.amphion/control-plane/mcd',
     '.amphion/context',
-    'ops',
 ];
 
 const CONFLICT_CHECK_DIRS = [
@@ -223,24 +221,6 @@ function normalizeProjectConfig(raw: AmphionConfigFile): ProjectConfig {
     };
 }
 
-function buildDefaultAgentMemorySnapshot(milestone: string) {
-    return {
-        v: 1,
-        upd: new Date().toISOString(),
-        cur: {
-            st: 'init',
-            ms: milestone,
-            ct: [],
-            dec: [],
-            trb: [],
-            lrn: [],
-            nx: [],
-            ref: []
-        },
-        hist: []
-    };
-}
-
 async function getExtensionVersion(extensionUri: vscode.Uri): Promise<string> {
     try {
         const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(extensionUri, 'package.json'));
@@ -291,19 +271,6 @@ export async function migrateEnvironment(
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(projectConfig));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(projectConfig));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(projectConfig));
-
-    // Include compatibility memory snapshot when missing.
-    await createDir(root, '.amphion/memory');
-    await ensureFileExists(
-        root,
-        '.amphion/memory/agent-memory.json',
-        JSON.stringify(buildDefaultAgentMemorySnapshot('migration'), null, 2)
-    );
-    await ensureFileExists(
-        root,
-        '.amphion/memory/README.md',
-        '# Agent Memory\n\nThis directory stores compatibility projections for agent continuity.\n\n- Canonical memory authority: SQLite (`.amphion/command-deck/data/amphion.db`) via `/api/memory/*`.\n- Compatibility snapshot (optional): `agent-memory.json`.\n- Update policy: closeout and `/remember` should write via API first; export snapshot only when downstream tooling requires it.\n'
-    );
 
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
     const deckDest = resolveCommandDeckPath(root, runtimeConfig);
@@ -404,19 +371,6 @@ export async function buildScaffold(
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(config));
-
-    // 4.5 Write compatibility memory artifacts in .amphion
-    await createDir(root, '.amphion/memory');
-    await writeFile(
-        root,
-        '.amphion/memory/agent-memory.json',
-        JSON.stringify(buildDefaultAgentMemorySnapshot('bootstrap'), null, 2)
-    );
-    await writeFile(
-        root,
-        '.amphion/memory/README.md',
-        '# Agent Memory\n\nThis directory stores compatibility projections for agent continuity.\n\n- Canonical memory authority: SQLite (`.amphion/command-deck/data/amphion.db`) via `/api/memory/*`.\n- Compatibility snapshot (optional): `agent-memory.json`.\n- Update policy: closeout and `/remember` should write via API first; export snapshot only when downstream tooling requires it.\n'
-    );
 
     // 5. Generate only adapters needed for detected environment.
     const targets = await detectIdeTargets(root);

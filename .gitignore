@@ -1,6 +1,53 @@
-node_modules/
-out/
+# Micro-Contract Development (MCD) Root Ignore
+
+# Secrets & Environment
+.env
+.env.local
+.env.*
+
+# OS Metadata
 .DS_Store
+Thumbs.db
+
+# Tool-specific
+.gemini/
+.agents/logs/
+.agents/task.md
+.agents/implementation_plan.md
+.agents/walkthrough.md
+
+# Build Artifacts
+out/
+dist/
+build/
+*.vsix
+
+# Dependencies
+node_modules/
 package-lock.json
+
+# Python Runtime Cache
 __pycache__/
 *.pyc
+
+# Local Workspace Settings
+.vscode/
+.cursor/
+.windsurf/
+.clinerules
+.cursorrules
+.agents/workflows/
+GoldfishBrain/
+
+# Amphion local control-plane runtime/state (do not publish)
+.amphion/
+.amphion/archives/
+.amphion/migrations/
+.amphion/memory/agent-memory.json
+.amphion/command-deck/data/
+.amphion/command-deck/__pycache__/
+.amphion/command-deck/scripts/__pycache__/
+
+# Legacy local runtime state (do not publish)
+ops/launch-command-deck/data/
+mcd-starter-kit-dev/extension/assets/launch-command-deck/data/

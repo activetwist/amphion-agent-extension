@@ -19,97 +19,64 @@ No phase skipping is permitted.
 ### 1) Evaluate
 - Define objective, scope, constraints, and assumptions.
 - Do not produce implementation code in this phase.
-- Capture risks and unknowns before committing execution steps.
+- Findings are canonical only when written as milestone artifacts in DB.
 
 ### 2) Contract
-- Create or reference an explicit contract before modifying core files.
-- Contracts must include acceptance criteria and affected file paths.
-- Contract output is canonical in milestone/card records (DB/API), not flat-file artifacts.
-- If a request conflicts with an active contract, stop and flag the conflict.
+- Contract authority is board-native and DB-canonical.
+- Contracts must be milestone-bound card sets with acceptance criteria and AFP scope.
+- Chat summaries are informational only and never replace board contracts.
+- If board/API runtime is unavailable, contract phase halts as blocked.
 
 ### 3) Execute
-- Implement only what the active contract authorizes.
+- Implement only what approved board contract cards authorize.
 - Keep versioning and build naming deterministic.
-- Record meaningful changes and outcomes in project records.
+- Record meaningful outcomes in DB artifacts.
 
 ## Utility Commands
-Utility commands can run between lifecycle phases but never replace phase transitions.
-
 ### \`/remember\` (Utility-Only)
-- \`/remember\` is a manual checkpoint command, not a lifecycle phase.
-- Purpose: write compact operational memory events through \`/api/memory/events\` into SQLite authority, with optional compatibility export to \`.amphion/memory/agent-memory.json\`.
-- Allowed triggers:
-  - Long sessions where context continuity risk increases.
-  - Material scope changes under approved contracts.
-  - Durable troubleshooting breakthroughs and architecture/runtime decisions.
-- Mandatory trigger:
-  - Closeout completion for a version/slice.
-- Guardrail: \`/remember\` must not auto-advance the lifecycle or execute code changes by itself.
+- \`/remember\` writes compact operational memory through \`/api/memory/*\`.
+- \`/remember\` must not auto-advance lifecycle or execute code changes.
 
 ## Agent Memory Policy
 - Canonical memory authority: SQLite (\`.amphion/command-deck/data/amphion.db\`) via \`/api/memory/*\`.
-- Canonical workflow write boundary: API-mediated writes only (no direct raw-SQL mutation as standard agent path).
-- Memory model: append-only event log + deterministic LWW materialized state with budgeted compaction.
-- Compatibility export file (optional): \`.amphion/memory/agent-memory.json\`.
-- Memory updates must remain concise, deduplicated, and constrained by documented caps.
-- Narrative evidence should be recorded in DB artifacts first; local file mirrors are optional and only created when a dependent workflow requires them.
+- Canonical write boundary: API-mediated writes only.
+- Memory model: append-only event log + deterministic LWW materialized state + bounded compaction.
 
 ## Closeout Procedure
-Closeout is a governed step that follows the completion of all contracted work within a version. A version is not considered closed until all of the following are satisfied:
+A version is not closed until:
+1. Contract cards in scope are executed/reviewed.
+2. Compliance checklist passes.
+3. Outcomes artifact exists in milestone artifacts.
+4. Required source/runtime artifacts are staged.
+5. \`closeout:\` commit is completed when in scope.
 
-### Closeout Requirements
-1. **Contracts resolved**: All contract cards in scope have been executed and reviewed.
-2. **Compliance verified**: The compliance checklist below has been reviewed and all items pass.
-3. **Outcomes recorded**: A closeout outcomes artifact exists in milestone records documenting completed/deferred/blocked results.
-4. **Artifacts staged**: All generated artifacts are present and accounted for, including:
-   - Updated strategy/architecture/governance documents
-   - Agent memory DB state (\`.amphion/command-deck/data/amphion.db\`) and compatibility export (if produced)
-   - Milestone/card artifacts in SQLite (\`amphion.db\`)
-   - Required source changes
-5. **Git commit**: A commit must be made with all artifacts staged. No version closeout is valid without a committed state.
-
-### Commit Message Format
-Closeout commits must follow this deterministic format:
-
+## Commit Message Format
 \`\`\`
 closeout: {VERSION} {brief description}
 \`\`\`
 
-The commit body should list contracts executed, files changed, and any notable decisions.
-
 ## Document Naming Convention
-All project documents must be prefixed with a creation/revision timestamp in the following format:
-
+Project documents use:
 \`\`\`
 YYYYMMDDHHMM-[DOCUMENT_TITLE].md
 \`\`\`
-
-- \`YYYY\`: Four-digit year
-- \`MM\`: Two-digit month
-- \`DD\`: Two-digit day
-- \`HH\`: Two-digit hour (24-hour format)
-- \`MM\`: Two-digit minute
-
-This convention applies to canonical local control-plane documents under \`.amphion/control-plane/\` and any optional local mirrors. When a document is substantively revised, it receives a new timestamp prefix reflecting the revision time.
-
-**Exception**: \`GUARDRAILS.md\` retains its basename without timestamp prefix for operator discoverability.
+Exception: \`GUARDRAILS.md\` keeps stable basename.
 
 ## Documentation Standards
-- **Architecture Diagrams**: All system architecture diagrams and flowcharts must be written natively using \`Mermaid.js\` syntax. Visualizing architectures via text allows diagrams to be version-controlled, easily reproducible, and rendered directly within the Command Deck dashboard.
+- Architecture diagrams and flowcharts use \`Mermaid.js\`.
 
 ## Change Safety
-- Core file modifications require a referenced active contract.
-- Uncontracted work must be deferred until contract approval.
-- Unexpected repository changes should be surfaced before continuing.
+- Core modifications require referenced active board contract cards.
+- Uncontracted work is deferred until contract approval.
+- Unexpected repository changes are surfaced before continuing.
 
 ## Compliance Checklist
 - [ ] Current phase is explicit.
-- [ ] Contract exists for core-file changes.
-- [ ] Work matches contract scope.
+- [ ] Approved board contract cards exist for core-file changes.
+- [ ] Work matches approved board contract scope.
 - [ ] Naming/versioning remains deterministic.
-- [ ] Document naming convention followed (YYYYMMDDHHMM prefix).
 - [ ] Conflicts with active contracts have been flagged.
-- [ ] Agent memory updated and validated via \`/api/memory/*\` (and compatibility export when applicable).
+- [ ] Agent memory updated and validated via \`/api/memory/*\`.
 - [ ] Outcomes artifact exists for closed milestone/version.
 - [ ] Git commit completed with all artifacts staged (when closing a version).
 `;

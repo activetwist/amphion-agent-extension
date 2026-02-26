@@ -6,6 +6,18 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.50.2] - 2026-02-26
+
+### Changed
+- Enforced board-first `/contract` semantics across canonical governance and generated adapter/rule templates.
+- Updated canonical Evaluate/Contract/Closeout wording to DB-canonical artifact outputs and milestone-bound authority.
+- Removed legacy compatibility-export guidance from generated workflow adapters to reduce policy drift.
+
+### Fixed
+- Switched `/api/docs/contract` to DB-canonical milestone/card rendering instead of flat-file contract fallbacks.
+- Updated runtime-seeded playbook content and scaffold scripts to remove legacy flat-file findings language.
+- Hardened clean-room scaffold validation defaults for v2 baseline (`.amphion` control-plane/runtime authority).
+
 ## [1.50.0] - 2026-02-26
 
 ### Changed

@@ -24,10 +24,9 @@ The scaffold is additive and works in both empty folders and existing repositori
 AmphionAgent uses explicit slash-command phases:
 
 1. `/evaluate` - research and scope
-2. `/board` - create board cards and map contracts
-3. `/contract` - define the approved implementation plan
-4. `/execute` - implement only approved AFP scope
-5. `/closeout` - archive and finalize release records
+2. `/contract` - define the approved implementation plan and author milestone-bound contract cards on the board
+3. `/execute` - implement only approved AFP scope
+4. `/closeout` - archive and finalize release records
 
 Each phase must halt and wait for explicit operator authorization before moving to the next.
 
@@ -56,7 +55,7 @@ In-IDE command flow and server controls for running MCD from the development env
 1. Open Extensions view in your IDE.
 2. Use "Install from VSIX...".
 3. Select the packaged file, for example:
-   - `amphion-agent-1.50.0.vsix` (current release line)
+   - `amphion-agent-1.50.2.vsix` (current release line)
 
 ### Marketplace
 

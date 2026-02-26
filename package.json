@@ -2,7 +2,7 @@
     "name": "amphion-agent",
     "displayName": "AmphionAgent",
     "description": "Scaffold operator-gated Micro-Contract Development workspaces with governance docs and a local Command Deck.",
-    "version": "1.50.0",
+    "version": "1.50.2",
     "license": "Proprietary",
     "icon": "icon.png",
     "publisher": "active-twist",

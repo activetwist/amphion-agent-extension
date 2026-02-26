@@ -264,7 +264,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ### 1. `@[/evaluate]`
 *Understand before building.*
 - **Action**: Assess the current state of the application, read related documentation, and write a formal evaluation determining what needs to be built or fixed.
-- **Output**: A new markdown file in `04_Analysis/findings/`.
+- **Output**: A milestone `findings` artifact written through `/api/milestones/{milestoneId}/artifacts` (DB canonical).
 - **Rule**: Absolutely no project code is modified during Evaluation.
 
 ### 2. `@[/contract]`
@@ -284,7 +284,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 - **Output**:
   1. Outcomes artifact appended to milestone records in DB.
   2. Milestone archived/closed in board runtime.
-  3. Updated DB-backed memory state via `/api/memory/*` with optional compatibility projection (`.amphion/memory/agent-memory.json`).
+  3. Updated DB-backed memory state via `/api/memory/*`.
   4. Strict `closeout: {description}` Git Commit.
 
 ---
@@ -292,7 +292,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ## Utility Command: `@[/remember]`
 `/remember` is a utility checkpoint, not a lifecycle phase.
 
-- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`, with optional compatibility projection.
+- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`.
 - **When to Use**:
   1. Long sessions where context continuity is at risk.
   2. Material scope shifts under approved contracts.

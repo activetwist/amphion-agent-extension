@@ -13,24 +13,22 @@ REQUIRED_PATHS = [
     ".amphion",
     ".amphion/config.json",
     ".amphion/environment.json",
-    ".amphion/memory",
     ".amphion/command-deck",
-    "referenceDocs/00_Governance/mcd",
-    "referenceDocs/01_Strategy",
-    "referenceDocs/02_Architecture/primitives",
+    ".amphion/control-plane",
+    ".amphion/control-plane/mcd",
 ]
 
 OPTIONAL_LEGACY_PATHS = [
-    "referenceDocs/06_AgentMemory",
-    ".cursor",
-    ".windsurf",
-    "CLAUDE.md",
+    "referenceDocs",
+    "mcd-starter-kit-dev",
+    "ops",
+    ".amphion/memory",
 ]
 
 DISALLOWED_DEFAULT_PATHS = [
-    "referenceDocs/03_Contracts/active",
-    "referenceDocs/04_Analysis/findings",
-    "referenceDocs/05_Records/closeout",
+    "referenceDocs",
+    "mcd-starter-kit-dev",
+    "ops",
 ]
 
 

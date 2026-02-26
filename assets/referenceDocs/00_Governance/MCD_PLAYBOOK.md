@@ -2,51 +2,52 @@
 
 Welcome directly to the **Command Deck**. This platform operates on the Micro-Contract Development (MCD) methodology. MCD is designed for solo operators working alongside advanced AI agents in modern IDEs like Windsurf and Cursor.
 
-The core philosophy is **Deterministic Versioning**: zero hallucination, zero scope creep, and total traceability. Every line of code written must be explicitly authorized by a text-based contract, and AI agents are structurally barred from chaining operations together without operator consent.
+The core philosophy is **Deterministic Versioning**: zero hallucination, zero scope creep, and total traceability. Every code change must be explicitly authorized by board-authored contract records.
 
 ## The "Halt and Prompt" Safety Rail
-The most critical rule of the MCD protocol is **Halt and Prompt**. 
-An AI agent executing a phase (like Evaluate or Contract) is strictly forbidden from automatically starting the next phase. Once a phase's outputs are generated, the agent MUST explicitly halt tool execution, present the results to the human Operator, and prompt the user for the next Slash Command. This prevents runaway agent logic and guarantees the human is always the supreme arbiter of state.
+An AI agent completing a phase must halt, present results, and request explicit authorization for the next phase.
 
 ---
 
-## The 5-Phase Sequence & IDE Slash Commands
-To utilize the MCD protocol, the human Operator guides the AI through these discrete phases using explicit Slash Commands in the IDE chat interface:
+## The 4-Phase Sequence & IDE Slash Commands
 
 ### 1. `@[/evaluate]`
 *Understand before building.*
-- **Action**: Assess the current state of the application, read related documentation, and write a formal evaluation determining what needs to be built or fixed.
-- **Output**: A new markdown file in `04_Analysis/findings/`.
-- **Rule**: Absolutely no project code is modified during Evaluation. 
+- **Action**: Assess current state and scope required changes.
+- **Output**: Milestone `findings` artifact written through Command Deck API (DB canonical).
+- **Rule**: No implementation changes during Evaluate.
 
-### 2. `@[/board]`
-*Track the work visually.*
-- **Action**: Translates the evaluation findings into atomic work units by generating Task Cards through the live Command Deck API-backed board runtime (SQLite canonical store).
-- **Output**: Distinct task cards bearing `issueNumber` badges (e.g., `AM-042`) rendered natively inside the Command Deck browser UI.
-- **Milestone Rule**: Every new card must target an active milestone. If work is net-new, create/request a new milestone first. Do not place new work into write-closed pre-flight.
-
-### 3. `@[/contract]`
+### 2. `@[/contract]`
 *Authorize the work.*
-- **Action**: Drafts a binding Micro-Contract detailing the exact files to be changed (AFPs), the acceptance criteria, and the scope boundaries. 
-- **Output**: A timestamped Markdown file in `03_Contracts/active/` (e.g., `202602221500-CONTRACT_FEATURE.md`).
-- **Rule**: The operator must grant approval before the agent proceeds to Execution.
+- **Action**: Write milestone contract metadata and sequenced micro-contract cards on the board.
+- **Output**: Milestone-bound contract card set (issue-numbered, acceptance-bound).
+- **Rule**: If board/API runtime is unavailable, halt as blocked; chat text cannot substitute for canonical contracts.
 
-### 4. `@[/execute]`
+### 3. `@[/execute]`
 *Build to specification.*
-- **Action**: The AI modifies the Approved File Paths (AFPs) exactly as defined in the active contract. 
-- **Rule**: If a roadblock occurs that requires changing the *scope* of the contract, the execute phase halts immediately. A new contract must be evaluated and authorized.
+- **Action**: Implement only authorized AFP scope from approved board contract cards.
+- **Rule**: If scope must change, halt and return to Contract.
 
-### 5. `@[/closeout]`
+### 4. `@[/closeout]`
 *Formalize the release.*
-- **Action**: Verifies the acceptance criteria, archives the contract, writes a persistent formal record, and commits the code to the repository.
-- **Output**: 
-  1. Contract moved to `03_Contracts/archive/`.
-  2. Closeout Record mapped to `05_Records/`.
-  3. Strict `closeout: {description}` Git Commit.
+- **Action**: Verify acceptance, archive milestone, append outcomes, and commit when applicable.
+- **Output**:
+  1. Outcomes artifact appended in DB.
+  2. Milestone archived/closed in board runtime.
+  3. DB memory state updated through `/api/memory/*`.
+  4. Strict `closeout: {description}` Git Commit.
+
+---
+
+## Utility Command: `@[/remember]`
+`/remember` is a utility checkpoint, not a lifecycle phase.
+
+- **Purpose**: Capture compact operational context through `/api/memory/*`.
+- **Rule**: `/remember` does not transition lifecycle phase and does not authorize code changes by itself.
 
 ---
 
 ## Core Operational Rules (`GUARDRAILS.md`)
-1. **Local Only**: MCD runs locally. No cloud dependencies or unprompted package manager usage. 
-2. **Mermaid.js Required**: All systemic architecture documents utilize Mermaid.js syntax for version-controllable diagrams.
-3. **Immutability**: Once a contract is archived or a closeout record is spun down, it cannot be edited. Remediating errors requires an entirely fresh Evaluation -> Contract pipeline.
+1. **Local Only**: MCD runs locally.
+2. **Mermaid.js Required**: Architecture docs use Mermaid.
+3. **Immutability**: Remediation of closed/archived scope requires a fresh Evaluate -> Contract pipeline.

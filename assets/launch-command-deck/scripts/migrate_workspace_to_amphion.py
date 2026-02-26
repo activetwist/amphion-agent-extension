@@ -281,7 +281,7 @@ def main() -> int:
     }
 
     plan = [
-        "ensure .amphion and .amphion/memory exist",
+        "ensure .amphion canonical runtime directories exist",
         "copy command deck assets from ops/launch-command-deck to .amphion/command-deck (non-destructive)",
         "if legacy sqlite is ahead of canonical, back up canonical DB then sync from legacy",
         "mirror runtime config to .amphion/config.json and set commandDeckPath=.amphion/command-deck",

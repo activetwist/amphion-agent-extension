@@ -15,21 +15,25 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 - [ ] High-Level PRD
 - [ ] Current Architecture (Architecture Primitives)
 - [ ] Governance Guardrails
+- [ ] Target board + milestone context
 
 ## Instructions
 1. **Research**: Analyze the codebase and existing documentation relevant to the user request.
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
-3. **Scoping**: Define the specific boundaries of the work. What is in-scope? What is strictly out-of-scope?
-4. **Primitive Review**: Determine if new Architecture Primitives are required.
-5. **Card Update (SQLite/API Canonical)**: Create or update a Kanban card through the live Command Deck runtime (API-backed board state stored in SQLite). Do not use direct \`state.json\` mutation as the authoritative board write path.
-6. **Visibility Verification**: Verify the card is visible in active board state (\`/api/state\`) or directly in the board UI before closing Evaluate.
-7. **Phase Isolation**: Do not draft the implementation contract during this phase. Scoping must be finalized and cardinality established before planning the 'How'.
+3. **Scoping**: Define boundaries. What is in-scope? What is strictly out-of-scope?
+4. **Primitive Review**: Determine whether new Architecture Primitives are required.
+5. **DB Findings Write (Required)**: Record findings in milestone artifacts via API (\`artifactType: findings\`). Filesystem findings documents are not canonical.
+6. **Visibility Verification**: Verify the findings artifact revision and milestone/card visibility in \`/api/state\` or board UI before closing Evaluate.
+7. **Phase Isolation**: Do not draft implementation details beyond scoping in this phase.
 
-**CRITICAL AGENT INSTRUCTION:** After generating the Evaluation Findings and updating the card, you MUST halt execution. Do not proceed to the Contract phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
+**CRITICAL AGENT INSTRUCTION:** If board/API runtime is unavailable, halt as **blocked** and request runtime recovery. Do not emit chat text or local files as a substitute for canonical findings artifacts.
+
+**CRITICAL AGENT INSTRUCTION:** After recording findings artifacts and updating board context, halt execution and request explicit \`/contract\` authorization.
 
 ## Output
-- [ ] (Optional) New or revised Architecture Primitives in \`02_Architecture/\`.
-- [ ] Research findings documented in \`04_Analysis/findings/\` and presented to the user.
+- [ ] Findings artifact recorded in DB milestone artifacts.
+- [ ] Scope summary presented to operator with target milestone context.
+- [ ] (Optional) New or revised Architecture Primitives.
 `;
 }
 
@@ -67,27 +71,32 @@ export function renderContract(config: ProjectConfig): string {
 **Codename:** \`${config.codename}\`
 
 ## When to Use
-Invoke this command after Evaluation is complete and scope is locked. This phase is for defining the "How" and securing operator approval before execution.
+Invoke this command after Evaluate is complete and scope is locked. This phase defines the implementation "How" and secures operator approval before execution.
 
 ## Inputs
-- [ ] Evaluation Findings
-- [ ] Locked Acceptance Criteria (on Command Deck)
+- [ ] Evaluation findings artifact (DB)
+- [ ] Active board context
+- [ ] Target milestone (new milestone for net-new work)
 - [ ] Affected File Paths (AFPs)
 
 ## Instructions
-1. **Contract Authoring (DB Canonical)**: Draft contract scope directly in milestone/card records (macro contract on milestone, micro-contracts on cards).
-2. **Breakdown**: Divide work into sequenced, deterministic cards with sufficient execution detail.
-3. **Board Population (Required)**: Create/update task cards through live Command Deck API-backed operations (SQLite canonical store).
-4. **Risk Assessment**: identify potential side effects or breaking changes.
-5. **AFP Enumeration**: List every file that will be created, modified, or deleted.
-6. **Approval**: Present the contract card set to the operator for formal approval.
-7. **Trigger-Based Execution**: Generating this contract does NOT authorize execution. Implementation must only begin after explicit operator approval and the invocation of the \`/execute\` command.
+1. **Runtime Gate**: Confirm Command Deck API is reachable and board context resolves.
+2. **Blocked Behavior**: If API/board is unavailable, halt as blocked. Do not emit a chat-only or file-only contract as authority.
+3. **Macro Contract Metadata**: Populate milestone-level contract metadata (\`metaContract\`, \`goals\`, \`nonGoals\`, \`risks\`).
+4. **Micro-Contract Cards (Required)**: Create/update sequenced contract cards on board, each milestone-bound and acceptance-driven.
+5. **AFP Enumeration**: Include exact files to be created/modified/deleted in card descriptions/acceptance.
+6. **Risk Coverage**: Explicitly capture side effects and failure handling in contract scope.
+7. **Approval Handoff**: Present milestone ID + issue-numbered contract cards for formal operator approval.
+8. **Trigger-Based Execution**: \`/execute\` may begin only after explicit approval of the board-authored contract set.
 
-**CRITICAL AGENT INSTRUCTION:** After generating the Contract, you MUST halt execution. Do not proceed to the Execute phase. You must use your environment's user notification tool (e.g., \`notify_user\`, \`ask_user\`) to request explicit permission to proceed.
+**CRITICAL AGENT INSTRUCTION:** Chat summaries are explanatory only. Board/DB contract cards are the sole execution authority.
+
+**CRITICAL AGENT INSTRUCTION:** After contract cards are authored and presented, halt and await explicit \`/execute\` authorization.
 
 ## Output
-- [ ] Approved contract card set on board (milestone-bound, sequenced).
-- [ ] Contract context stored canonically in DB-backed milestone/card records.
+- [ ] Approved, milestone-bound contract card set on board (DB canonical).
+- [ ] Milestone contract metadata recorded.
+- [ ] Operator-facing summary with milestone ID + issue IDs.
 `;
 }
 
@@ -138,8 +147,7 @@ Use this command to capture a compact memory checkpoint without changing lifecyc
 2. **Write Memory Events**: Record checkpoint facts via \`POST /api/memory/events\` with attested \`sourceType\` (\`user\`, \`operator\`, \`verified-system\`) and deterministic \`memoryKey\`.
 3. **Materialized State Check**: Validate checkpoint presence via \`GET /api/memory/state\` or \`GET /api/memory/query\`.
 4. **Compaction Control**: If needed, run \`POST /api/memory/compact\` to enforce bounded memory budgets.
-5. **Compatibility Export (Optional)**: Produce \`.amphion/memory/agent-memory.json\` using \`POST /api/memory/export\` when downstream tooling expects file-based snapshot.
-6. **No Phase Transition**: Confirm checkpoint completion and remain in current lifecycle phase.
+5. **No Phase Transition**: Confirm checkpoint completion and remain in current lifecycle phase.
 
 ## Guardrails
 - \`/remember\` is utility-only and cannot replace Evaluate/Contract/Execute/Closeout.
@@ -150,7 +158,6 @@ Use this command to capture a compact memory checkpoint without changing lifecyc
 ## Output
 - [ ] Memory event(s) recorded in SQLite authority via \`/api/memory/events\`.
 - [ ] Memory state verification evidence (\`/api/memory/state\` or \`/api/memory/query\`).
-- [ ] Optional compatibility export updated at \`.amphion/memory/agent-memory.json\` (when required).
 - [ ] Brief user-facing confirmation that memory checkpoint was recorded.
 `;
 }
@@ -166,22 +173,22 @@ export function renderCloseout(config: ProjectConfig): string {
 Invoke this command when all contracted work for a version is verified and complete.
 
 ## Inputs
-- [ ] All executed contracts for the version.
-- [ ] Build Logs & Verification results.
-- [ ] Final Repository State.
-- [ ] DB-backed memory baseline (\`/api/memory/state\`) and optional compatibility export requirement.
+- [ ] All executed contracts for the version
+- [ ] Verification evidence
+- [ ] Final repository state
+- [ ] DB-backed memory baseline (\`/api/memory/state\`)
 
 ## Instructions
-1. **Milestone Closeout**: Close/archive the milestone through API, which appends deterministic outcomes artifact (\`outcomes\`) in DB.
-2. **Memory Update**: Write closeout memory events through \`/api/memory/events\`, verify via \`/api/memory/state\` or \`/api/memory/query\`, and export compatibility snapshot only when needed.
-3. **Validation**: Final check against Governance Guardrails and run closeout hygiene validation scripts from \`.amphion/control-plane\` or runtime tooling when available.
-4. **Record Keeping**: Ensure outcomes artifact is complete and provenance is present.
-5. **Persistence**: Ensure runtime state and required source edits are committed when applicable.
-6. **Versioning**: Tag or finalize version metadata only if explicitly in scope.
+1. **Milestone Closeout**: Close/archive the milestone through API; outcomes artifact is appended in DB.
+2. **Memory Update**: Write closeout memory events through \`/api/memory/events\` and verify via \`/api/memory/state\` or \`/api/memory/query\`.
+3. **Validation**: Run final governance and hygiene checks.
+4. **Record Keeping**: Ensure outcomes artifact provenance is complete.
+5. **Persistence**: Commit required source/runtime changes when applicable.
+6. **Versioning**: Tag/finalize version metadata only when explicitly in scope.
 
 ## Output
 - [ ] Outcomes artifact recorded for milestone closeout in DB.
-- [ ] DB-backed memory checkpoint validated (\`/api/memory/*\`) with compatibility export updated when required.
+- [ ] DB-backed memory checkpoint validated (\`/api/memory/*\`).
 - [ ] Final Git commit using the \`closeout:\` prefix.
 `;
 }

@@ -1470,7 +1470,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ### 1. `@[/evaluate]`
 *Understand before building.*
 - **Action**: Assess the current state of the application, read related documentation, and write a formal evaluation determining what needs to be built or fixed.
-- **Output**: A new markdown file in `04_Analysis/findings/`.
+- **Output**: A milestone `findings` artifact written through `/api/milestones/{milestoneId}/artifacts` (DB canonical).
 - **Rule**: Absolutely no project code is modified during Evaluation.
 
 ### 2. `@[/contract]`
@@ -1490,7 +1490,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 - **Output**:
   1. Outcomes artifact appended to milestone records in DB.
   2. Milestone archived/closed in board runtime.
-  3. Updated DB-backed memory state via `/api/memory/*` with optional compatibility projection (`.amphion/memory/agent-memory.json`).
+  3. Updated DB-backed memory state via `/api/memory/*`.
   4. Strict `closeout: {description}` Git Commit.
 
 ---
@@ -1498,7 +1498,7 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 ## Utility Command: `@[/remember]`
 `/remember` is a utility checkpoint, not a lifecycle phase.
 
-- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`, with optional compatibility projection.
+- **Purpose**: Manually capture compact operational context into DB-backed memory authority (`amphion.db`) through `/api/memory/*`.
 - **When to Use**:
   1. Long sessions where context continuity is at risk.
   2. Material scope shifts under approved contracts.
@@ -2290,62 +2290,104 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         self._send_json({"ok": True, "content": content})
                         return
 
+                if doc_id == "contract":
+                    with STORE._lock:
+                        conn = STORE.get_conn()
+                        c = conn.cursor()
+                        try:
+                            board_id = _resolve_board_id(c, "")
+                            if not board_id:
+                                self._send_json({"ok": True, "content": "*No active board context found.*"})
+                                return
+
+                            c.execute(
+                                """
+                                SELECT * FROM milestones
+                                WHERE boardId=? AND archivedAt=''
+                                ORDER BY updatedAt DESC, createdAt DESC
+                                LIMIT 1
+                                """,
+                                (board_id,),
+                            )
+                            milestone = c.fetchone()
+                            if not milestone:
+                                self._send_json(
+                                    {
+                                        "ok": True,
+                                        "content": (
+                                            "# Contract (DB Canonical)\n\n"
+                                            "No active milestone contracts are currently recorded on the board."
+                                        ),
+                                    }
+                                )
+                                return
+
+                            milestone_id = str(milestone.get("id") or "")
+                            milestone_title = str(milestone.get("title") or "Untitled Milestone")
+                            meta_contract = str(milestone.get("metaContract") or "").strip() or "_Not set._"
+                            goals = str(milestone.get("goals") or "").strip() or "_Not set._"
+                            non_goals = str(milestone.get("nonGoals") or "").strip() or "_Not set._"
+                            risks = str(milestone.get("risks") or "").strip() or "_Not set._"
+
+                            c.execute(
+                                """
+                                SELECT issueNumber, title, acceptance, priority
+                                FROM cards
+                                WHERE boardId=? AND milestoneId=?
+                                ORDER BY cardOrder ASC, updatedAt ASC, createdAt ASC
+                                """,
+                                (board_id, milestone_id),
+                            )
+                            cards = c.fetchall()
+
+                            card_lines = []
+                            for row in cards:
+                                issue = str(row.get("issueNumber") or "").strip() or "(unissued)"
+                                title = str(row.get("title") or "").strip() or "Untitled card"
+                                priority = str(row.get("priority") or "").strip() or "P2"
+                                card_lines.append(f"- `{issue}` [{priority}] {title}")
+                            if not card_lines:
+                                card_lines = ["- No milestone-bound contract cards recorded."]
+
+                            content = (
+                                "# Contract (DB Canonical)\n\n"
+                                f"- Milestone: `{milestone_id}` · {milestone_title}\n"
+                                "- Authority: Board milestone metadata + milestone-bound cards (SQLite/API)\n\n"
+                                "## Macro Contract\n"
+                                f"{meta_contract}\n\n"
+                                "## Goals\n"
+                                f"{goals}\n\n"
+                                "## Non-Goals\n"
+                                f"{non_goals}\n\n"
+                                "## Risks\n"
+                                f"{risks}\n\n"
+                                "## Micro-Contract Cards\n"
+                                f"{chr(10).join(card_lines)}\n"
+                            )
+                            self._send_json({"ok": True, "content": content})
+                            return
+                        finally:
+                            conn.close()
+
+                path = None
                 if doc_id == "charter":
-                    path = CONTROL_PLANE_DIR / "PROJECT_CHARTER.md"
                     files = sorted(CONTROL_PLANE_DIR.glob("*PROJECT_CHARTER.md"), reverse=True)
-                    if files:
-                        path = files[0]
-                    elif (LEGACY_DOCS_DIR / "01_Strategy").exists():
-                        legacy_files = sorted((LEGACY_DOCS_DIR / "01_Strategy").glob("*PROJECT_CHARTER.md"), reverse=True)
-                        if legacy_files:
-                            path = legacy_files[0]
+                    path = files[0] if files else CONTROL_PLANE_DIR / "PROJECT_CHARTER.md"
                 elif doc_id == "prd":
-                    path = CONTROL_PLANE_DIR / "HIGH_LEVEL_PRD.md"
                     files = sorted(CONTROL_PLANE_DIR.glob("*HIGH_LEVEL_PRD.md"), reverse=True)
-                    if files:
-                        path = files[0]
-                    elif (LEGACY_DOCS_DIR / "01_Strategy").exists():
-                        legacy_files = sorted((LEGACY_DOCS_DIR / "01_Strategy").glob("*HIGH_LEVEL_PRD.md"), reverse=True)
-                        if legacy_files:
-                            path = legacy_files[0]
+                    path = files[0] if files else CONTROL_PLANE_DIR / "HIGH_LEVEL_PRD.md"
                 elif doc_id == "guardrails":
                     path = CONTROL_PLANE_DIR / "GUARDRAILS.md"
-                    if not path.exists():
-                        path = LEGACY_DOCS_DIR / "00_Governance" / "GUARDRAILS.md"
                 elif doc_id == "playbook":
                     path = CONTROL_PLANE_DIR / "MCD_PLAYBOOK.md"
-                    if not path.exists():
-                        path = LEGACY_DOCS_DIR / "00_Governance" / "MCD_PLAYBOOK.md"
-                elif doc_id == "contract":
-                    active_dir = CONTROL_PLANE_DIR / "contracts" / "active"
-                    archive_dir = CONTROL_PLANE_DIR / "contracts" / "archive"
-                    if not active_dir.exists() and not archive_dir.exists():
-                        active_dir = LEGACY_DOCS_DIR / "03_Contracts" / "active"
-                        archive_dir = LEGACY_DOCS_DIR / "03_Contracts" / "archive"
-                    
-                    active_files = sorted(active_dir.glob("*.md"), reverse=True)
-                    archive_files = sorted(archive_dir.glob("*.md"), reverse=True)
-                    
-                    if active_files:
-                        path = active_files[0]
-                        header = "> **[STATUS: ACTIVE CONTRACT]**\n\n"
-                    elif archive_files:
-                        path = archive_files[0]
-                        header = "> **[STATUS: ARCHIVED]**\n\n"
-                    else:
-                        raise FileNotFoundError("No active or archived contracts found.")
                 else:
                     self._send_error("Unknown doc")
                     return
 
-                if doc_id != "contract" and not path.exists():
-                    content = "*Not generated or not found.*"
-                elif path.exists():
-                    content = path.read_text(encoding="utf-8")
-                    if doc_id == "contract":
-                        content = header + content
+                if not path.exists():
+                    content = "*Not generated or not found in DB/control-plane.*"
                 else:
-                    content = "*Not generated or not found.*"
+                    content = path.read_text(encoding="utf-8")
                 self._send_json({"ok": True, "content": content})
             except Exception as e:
                 self._send_json({"ok": True, "content": f"*Error loading doc: {e}*"})
@@ -2514,21 +2556,10 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     return
 
                 if route == "/api/memory/export":
-                    board_request = str(body.get("boardId") or "").strip()
-                    board_id = _resolve_board_id(c, board_request)
-                    if not board_id:
-                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
-                        return
-
-                    path_raw = str(body.get("path") or "").strip()
-                    export_path = (MEMORY_EXPORT_DIR / "agent-memory.json") if not path_raw else Path(path_raw)
-                    try:
-                        result = _export_memory_snapshot(c, board_id, export_path, now)
-                    except ValueError as exc:
-                        self._send_error(str(exc))
-                        return
-
-                    self._send_json({"ok": True, "memory": {"export": result}})
+                    self._send_error(
+                        "memory export is disabled in v2 DB-only mode; use /api/memory/state or /api/memory/query",
+                        status=HTTPStatus.GONE,
+                    )
                     return
 
                 if route == "/api/migration/legacy-state-json/run":

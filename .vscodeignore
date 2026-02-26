@@ -8,3 +8,15 @@ src/**
 out/test/**
 node_modules/**
 *.vsix
+.amphion/**
+.agents/**
+.cursor/**
+screenshots/**
+AmphionAgent-Logo.ai
+application-logo.png
+logo.png
+logo.svg
+AGENTS.md
+CLAUDE.md
+.clinerules
+.cursorrules

@@ -76,8 +76,7 @@ function getCommandContent(command: string): string {
 2. Follow the step-by-step instructions in the file to complete the phase.
 
 3. If launched from the Command Deck dashboard, run the deterministic memory intent hook first:
-   - Write \`phase.intent.${cmd}\` via \`POST /api/memory/events\` using \`sourceType: verified-system\`.
-   - Treat \`.amphion/memory/agent-memory.json\` as compatibility projection only, not canonical authority.`;
+   - Write \`phase.intent.${cmd}\` via \`POST /api/memory/events\` using \`sourceType: verified-system\`.`;
 }
 
 export function renderClaudeMd(config: ProjectConfig): string {
@@ -100,7 +99,7 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
 ## Operational Rules
-1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 2. Always read the corresponding command file before starting a phase.
 3. Ensure approved contract cards exist on the board before performing any \`EXECUTE\` actions.
 4. Maintain deterministic naming for all artifacts and records.
@@ -132,7 +131,7 @@ Before performing any task, the agent must identify the current phase and load t
 ## Utility Commands
 - **Remember** via the Remember command (\`/remember\`) for non-phase memory checkpoints.
 
-**Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+**Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 
 ## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
@@ -147,7 +146,7 @@ export function renderCursorRules(config: ProjectConfig): string {
 This repository is governed by the Micro-Contract Development (MCD) protocol.
 
 ### Rules
-- Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user if they want to populate the board or build a contract. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+- Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 - Never modify core files without an active contract available.
 - Follow the canonical instructions in \`.amphion/control-plane/mcd/\` for each lifecycle phase.
 - Use \`Mermaid.js\` for all architecture diagrams.
