@@ -70,42 +70,6 @@ export class CommandDeckDashboard {
                         }
                         return;
 
-                    case 'previewFile':
-                        if (root) {
-                            const fileUri = vscode.Uri.joinPath(root, message.path);
-                            try {
-                                await vscode.workspace.fs.stat(fileUri);
-                                vscode.commands.executeCommand('markdown.showPreview', fileUri);
-                            } catch {
-                                vscode.window.showWarningMessage(`AmphionAgent: File not found: ${message.path}`);
-                            }
-                        }
-                        return;
-
-                    case 'openDynamicDoc':
-                        if (root) {
-                            const suffix = message.suffix; // e.g. 'PROJECT_CHARTER.md'
-                            const controlPlanePattern = new vscode.RelativePattern(
-                                vscode.Uri.joinPath(root, '.amphion', 'control-plane'),
-                                `*${suffix}`
-                            );
-                            const legacyFolder = message.folder || '01_Strategy';
-                            const legacyPattern = new vscode.RelativePattern(
-                                vscode.Uri.joinPath(root, 'referenceDocs', legacyFolder),
-                                `*${suffix}`
-                            );
-                            const controlPlaneFiles = await vscode.workspace.findFiles(controlPlanePattern, null, 1);
-                            const files = controlPlaneFiles.length > 0
-                                ? controlPlaneFiles
-                                : await vscode.workspace.findFiles(legacyPattern, null, 1);
-                            if (files.length > 0) {
-                                vscode.commands.executeCommand('markdown.showPreview', files[0]);
-                            } else {
-                                vscode.window.showWarningMessage(`AmphionAgent: No file ending in ${suffix} found.`);
-                            }
-                        }
-                        return;
-
                     case 'startServer':
                         if (!root) {
                             vscode.window.showErrorMessage('AmphionAgent: No workspace folder open to start server.');
@@ -201,7 +165,7 @@ export class CommandDeckDashboard {
 
         h1 {
             font-size: 28px;
-            margin-bottom: 4px;
+            margin: 0;
             font-weight: 600;
         }
 
@@ -213,10 +177,8 @@ export class CommandDeckDashboard {
             padding-bottom: 8px;
         }
 
-        p.subtitle {
-            color: #8b949e;
-            margin-bottom: 16px;
-            font-size: 14px;
+        .command-flow-section {
+            margin-top: 32px;
         }
 
         /* Command Flow List */
@@ -234,7 +196,9 @@ export class CommandDeckDashboard {
             cursor: pointer;
             transition: all 0.2s;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
         }
 
         .command-item:hover {
@@ -249,63 +213,27 @@ export class CommandDeckDashboard {
             border-radius: 4px;
             font-family: monospace;
             font-size: 13px;
-            margin-right: 12px;
             font-weight: 600;
         }
 
         .command-desc {
             font-size: 13px;
             color: #8b949e;
+            line-height: 1.35;
         }
 
-        /* Details Section */
-        .details-section {
-            background-color: var(--mcd-surface);
-            border: 1px solid var(--mcd-border);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-
-        .details-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .details-list li {
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-
-        .details-list a {
-            color: var(--mcd-accent);
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .details-list a:hover {
-            text-decoration: underline;
+        .server-section {
+            margin-top: 28px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header style="text-align: left; margin-bottom: 16px;">
+        <header style="text-align: left;">
             <h1>Amphion Agent Controls</h1>
-            <p class="subtitle">AI Development Orchestrator Phase Transitions</p>
         </header>
 
-        <div>
-            <h2>Documents</h2>
-            <div class="details-section" style="margin-top: -8px;">
-                <ul class="details-list">
-                    <li><a onclick="vscode.postMessage({command: 'previewFile', path: '.amphion/control-plane/MCD_PLAYBOOK.md'})">• Canonical MCD Commands</a></li>
-                    <li><a onclick="vscode.postMessage({command: 'openDynamicDoc', folder: '01_Strategy', suffix: 'PROJECT_CHARTER.md'})">• Project Charter</a></li>
-                    <li><a onclick="vscode.postMessage({command: 'openDynamicDoc', folder: '01_Strategy', suffix: 'HIGH_LEVEL_PRD.md'})">• High-Level PRD</a></li>
-                </ul>
-            </div>
-
+        <section class="command-flow-section">
             <h2>Command Flow</h2>
             <p style="font-size: 13px; color: #8b949e; margin-bottom: 16px;">AmphionAgent uses explicit phase transitions:</p>
             
@@ -335,8 +263,10 @@ export class CommandDeckDashboard {
                     <span class="command-desc">archive and complete</span>
                 </div>
             </div>
+        </section>
 
-            <h2 style="margin-top: 32px;">Server Management</h2>
+        <section class="server-section">
+            <h2>Server Management</h2>
             <div class="command-list">
                 <div class="command-item" onclick="vscode.postMessage({command: 'startServer'})">
                     <span class="command-tag" style="background-color: rgba(35, 134, 54, 0.2); color: #2ea043;">▶ Start</span>
@@ -347,7 +277,7 @@ export class CommandDeckDashboard {
                     <span class="command-desc">Terminate Server</span>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>

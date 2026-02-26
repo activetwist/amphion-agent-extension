@@ -6,6 +6,14 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.50.3] - 2026-02-26
+
+### Fixed
+- Updated Amphion Agent Controls panel density: removed redundant Documents block, removed subtitle, tightened section spacing, and stacked command helper text on a second line.
+- Corrected foundational board artifact seeding so charter/prd/guardrails use real markdown newlines instead of literal `\\n` escape text.
+- Added startup auto-repair that appends normalized revisions for malformed foundational board artifacts (`charter`, `prd`, `guardrails`) with escaped newlines.
+- Synced canonical runtime and packaged launch-command-deck assets to maintain deterministic parity.
+
 ## [1.50.2] - 2026-02-26
 
 ### Changed

@@ -228,19 +228,36 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             "charter",
             f"Project Charter · {project_name}",
             "Initial charter placeholder. Update via board artifact API to establish canonical project charter.",
-            f"# Project Charter\\n\\nProject: {project_name}\\nCodename: {codename.upper()[:3]}\\nVersion: {initial_version}\\n\\n## Intent\\nDefine mission, constraints, and success criteria.",
+            (
+                f"# Project Charter\n\n"
+                f"Project: {project_name}\n"
+                f"Codename: {codename.upper()[:3]}\n"
+                f"Version: {initial_version}\n\n"
+                "## Intent\n"
+                "Define mission, constraints, and success criteria."
+            ),
         ),
         (
             "prd",
             f"High-Level PRD · {project_name}",
             "Initial PRD placeholder. Update via board artifact API to establish canonical PRD.",
-            f"# High-Level PRD\\n\\nProject: {project_name}\\n\\n## Scope\\nDefine high-level product requirements and acceptance goals.",
+            (
+                f"# High-Level PRD\n\n"
+                f"Project: {project_name}\n\n"
+                "## Scope\n"
+                "Define high-level product requirements and acceptance goals."
+            ),
         ),
         (
             "guardrails",
             f"Guardrails · {project_name}",
             "Canonical governance guardrails artifact (initial revision).",
-            f"# Governance Guardrails\\n\\nCodename: {codename}\\nInitial Version: {initial_version}\\n\\nCanonical lifecycle: Evaluate -> Contract -> Execute -> Closeout.",
+            (
+                "# Governance Guardrails\n\n"
+                f"Codename: {codename}\n"
+                f"Initial Version: {initial_version}\n\n"
+                "Canonical lifecycle: Evaluate -> Contract -> Execute -> Closeout."
+            ),
         ),
         (
             "playbook",

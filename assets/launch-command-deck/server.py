@@ -1515,6 +1515,94 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
 """
 
 
+FOUNDATIONAL_DOC_TYPES = ("charter", "prd", "guardrails")
+FOUNDATIONAL_DOC_HEADERS = {
+    "charter": "# Project Charter",
+    "prd": "# High-Level PRD",
+    "guardrails": "# Governance Guardrails",
+}
+
+
+def _needs_foundational_doc_newline_repair(artifact_type: str, body: str) -> bool:
+    key = str(artifact_type or "").strip().lower()
+    header = FOUNDATIONAL_DOC_HEADERS.get(key)
+    if not header:
+        return False
+    text = str(body or "")
+    if not text:
+        return False
+    if "\\n" not in text:
+        return False
+    # Only repair records that appear fully escaped to avoid mutating intentional snippets.
+    if "\n" in text:
+        return False
+    return header in text
+
+
+def _normalize_escaped_newlines(text: str) -> str:
+    return str(text or "").replace("\\r\\n", "\n").replace("\\n", "\n")
+
+
+def repair_foundational_doc_artifacts_if_needed(db_path: Path) -> int:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = dict_factory
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id FROM boards")
+        boards = c.fetchall()
+        now = now_iso()
+        repaired = 0
+
+        for board in boards:
+            board_id = str(board.get("id") or "").strip()
+            if not board_id:
+                continue
+            for artifact_type in FOUNDATIONAL_DOC_TYPES:
+                c.execute(
+                    """
+                    SELECT * FROM board_artifacts
+                    WHERE boardId=? AND artifactType=?
+                    ORDER BY revision DESC, createdAt DESC
+                    LIMIT 1
+                    """,
+                    (board_id, artifact_type),
+                )
+                row = c.fetchone()
+                if not row:
+                    continue
+                body = str(row.get("body") or "")
+                if not _needs_foundational_doc_newline_repair(artifact_type, body):
+                    continue
+
+                normalized_body = _normalize_escaped_newlines(body)
+                if normalized_body == body:
+                    continue
+
+                next_revision = int(row.get("revision") or 0) + 1
+                title = str(row.get("title") or "")
+                summary_seed = str(row.get("summary") or "").strip()
+                summary = (
+                    f"{summary_seed} (newline normalization repair)."
+                    if summary_seed
+                    else "Canonical newline normalization repair (auto-migration)."
+                )
+                c.execute(
+                    """
+                    INSERT INTO board_artifacts (
+                        id, boardId, artifactType, revision, title, summary, body, sourceRef, createdAt, updatedAt
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'server-startup-repair', ?, ?)
+                    """,
+                    (new_id("bfa"), board_id, artifact_type, next_revision, title, summary, normalized_body, now, now),
+                )
+                repaired += 1
+
+        if repaired:
+            conn.commit()
+        return repaired
+    finally:
+        conn.close()
+
+
 def _is_stub_playbook_body(body: str) -> bool:
     text = str(body or "").strip()
     if not text:
@@ -1879,11 +1967,14 @@ class SQLiteStore:
 ensure_sqlite_schema(DB_FILE)
 LEGACY_MIGRATION_REPORT = migrate_legacy_state_json_to_sqlite(DB_FILE, LEGACY_STATE_FILE, force=False)
 CANONICALIZED_CHART_ROWS = canonicalize_legacy_chart_rows(DB_FILE)
+FOUNDATIONAL_DOC_REPAIR_ROWS = repair_foundational_doc_artifacts_if_needed(DB_FILE)
 PLAYBOOK_REPAIR_ROWS = repair_playbook_artifacts_if_needed(DB_FILE)
 if CANONICALIZED_CHART_ROWS:
     print(f"[CommandDeck] Canonicalized {CANONICALIZED_CHART_ROWS} legacy chart row(s).")
 if LEGACY_MIGRATION_REPORT.get("applied"):
     print("[CommandDeck] Legacy state.json migration applied.")
+if FOUNDATIONAL_DOC_REPAIR_ROWS:
+    print(f"[CommandDeck] Repaired {FOUNDATIONAL_DOC_REPAIR_ROWS} foundational board artifact(s).")
 if PLAYBOOK_REPAIR_ROWS:
     print(f"[CommandDeck] Repaired playbook artifact for {PLAYBOOK_REPAIR_ROWS} board(s).")
 STORE = SQLiteStore(DB_FILE)

@@ -11,6 +11,9 @@ node_modules/**
 .amphion/**
 .agents/**
 .cursor/**
+ops/**
+**/__pycache__/**
+**/*.pyc
 screenshots/**
 AmphionAgent-Logo.ai
 application-logo.png

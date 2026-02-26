@@ -185,10 +185,12 @@ Invoke this command when all contracted work for a version is verified and compl
 4. **Record Keeping**: Ensure outcomes artifact provenance is complete.
 5. **Persistence**: Commit required source/runtime changes when applicable.
 6. **Versioning**: Tag/finalize version metadata only when explicitly in scope.
+7. **OpenVSX Handoff Policy**: OpenVSX release is operator-manual via upload. Agents must not run OpenVSX publish flows; report VSIX path/version for operator upload.
 
 ## Output
 - [ ] Outcomes artifact recorded for milestone closeout in DB.
 - [ ] DB-backed memory checkpoint validated (\`/api/memory/*\`).
 - [ ] Final Git commit using the \`closeout:\` prefix.
+- [ ] OpenVSX manual-upload handoff prepared.
 `;
 }
