@@ -88,6 +88,9 @@ MILESTONE_REQUIRED_ERROR = "milestoneId is required. Add/select a milestone for 
 MILESTONE_CLOSED_ERROR = "Pre-flight milestone is write-closed. Use an active milestone or create a new one."
 MILESTONE_ARCHIVED_ERROR = "Milestone is archived. Restore it from Archives before assigning new work."
 MILESTONE_TEXT_MAX_LEN = 10_000
+MILESTONE_CODE_MAX_LEN = 64
+MILESTONE_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
+MILESTONE_CODE_FROM_TITLE_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9]*-\d+)\b")
 MILESTONE_METADATA_FIELDS = ("metaContract", "goals", "nonGoals", "risks")
 ARTIFACT_ALLOWED_TYPES = {"findings", "outcomes"}
 BOARD_ARTIFACT_ALLOWED_TYPES = {"charter", "prd", "guardrails", "playbook"}
@@ -210,6 +213,49 @@ def _coerce_milestone_text(value: Any, field_name: str) -> str:
     if len(text) > MILESTONE_TEXT_MAX_LEN:
         raise ValueError(f"{field_name} exceeds max length ({MILESTONE_TEXT_MAX_LEN})")
     return text
+
+
+def _extract_milestone_code_from_title(title: Any) -> str:
+    source = str(title or "").strip()
+    if not source:
+        return ""
+    match = MILESTONE_CODE_FROM_TITLE_RE.match(source)
+    if not match:
+        return ""
+    return str(match.group(1) or "").upper()
+
+
+def _strip_milestone_code_prefix(title: str, code: str) -> str:
+    source = str(title or "").strip()
+    normalized_code = str(code or "").strip().upper()
+    if not source or not normalized_code:
+        return source
+    pattern = re.compile(rf"^\s*{re.escape(normalized_code)}\s*[·:\-]\s*(.+?)\s*$", re.IGNORECASE)
+    match = pattern.match(source)
+    if not match:
+        return source
+    return str(match.group(1) or "").strip()
+
+
+def _coerce_milestone_code(value: Any, title: Any = "") -> str:
+    if value is None:
+        raw = ""
+    elif isinstance(value, str):
+        raw = value.strip()
+    else:
+        raw = str(value).strip()
+
+    if not raw:
+        raw = _extract_milestone_code_from_title(title)
+    if not raw:
+        return ""
+
+    normalized = raw.upper()
+    if len(normalized) > MILESTONE_CODE_MAX_LEN:
+        raise ValueError(f"code exceeds max length ({MILESTONE_CODE_MAX_LEN})")
+    if not MILESTONE_CODE_RE.fullmatch(normalized):
+        raise ValueError("code must match pattern [A-Z][A-Z0-9]*-<digits> (example: AMV2-005)")
+    return normalized
 
 
 def _coerce_artifact_type(value: Any) -> str:
@@ -1670,6 +1716,36 @@ def repair_playbook_artifacts_if_needed(db_path: Path) -> int:
         conn.close()
 
 
+def backfill_milestone_codes_if_needed(db_path: Path) -> int:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = dict_factory
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, code, title FROM milestones")
+        rows = c.fetchall()
+        now = now_iso()
+        updates: List[tuple[str, str, str]] = []
+
+        for row in rows:
+            milestone_id = str(row.get("id") or "").strip()
+            if not milestone_id:
+                continue
+            existing_code = str(row.get("code") or "").strip()
+            if existing_code:
+                continue
+            extracted_code = _extract_milestone_code_from_title(row.get("title"))
+            if not extracted_code:
+                continue
+            updates.append((extracted_code, now, milestone_id))
+
+        if updates:
+            c.executemany("UPDATE milestones SET code=?, updatedAt=? WHERE id=?", updates)
+            conn.commit()
+        return len(updates)
+    finally:
+        conn.close()
+
+
 def migrate_legacy_state_json_to_sqlite(
     db_path: Path,
     state_path: Path,
@@ -1969,6 +2045,7 @@ LEGACY_MIGRATION_REPORT = migrate_legacy_state_json_to_sqlite(DB_FILE, LEGACY_ST
 CANONICALIZED_CHART_ROWS = canonicalize_legacy_chart_rows(DB_FILE)
 FOUNDATIONAL_DOC_REPAIR_ROWS = repair_foundational_doc_artifacts_if_needed(DB_FILE)
 PLAYBOOK_REPAIR_ROWS = repair_playbook_artifacts_if_needed(DB_FILE)
+MILESTONE_CODE_REPAIR_ROWS = backfill_milestone_codes_if_needed(DB_FILE)
 if CANONICALIZED_CHART_ROWS:
     print(f"[CommandDeck] Canonicalized {CANONICALIZED_CHART_ROWS} legacy chart row(s).")
 if LEGACY_MIGRATION_REPORT.get("applied"):
@@ -1977,6 +2054,8 @@ if FOUNDATIONAL_DOC_REPAIR_ROWS:
     print(f"[CommandDeck] Repaired {FOUNDATIONAL_DOC_REPAIR_ROWS} foundational board artifact(s).")
 if PLAYBOOK_REPAIR_ROWS:
     print(f"[CommandDeck] Repaired playbook artifact for {PLAYBOOK_REPAIR_ROWS} board(s).")
+if MILESTONE_CODE_REPAIR_ROWS:
+    print(f"[CommandDeck] Backfilled milestone code for {MILESTONE_CODE_REPAIR_ROWS} milestone(s).")
 STORE = SQLiteStore(DB_FILE)
 
 
@@ -2868,6 +2947,8 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         self._send_error("boardId and title are required")
                         return
                     try:
+                        milestone_code = _coerce_milestone_code(body.get("code", ""), title)
+                        normalized_title = _strip_milestone_code_prefix(title, milestone_code) or title
                         meta_contract = _coerce_milestone_text(body.get("metaContract", ""), "metaContract")
                         goals = _coerce_milestone_text(body.get("goals", ""), "goals")
                         non_goals = _coerce_milestone_text(body.get("nonGoals", ""), "nonGoals")
@@ -2882,12 +2963,13 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         """
                         INSERT INTO milestones (
                             id, boardId, code, title, msOrder, kind, acceptsNewCards, writeClosedAt, archivedAt, metaContract, goals, nonGoals, risks, createdAt, updatedAt
-                        ) VALUES (?, ?, '', ?, ?, ?, 1, '', '', ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, 1, '', '', ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             new_id("ms"),
                             board_id,
-                            title,
+                            milestone_code,
+                            normalized_title,
                             max_ord,
                             MILESTONE_KIND_STANDARD,
                             meta_contract,
@@ -3092,7 +3174,14 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         return
                     milestone_id = parts[3]
                     if "title" in body:
-                        c.execute("UPDATE milestones SET title=?, updatedAt=? WHERE id=?", (body["title"], now, milestone_id))
+                        c.execute("UPDATE milestones SET title=?, updatedAt=? WHERE id=?", (str(body["title"]).strip(), now, milestone_id))
+                    if "code" in body:
+                        try:
+                            code_value = _coerce_milestone_code(body.get("code", ""), body.get("title", ""))
+                        except ValueError as exc:
+                            self._send_error(str(exc))
+                            return
+                        c.execute("UPDATE milestones SET code=?, updatedAt=? WHERE id=?", (code_value, now, milestone_id))
                     if "order" in body:
                         c.execute("UPDATE milestones SET msOrder=?, updatedAt=? WHERE id=?", (body["order"], now, milestone_id))
                     for field in MILESTONE_METADATA_FIELDS:

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { diagnoseChatDispatch, runChatDispatchSelfTest } from './chatDispatch';
 import { migrateEnvironment } from './scaffolder';
 import { AgentControlsSidebarProvider } from './agentControlsSidebar';
 import { ServerController } from './serverController';
@@ -212,12 +213,65 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`Generated adapters for: ${targets.join(', ')}.`);
     });
 
+    const diagnoseChatDispatchDisposable = vscode.commands.registerCommand('mcd.diagnoseChatDispatch', async () => {
+        const modeSelection = await vscode.window.showQuickPick(
+            [
+                { label: 'Dry Run', value: 'dry-run' as const, description: 'Resolve provider/command plan without dispatching' },
+                { label: 'Live Dispatch', value: 'live' as const, description: 'Execute dispatch attempts against current IDE chat surface' },
+            ],
+            {
+                placeHolder: 'Select dispatch diagnostic mode',
+            }
+        );
+        if (!modeSelection) {
+            return;
+        }
+
+        const text = await vscode.window.showInputBox({
+            prompt: 'Command text to diagnose',
+            value: '/contract',
+            ignoreFocusOut: true,
+            validateInput: (value) => (value.trim() ? null : 'Input cannot be empty.'),
+        });
+        if (text === undefined) {
+            return;
+        }
+
+        const diagnostics = await diagnoseChatDispatch(text, modeSelection.value);
+        const document = await vscode.workspace.openTextDocument({
+            language: 'json',
+            content: JSON.stringify(diagnostics, null, 2),
+        });
+        await vscode.window.showTextDocument(document, { preview: false });
+    });
+
+    const validateChatDispatchDisposable = vscode.commands.registerCommand('mcd.validateChatDispatch', async () => {
+        const result = runChatDispatchSelfTest();
+        if (result.ok) {
+            vscode.window.showInformationMessage('AmphionAgent: Chat dispatch self-tests passed.');
+            return;
+        }
+        const report = {
+            ok: false,
+            failureCount: result.failures.length,
+            failures: result.failures,
+        };
+        const document = await vscode.workspace.openTextDocument({
+            language: 'json',
+            content: JSON.stringify(report, null, 2),
+        });
+        await vscode.window.showTextDocument(document, { preview: false });
+        vscode.window.showErrorMessage(`AmphionAgent: Chat dispatch self-tests failed (${result.failures.length}).`);
+    });
+
     context.subscriptions.push(
         disposable,
         dashboardDisposable,
         startServerDisposable,
         stopServerDisposable,
         generateAdaptersDisposable,
+        diagnoseChatDispatchDisposable,
+        validateChatDispatchDisposable,
         sidebarProviderDisposable
     );
 

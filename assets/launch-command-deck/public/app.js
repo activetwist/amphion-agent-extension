@@ -22,6 +22,8 @@ const state = {
 
 const FILTERS_STORAGE_KEY = "mcd_board_filters_v1";
 const EXPECTED_RUNTIME_FINGERPRINT = "launch-command-deck:python:sqlite";
+const MILESTONE_CODE_PATTERN = /^([A-Za-z][A-Za-z0-9]*-\d+)\b/;
+const MILESTONE_CODE_TITLE_PREFIX_PATTERN = /^\s*([A-Za-z][A-Za-z0-9]*-\d+)\s*[·:\-]\s*(.+)\s*$/;
 let runtimeValidationPromise = null;
 
 const el = {
@@ -522,22 +524,59 @@ function isWriteClosedPreflight(milestone) {
 
 function milestoneDisplayTitle(milestone) {
   if (!milestone) return "Unassigned";
+  const displayName = milestoneDisplayName(milestone);
   if (isArchivedMilestone(milestone)) {
-    return `${milestone.title} (Archived)`;
+    return `${displayName} (Archived)`;
   }
   if (isWriteClosedPreflight(milestone)) {
-    return `${milestone.title} (Closed)`;
+    return `${displayName} (Closed)`;
   }
-  return milestone.title;
+  return displayName;
+}
+
+function extractMilestoneCode(text) {
+  const source = String(text || "").trim();
+  if (!source) return "";
+  const match = source.match(MILESTONE_CODE_PATTERN);
+  return match ? String(match[1] || "").toUpperCase() : "";
+}
+
+function parseMilestoneTitleParts(text) {
+  const source = String(text || "").trim();
+  if (!source) return { code: "", title: "" };
+  const split = source.match(MILESTONE_CODE_TITLE_PREFIX_PATTERN);
+  if (split) {
+    return {
+      code: String(split[1] || "").toUpperCase(),
+      title: String(split[2] || "").trim(),
+    };
+  }
+  return {
+    code: extractMilestoneCode(source),
+    title: source,
+  };
+}
+
+function milestoneDisplayName(milestone) {
+  if (!milestone) return "Unassigned";
+  const sourceTitle = String(milestone.title || "").trim();
+  const explicitCode = extractMilestoneCode(String(milestone.code || ""));
+  const parsed = parseMilestoneTitleParts(sourceTitle);
+
+  if (parsed.title && parsed.code) {
+    if (!explicitCode || explicitCode === parsed.code) {
+      return parsed.title;
+    }
+  }
+  return sourceTitle || "Untitled Milestone";
 }
 
 function milestoneDisplayIdentifier(milestone) {
   if (!milestone) return "";
-  const code = String(milestone.code || "").trim();
+  const code = extractMilestoneCode(String(milestone.code || ""));
   if (code) return code;
   const title = String(milestone.title || "").trim();
-  const match = title.match(/^([A-Z]+-\d+)/);
-  return match ? match[1] : "";
+  return extractMilestoneCode(title);
 }
 
 function getActiveMilestones(board) {
@@ -1142,7 +1181,7 @@ function renderMilestoneProgress() {
 
     const name = document.createElement("div");
     name.className = "milestone-title-row";
-    name.textContent = milestone.title;
+    name.textContent = milestoneDisplayTitle(milestone);
 
     const utilityRow = document.createElement("div");
     utilityRow.className = "milestone-utility-row";
@@ -1790,11 +1829,19 @@ function registerEvents() {
   el.btnAddMilestone.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
-    const title = prompt("Milestone title");
-    if (!title || !title.trim()) return;
+    const titleInput = prompt("Milestone title");
+    if (!titleInput || !titleInput.trim()) return;
+    const parsed = parseMilestoneTitleParts(titleInput);
+    const defaultCode = parsed.code || extractMilestoneCode(titleInput);
+    const codeInput = prompt("Milestone code (e.g., AMV2-005). Leave blank for none.", defaultCode);
+    if (codeInput === null) return;
+    const code = extractMilestoneCode(codeInput);
+    const title = (parsed.title || String(titleInput || "").trim());
+    if (!title) return;
     await api("/api/milestones", "POST", {
       boardId: board.id,
-      title: title.trim(),
+      code,
+      title,
     });
     await refresh();
   });

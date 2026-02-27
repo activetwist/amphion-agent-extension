@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { dispatchChatText } from './chatDispatch';
 import { recordCommandIntentFromChatInput } from './memoryHooks';
 import { ServerController } from './serverController';
 
@@ -51,7 +52,16 @@ export class CommandDeckDashboard {
                                 }
                             });
                         }
-                        vscode.commands.executeCommand('workbench.action.chat.open', { query: message.text });
+                        {
+                            const chatText = typeof message.text === 'string' ? message.text.trim() : '';
+                            const result = await dispatchChatText(chatText);
+                            if (!result.ok) {
+                                void vscode.env.clipboard.writeText(chatText);
+                                vscode.window.showWarningMessage(
+                                    `AmphionAgent: Could not dispatch "${chatText}" to chat. Command copied to clipboard.`
+                                );
+                            }
+                        }
                         return;
                     case 'runTerminalCommand':
                         if (root) {
@@ -149,7 +159,7 @@ export class CommandDeckDashboard {
             background-color: var(--mcd-bg);
             color: var(--mcd-text);
             margin: 0;
-            padding: 32px;
+            padding: 24px;
             display: flex;
             justify-content: flex-start;
             min-height: 100vh;
@@ -160,13 +170,7 @@ export class CommandDeckDashboard {
             width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 24px;
-        }
-
-        h1 {
-            font-size: 28px;
-            margin: 0;
-            font-weight: 600;
+            gap: 22px;
         }
 
         h2 {
@@ -175,10 +179,6 @@ export class CommandDeckDashboard {
             font-weight: 600;
             border-bottom: 1px solid var(--mcd-border);
             padding-bottom: 8px;
-        }
-
-        .command-flow-section {
-            margin-top: 32px;
         }
 
         /* Command Flow List */
@@ -222,30 +222,16 @@ export class CommandDeckDashboard {
             line-height: 1.35;
         }
 
-        .server-section {
-            margin-top: 28px;
+        .section {
+            margin-top: 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header style="text-align: left;">
-            <h1>Amphion Agent Controls</h1>
-        </header>
-
-        <section class="command-flow-section">
+        <section class="section">
             <h2>Command Flow</h2>
-            <p style="font-size: 13px; color: #8b949e; margin-bottom: 16px;">AmphionAgent uses explicit phase transitions:</p>
-            
             <div class="command-list">
-                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/help'})">
-                    <span class="command-tag">0. /help</span>
-                    <span class="command-desc">request assistance</span>
-                </div>
-                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/remember'})">
-                    <span class="command-tag">0.5 /remember</span>
-                    <span class="command-desc">checkpoint memory</span>
-                </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/evaluate'})">
                     <span class="command-tag">1. /evaluate</span>
                     <span class="command-desc">research & scope</span>
@@ -265,7 +251,7 @@ export class CommandDeckDashboard {
             </div>
         </section>
 
-        <section class="server-section">
+        <section class="section">
             <h2>Server Management</h2>
             <div class="command-list">
                 <div class="command-item" onclick="vscode.postMessage({command: 'startServer'})">
@@ -275,6 +261,20 @@ export class CommandDeckDashboard {
                 <div class="command-item" onclick="vscode.postMessage({command: 'stopServer'})">
                     <span class="command-tag" style="background-color: rgba(250, 69, 73, 0.2); color: #fa4549;">⏹ Stop</span>
                     <span class="command-desc">Terminate Server</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h2>Utilities</h2>
+            <div class="command-list">
+                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/help'})">
+                    <span class="command-tag">0. /help</span>
+                    <span class="command-desc">request assistance</span>
+                </div>
+                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/remember'})">
+                    <span class="command-tag">0.5 /remember</span>
+                    <span class="command-desc">checkpoint memory</span>
                 </div>
             </div>
         </section>
