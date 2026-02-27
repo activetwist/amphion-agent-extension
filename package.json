@@ -2,7 +2,7 @@
     "name": "amphion-agent",
     "displayName": "AmphionAgent",
     "description": "Scaffold operator-gated Micro-Contract Development workspaces with governance docs and a local Command Deck.",
-    "version": "1.50.3",
+    "version": "1.50.6",
     "license": "Proprietary",
     "icon": "icon.png",
     "publisher": "active-twist",
@@ -43,8 +43,73 @@
             {
                 "command": "mcd.openDashboard",
                 "title": "MCD: Open Amphion Agent Controls"
+            },
+            {
+                "command": "mcd.diagnoseChatDispatch",
+                "title": "MCD: Diagnose Chat Dispatch"
+            },
+            {
+                "command": "mcd.validateChatDispatch",
+                "title": "MCD: Validate Chat Dispatch Self-Tests"
             }
         ],
+        "configuration": {
+            "title": "AmphionAgent",
+            "properties": {
+                "amphion.chatDispatch.openDelayMs": {
+                    "type": "number",
+                    "default": 120,
+                    "minimum": 30,
+                    "maximum": 1500,
+                    "description": "Delay in milliseconds between opening/focusing a chat surface and typing command text."
+                },
+                "amphion.chatDispatch.enableDiagnosticsLogging": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Log detailed chat dispatch diagnostics to the 'AmphionAgent Chat Dispatch' output channel."
+                },
+                "amphion.chatDispatch.vscodeCommands": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Optional command ID overrides for Visual Studio Code chat dispatch."
+                },
+                "amphion.chatDispatch.cursorCommands": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Optional command ID overrides for Cursor chat dispatch."
+                },
+                "amphion.chatDispatch.windsurfCommands": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Optional command ID overrides for Windsurf chat dispatch."
+                },
+                "amphion.chatDispatch.antigravityCommands": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Optional command ID overrides for Antigravity chat dispatch."
+                },
+                "amphion.chatDispatch.genericCommands": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Optional fallback command ID overrides for unknown VS Code-based IDE runtimes."
+                }
+            }
+        },
         "viewsContainers": {
             "activitybar": [
                 {

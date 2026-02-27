@@ -11,6 +11,8 @@ node_modules/**
 .amphion/**
 .agents/**
 .cursor/**
+.windsurf/**
+.antigravity/**
 ops/**
 **/__pycache__/**
 **/*.pyc

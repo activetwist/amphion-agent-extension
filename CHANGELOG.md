@@ -6,6 +6,31 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.50.6] - 2026-02-27
+
+### Fixed
+- Replaced broad regex chat dispatch probing with provider-aware routing for VS Code, Cursor, Windsurf, and Antigravity.
+- Corrected Windsurf/Antigravity command targeting with deterministic chains (`windsurf.triggerCascade`, `windsurf.prioritized.command.open`, `antigravity.prioritized.command.open`, `antigravity.openConversationPicker`) and removed invalid hardcoded IDs.
+- Hardened success criteria to avoid false positives: prefill is attempted only on known prefill-capable commands, then open/focus plus typed input fallback is enforced.
+
+### Added
+- Added `mcd.diagnoseChatDispatch` to produce JSON diagnostics for provider selection, command resolution, and per-attempt outcomes.
+- Added `mcd.validateChatDispatch` self-test harness for deterministic routing/fallback regression checks.
+- Added user-configurable command override settings per IDE under `amphion.chatDispatch.*`.
+
+## [1.50.5] - 2026-02-27
+
+### Fixed
+- Hardened Agent Controls chat command dispatch for cross-IDE compatibility (VS Code, Cursor, Windsurf, Antigravity): runtime command discovery now supplements preferred command IDs, payload variants are probed, and open-then-type fallback is used when only focus/open commands are available.
+
+## [1.50.4] - 2026-02-27
+
+### Fixed
+- Added resilient Agent Controls chat dispatch fallback paths so command buttons can still open/prefill chat across command-surface variants, with clipboard fallback warning when prefilling is unavailable.
+- Finalized Agent Controls layout hierarchy by removing the redundant in-panel header, moving `/help` and `/remember` into a dedicated **Utilities** section below **Server Management**, and preserving stacked helper text on command tiles.
+- Implemented deterministic milestone identifier handling in Command Deck UI/API: milestone code capture, AMV2-style code parsing fallback, and separated title/identifier rendering on milestone cards.
+- Added startup-safe milestone code backfill for parseable legacy milestones with empty `code`, and synced canonical runtime plus packaged launch-command-deck mirrors.
+
 ## [1.50.3] - 2026-02-26
 
 ### Fixed
