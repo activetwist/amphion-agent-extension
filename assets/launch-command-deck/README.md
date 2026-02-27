@@ -24,6 +24,8 @@ python3 server.py --host 127.0.0.1 --port 8765
 Open in browser:
 - `http://127.0.0.1:<PORT>`
 
+The project's configured port (used by the extension and agents) is in `.amphion/config.json` under `port`; if unset, the default is `8765`.
+
 ## Runtime verification
 Verify the canonical runtime before debugging browser behavior.
 

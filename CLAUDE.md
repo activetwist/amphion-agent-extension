@@ -16,6 +16,9 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 ## Utility Commands
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
+## Command Deck API
+When calling the Command Deck API (e.g. `/api/state`, `/api/memory/events`, `/api/milestones/{id}/artifacts`, `/api/cards`), resolve the base URL from the project config: read `.amphion/config.json` and use the `port` value; if the file or port is missing, use default `8765`.
+
 ## Operational Rules
 1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize `/contract`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
 2. Always read the corresponding command file before starting a phase.

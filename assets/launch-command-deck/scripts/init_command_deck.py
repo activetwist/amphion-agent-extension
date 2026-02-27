@@ -89,6 +89,7 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
             acceptsNewCards INTEGER DEFAULT 1,
             writeClosedAt TEXT DEFAULT '',
             archivedAt TEXT DEFAULT '',
+            nextCardNumber INTEGER DEFAULT 1,
             createdAt TEXT,
             updatedAt TEXT
         );

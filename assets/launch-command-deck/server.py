@@ -1461,11 +1461,28 @@ def ensure_sqlite_schema(db_path: Path) -> None:
             c.execute("ALTER TABLE milestones ADD COLUMN nonGoals TEXT DEFAULT ''")
         if "risks" not in milestone_columns:
             c.execute("ALTER TABLE milestones ADD COLUMN risks TEXT DEFAULT ''")
+        if "nextCardNumber" not in milestone_columns:
+            c.execute("ALTER TABLE milestones ADD COLUMN nextCardNumber INTEGER DEFAULT 1")
+            c.execute(
+                """
+                UPDATE milestones SET nextCardNumber = 1 + COALESCE(
+                    (SELECT MAX(CAST(SUBSTR(c.issueNumber, LENGTH(milestones.code) + 2) AS INTEGER))
+                     FROM cards c
+                     WHERE c.milestoneId = milestones.id
+                       AND c.issueNumber GLOB milestones.code || '-[0-9][0-9][0-9]'),
+                    0
+                )
+                """
+            )
         _ensure_preflight_lifecycle(c, now)
         _repair_amp007_findings_if_missing(c, now)
 
         c.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('version', '1')")
         c.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('activeBoardId', '')")
+        c.execute(
+            "INSERT OR IGNORE INTO meta (key, value) VALUES ('taskIssueNumberSchemeCutoff', ?)",
+            (now,),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -3069,8 +3086,23 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         self._send_error(MILESTONE_CLOSED_ERROR, status=HTTPStatus.CONFLICT)
                         return
                     
-                    issue_number = f"{b_row['codename']}-{b_row['nextIssueNumber']:03d}"
-                    c.execute("UPDATE boards SET nextIssueNumber = nextIssueNumber + 1 WHERE id=?", (board_id,))
+                    cutoff_row = c.execute(
+                        "SELECT value FROM meta WHERE key='taskIssueNumberSchemeCutoff'"
+                    ).fetchone()
+                    cutoff = str(cutoff_row.get("value") or "").strip() if cutoff_row else ""
+                    use_descendant_scheme = cutoff and now >= cutoff
+                    milestone_code = str(milestone.get("code") or "").strip()
+                    
+                    if use_descendant_scheme and milestone_code:
+                        next_card = int(milestone.get("nextCardNumber") or 1)
+                        issue_number = f"{milestone_code}-{next_card:03d}"
+                        c.execute(
+                            "UPDATE milestones SET nextCardNumber = nextCardNumber + 1, updatedAt = ? WHERE id = ?",
+                            (now, milestone_id),
+                        )
+                    else:
+                        issue_number = f"{b_row['codename']}-{b_row['nextIssueNumber']:03d}"
+                        c.execute("UPDATE boards SET nextIssueNumber = nextIssueNumber + 1 WHERE id=?", (board_id,))
                     
                     c.execute("SELECT MAX(cardOrder) as m FROM cards WHERE listId=?", (list_id,))
                     res = c.fetchone()
