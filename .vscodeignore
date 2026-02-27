@@ -2,6 +2,10 @@
 .vscode-test/**
 src/**
 .gitignore
+.env
+.env.*
+**/.env
+**/.env.*
 **/tsconfig.json
 **/.eslintrc.json
 **/*.map
