@@ -451,7 +451,7 @@ Date: `202602211747`
 
 A solo operator with no prior MCD experience can go from an empty folder (or existing codebase) to a fully governed, operationally visible MCD project environment — with GUARDRAILS, Playbook, Kanban board, project dashboard, and initial git commit — **in under 60 seconds**, with zero external dependencies installed beyond a single chosen server runtime (Python 3 or Node.js).
 
-Secondary metric: every contract executed under MCD governance produces zero rollbacks attributable to scope drift and zero uncontracted changes in the git history.
+Secondary metric: every contract executed under MCD governance should cause no rollbacks attributable to scope drift and zero uncontracted changes in the git history.
 
 ---
 

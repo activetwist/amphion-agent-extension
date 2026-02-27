@@ -199,6 +199,59 @@ async function ensureFileExists(root: vscode.Uri, relativePath: string, content:
     }
 }
 
+async function readTextFile(root: vscode.Uri, relativePath: string): Promise<string | undefined> {
+    try {
+        const bytes = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(root, relativePath));
+        return new TextDecoder().decode(bytes);
+    } catch {
+        return undefined;
+    }
+}
+
+function removeOpenVsxCloseoutPolicy(content: string): string {
+    let updated = content.replace(/^\d+\.\s+\*\*OpenVSX Handoff Policy\*\*:[^\n]*(?:\r?\n)?/gm, '');
+    updated = updated.replace(/^- \[ \] OpenVSX manual-upload handoff prepared\.(?:\r?\n)?/gm, '');
+    return updated;
+}
+
+function ensureCloseoutPhaseRule(content: string): string {
+    if (/^###\s*4\)\s*Closeout\b/m.test(content)) {
+        return content;
+    }
+    const closeoutBlock =
+        '### 4) Closeout\n' +
+        '- Closeout requires completed scope verification and outcomes recorded in DB.\n' +
+        '- `/closeout` is required to finalize a version; `/remember` cannot replace lifecycle closeout.\n\n';
+    if (content.includes('## Utility Commands')) {
+        return content.replace('## Utility Commands', `${closeoutBlock}## Utility Commands`);
+    }
+    return `${content.trimEnd()}\n\n${closeoutBlock}`;
+}
+
+async function repairGeneratedCloseoutDoc(root: vscode.Uri, relativePath: string, fallback: string): Promise<void> {
+    const existing = await readTextFile(root, relativePath);
+    if (existing === undefined) {
+        await writeFile(root, relativePath, removeOpenVsxCloseoutPolicy(fallback));
+        return;
+    }
+    const repaired = removeOpenVsxCloseoutPolicy(existing);
+    if (repaired !== existing) {
+        await writeFile(root, relativePath, repaired);
+    }
+}
+
+async function repairGeneratedGuardrailsDoc(root: vscode.Uri, relativePath: string, fallback: string): Promise<void> {
+    const existing = await readTextFile(root, relativePath);
+    if (existing === undefined) {
+        await writeFile(root, relativePath, ensureCloseoutPhaseRule(fallback));
+        return;
+    }
+    const repaired = ensureCloseoutPhaseRule(existing);
+    if (repaired !== existing) {
+        await writeFile(root, relativePath, repaired);
+    }
+}
+
 function runShellCommand(cwd: string, command: string): Promise<string> {
     return new Promise((resolve, reject) => {
         exec(command, { cwd }, (error, stdout, stderr) => {
@@ -263,13 +316,13 @@ export async function migrateEnvironment(
 
     // Allowlist: generator-owned governance + command surfaces.
     const projectConfig = toProjectConfig(runtimeConfig);
-    await writeFile(root, '.amphion/control-plane/GUARDRAILS.md', renderGuardrails(projectConfig));
+    await repairGeneratedGuardrailsDoc(root, '.amphion/control-plane/GUARDRAILS.md', renderGuardrails(projectConfig));
     await writeFile(root, '.amphion/control-plane/MCD_PLAYBOOK.md', getPlaybookContent());
     await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(projectConfig));
     await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(projectConfig));
     await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(projectConfig));
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(projectConfig));
-    await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(projectConfig));
+    await repairGeneratedCloseoutDoc(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(projectConfig));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(projectConfig));
 
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');

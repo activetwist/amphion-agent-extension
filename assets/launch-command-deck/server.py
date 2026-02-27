@@ -1589,6 +1589,27 @@ def _normalize_escaped_newlines(text: str) -> str:
     return str(text or "").replace("\\r\\n", "\n").replace("\\n", "\n")
 
 
+def _ensure_guardrails_closeout_rule(body: str) -> str:
+    text = str(body or "")
+    if not text:
+        return text
+    if "### 4) Closeout" in text:
+        return text
+
+    closeout_block = (
+        "### 4) Closeout\n"
+        "- Closeout requires completed scope verification and outcomes recorded in DB.\n"
+        "- `/closeout` is required to finalize a version; `/remember` cannot replace lifecycle closeout.\n\n"
+    )
+    if "## Utility Commands" in text:
+        return text.replace("## Utility Commands", f"{closeout_block}## Utility Commands", 1)
+
+    fallback_line = "Closeout is mandatory for release finalization and cannot be replaced by /remember."
+    if fallback_line in text:
+        return text
+    return f"{text.rstrip()}\n\n{fallback_line}\n"
+
+
 def repair_foundational_doc_artifacts_if_needed(db_path: Path) -> int:
     conn = sqlite3.connect(db_path)
     conn.row_factory = dict_factory
@@ -1617,20 +1638,32 @@ def repair_foundational_doc_artifacts_if_needed(db_path: Path) -> int:
                 if not row:
                     continue
                 body = str(row.get("body") or "")
-                if not _needs_foundational_doc_newline_repair(artifact_type, body):
-                    continue
+                repaired_body = body
+                repair_notes: List[str] = []
 
-                normalized_body = _normalize_escaped_newlines(body)
-                if normalized_body == body:
+                if _needs_foundational_doc_newline_repair(artifact_type, repaired_body):
+                    normalized_body = _normalize_escaped_newlines(repaired_body)
+                    if normalized_body != repaired_body:
+                        repaired_body = normalized_body
+                        repair_notes.append("newline normalization")
+
+                if artifact_type == "guardrails":
+                    guardrails_repaired = _ensure_guardrails_closeout_rule(repaired_body)
+                    if guardrails_repaired != repaired_body:
+                        repaired_body = guardrails_repaired
+                        repair_notes.append("closeout phase rule")
+
+                if repaired_body == body:
                     continue
 
                 next_revision = int(row.get("revision") or 0) + 1
                 title = str(row.get("title") or "")
                 summary_seed = str(row.get("summary") or "").strip()
+                repair_label = ", ".join(repair_notes) if repair_notes else "artifact"
                 summary = (
-                    f"{summary_seed} (newline normalization repair)."
+                    f"{summary_seed} ({repair_label} repair)."
                     if summary_seed
-                    else "Canonical newline normalization repair (auto-migration)."
+                    else f"Canonical {repair_label} repair (auto-migration)."
                 )
                 c.execute(
                     """
@@ -1638,7 +1671,7 @@ def repair_foundational_doc_artifacts_if_needed(db_path: Path) -> int:
                         id, boardId, artifactType, revision, title, summary, body, sourceRef, createdAt, updatedAt
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, 'server-startup-repair', ?, ?)
                     """,
-                    (new_id("bfa"), board_id, artifact_type, next_revision, title, summary, normalized_body, now, now),
+                    (new_id("bfa"), board_id, artifact_type, next_revision, title, summary, repaired_body, now, now),
                 )
                 repaired += 1
 

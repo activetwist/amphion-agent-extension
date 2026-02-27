@@ -256,7 +256,8 @@ def init_db(db_path: Path, project_name: str, codename: str, initial_version: st
                 "# Governance Guardrails\n\n"
                 f"Codename: {codename}\n"
                 f"Initial Version: {initial_version}\n\n"
-                "Canonical lifecycle: Evaluate -> Contract -> Execute -> Closeout."
+                "Canonical lifecycle: Evaluate -> Contract -> Execute -> Closeout.\n\n"
+                "Closeout is mandatory for release finalization and cannot be replaced by /remember."
             ),
         ),
         (
