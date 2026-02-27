@@ -32,6 +32,10 @@ No phase skipping is permitted.
 - Keep versioning and build naming deterministic.
 - Record meaningful outcomes in DB artifacts.
 
+### 4) Closeout
+- Closeout requires completed scope verification and outcomes recorded in DB.
+- \`/closeout\` is required to finalize a version; \`/remember\` cannot replace lifecycle closeout.
+
 ## Utility Commands
 ### \`/remember\` (Utility-Only)
 - \`/remember\` writes compact operational memory through \`/api/memory/*\`.

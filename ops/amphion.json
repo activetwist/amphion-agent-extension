@@ -1,0 +1,9 @@
+{
+  "port": "8773",
+  "serverLang": "python",
+  "codename": "BLACKCLAW",
+  "projectName": "Amphion Project",
+  "initialVersion": "0.1.0",
+  "mcdVersion": "1.50.7",
+  "commandDeckPath": ".amphion/command-deck"
+}
