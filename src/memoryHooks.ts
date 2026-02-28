@@ -153,6 +153,14 @@ export async function recordCommandIntentFromChatInput(
             return { attempted: true, recorded: false, command, reason: 'missing-active-board' };
         }
 
+        // Resolve task-level context from board state for discrete context window support
+        const boards: Array<Record<string, unknown>> = (statePayload?.state as Record<string, unknown>)?.['boards'] as Array<Record<string, unknown>> || [];
+        const activeBoard = boards.find((b: Record<string, unknown>) => b['id'] === boardId) as Record<string, unknown> | undefined;
+        const milestones: Array<Record<string, unknown>> = activeBoard?.['milestones'] as Array<Record<string, unknown>> || [];
+        const activeMilestone = milestones.find((m: Record<string, unknown>) => !m['archivedAt']) as Record<string, unknown> | undefined;
+        const cards: Array<Record<string, unknown>> = activeBoard?.['cards'] as Array<Record<string, unknown>> || [];
+        const activeCard = cards.find((c: Record<string, unknown>) => c['listId'] && c['milestoneId'] === activeMilestone?.['id']) as Record<string, unknown> | undefined;
+
         const writePayload = {
             boardId,
             memoryKey: `phase.intent.${command}`,
@@ -163,6 +171,9 @@ export async function recordCommandIntentFromChatInput(
                 command: `/${command}`,
                 origin: 'dashboard',
                 recordedAt: new Date().toISOString(),
+                milestoneId: activeMilestone?.['id'] ?? null,
+                issueNumber: activeCard?.['issueNumber'] ?? null,
+                cardId: activeCard?.['id'] ?? null,
             },
             tags: ['phase-intent', 'dashboard', command],
             sourceRef: 'extension:commandDeckDashboard',

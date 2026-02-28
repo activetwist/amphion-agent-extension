@@ -101,6 +101,20 @@
             <button id="btnImportBoard" class="btn">Import JSON</button>
             <input id="importFile" type="file" accept="application/json" hidden />
           </div>
+
+          <div class="agent-commands">
+            <p class="agent-commands-label">Agent Commands</p>
+            <dl class="agent-commands-list">
+              <div class="agent-command-entry">
+                <dt>/bug</dt>
+                <dd>Create a bug card on the active board</dd>
+              </div>
+              <div class="agent-command-entry">
+                <dt>/test</dt>
+                <dd>Run the declared testing suites</dd>
+              </div>
+            </dl>
+          </div>
         </details>
       </section>
     </aside>
@@ -352,10 +366,17 @@
         <label>Status Column
           <select id="cardList"></select>
         </label>
-        <label>Target Date
-          <input id="cardTargetDate" type="date" />
+        <label>Type
+          <select id="cardKind">
+            <option value="task">Task</option>
+            <option value="bug">Bug</option>
+          </select>
         </label>
       </div>
+
+      <label>Target Date
+        <input id="cardTargetDate" type="date" />
+      </label>
 
       <label>Owner
         <input id="cardOwner" maxlength="80" placeholder="Optional" />
@@ -380,6 +401,8 @@
   <template id="cardTemplate">
     <article class="card" draggable="true">
       <header>
+        <span class="bug-badge" hidden>BUG</span>
+        <div class="spacer"></div>
         <span class="priority-badge"></span>
       </header>
       <h4></h4>

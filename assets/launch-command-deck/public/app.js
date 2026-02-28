@@ -85,6 +85,7 @@ const el = {
   cardList: document.querySelector("#cardList"),
   cardTargetDate: document.querySelector("#cardTargetDate"),
   cardOwner: document.querySelector("#cardOwner"),
+  cardKind: document.querySelector("#cardKind"),
   cardDescription: document.querySelector("#cardDescription"),
   cardAcceptance: document.querySelector("#cardAcceptance"),
   btnDeleteCard: document.querySelector("#btnDeleteCard"),
@@ -250,12 +251,67 @@ function mermaidZoomAtPoint(controller, host, x, y, nextScale) {
   host.dataset.mcdScale = targetScale.toFixed(2);
 }
 
-function resetMermaidTransform(controller, host) {
-  controller.scale = MERMAID_DEFAULT_SCALE;
-  controller.tx = 0;
-  controller.ty = 0;
+const MERMAID_FIT_PADDING = 0.92;
+
+function fitMermaidToViewport(controller, host) {
+  const svg = controller.svg;
+  if (!svg || !svg.isConnected) {
+    controller.scale = MERMAID_DEFAULT_SCALE;
+    controller.tx = 0;
+    controller.ty = 0;
+    applyMermaidTransform(controller);
+    host.dataset.mcdScale = controller.scale.toFixed(2);
+    return;
+  }
+
+  // Read SVG natural size from viewBox (most reliable post-render)
+  let svgW = 0;
+  let svgH = 0;
+  const vb = svg.getAttribute("viewBox");
+  if (vb) {
+    const parts = vb.trim().split(/[\s,]+/);
+    if (parts.length >= 4) {
+      svgW = parseFloat(parts[2]) || 0;
+      svgH = parseFloat(parts[3]) || 0;
+    }
+  }
+  // Fallback: read rendered bounding rect at natural scale
+  if (!svgW || !svgH) {
+    const saved = svg.style.transform;
+    svg.style.transform = "none";
+    const rect = svg.getBoundingClientRect();
+    svg.style.transform = saved;
+    svgW = rect.width || 0;
+    svgH = rect.height || 0;
+  }
+
+  const hostRect = host.getBoundingClientRect();
+  const hostW = hostRect.width || 0;
+  const hostH = hostRect.height || 0;
+
+  if (!svgW || !svgH || !hostW || !hostH) {
+    controller.scale = MERMAID_DEFAULT_SCALE;
+    controller.tx = 0;
+    controller.ty = 0;
+    applyMermaidTransform(controller);
+    host.dataset.mcdScale = controller.scale.toFixed(2);
+    return;
+  }
+
+  const scale = clamp(
+    Math.min(hostW / svgW, hostH / svgH) * MERMAID_FIT_PADDING,
+    MERMAID_MIN_SCALE,
+    MERMAID_MAX_SCALE
+  );
+  controller.scale = scale;
+  controller.tx = (hostW - svgW * scale) / 2;
+  controller.ty = (hostH - svgH * scale) / 2;
   applyMermaidTransform(controller);
-  host.dataset.mcdScale = controller.scale.toFixed(2);
+  host.dataset.mcdScale = scale.toFixed(2);
+}
+
+function resetMermaidTransform(controller, host) {
+  fitMermaidToViewport(controller, host);
 }
 
 function ensureMermaidControls(host, controller) {
@@ -364,7 +420,7 @@ function attachMermaidPanZoom(container) {
 
     if (host.__mcdMermaidController) {
       host.__mcdMermaidController.svg = svg;
-      applyMermaidTransform(host.__mcdMermaidController);
+      fitMermaidToViewport(host.__mcdMermaidController, host);
       return;
     }
 
@@ -377,7 +433,7 @@ function attachMermaidPanZoom(container) {
     host.__mcdMermaidController = controller;
     ensureMermaidControls(host, controller);
     bindMermaidInteractions(host, controller);
-    resetMermaidTransform(controller, host);
+    fitMermaidToViewport(controller, host);
   });
 }
 
@@ -1338,6 +1394,12 @@ function createCardNode(board, card) {
   node.dataset.cardId = card.id;
   node.draggable = true;
 
+  if (card.kind === "bug") {
+    node.classList.add("card-kind-bug");
+    const bugBadge = node.querySelector(".bug-badge");
+    if (bugBadge) bugBadge.hidden = false;
+  }
+
   const priority = node.querySelector(".priority-badge");
   priority.textContent = card.priority || "P2";
   priority.classList.add(priorityClass(card.priority));
@@ -1490,7 +1552,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     const card = board.cards.find((item) => item.id === cardId);
     if (!card) return;
 
-    el.cardDialogTitle.textContent = "Edit Task";
+    el.cardDialogTitle.textContent = card.kind === "bug" ? "Edit Bug" : "Edit Task";
     el.cardId.value = card.id;
     el.cardTitle.value = card.title;
     el.cardMilestone.value = selectedMilestoneId;
@@ -1499,6 +1561,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardList.value = card.listId;
     el.cardTargetDate.value = card.targetDate || "";
     el.cardOwner.value = card.owner || "";
+    if (el.cardKind) el.cardKind.value = card.kind || "task";
     el.cardDescription.value = card.description || "";
     el.cardAcceptance.value = card.acceptance || "";
     if (el.cardDialogIssueNumber) {
@@ -1514,6 +1577,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardMilestone.value = selectedMilestoneId;
     el.cardDialog.dataset.originalMilestoneId = "";
     el.cardPriority.value = "P1";
+    if (el.cardKind) el.cardKind.value = "task";
     el.cardList.value = fallbackListId;
     el.cardTargetDate.value = "";
     el.cardOwner.value = "";
@@ -1539,6 +1603,7 @@ async function saveCardFromDialog() {
     title: el.cardTitle.value.trim(),
     milestoneId: el.cardMilestone.value,
     priority: el.cardPriority.value,
+    kind: el.cardKind ? el.cardKind.value : "task",
     targetDate: el.cardTargetDate.value,
     owner: el.cardOwner.value.trim(),
     description: el.cardDescription.value.trim(),

@@ -269,12 +269,16 @@ export class CommandDeckDashboard {
             <h2>Utilities</h2>
             <div class="command-list">
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/help'})">
-                    <span class="command-tag">0. /help</span>
+                    <span class="command-tag">/help</span>
                     <span class="command-desc">request assistance</span>
                 </div>
                 <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/remember'})">
-                    <span class="command-tag">0.5 /remember</span>
+                    <span class="command-tag">/remember</span>
                     <span class="command-desc">checkpoint memory</span>
+                </div>
+                <div class="command-item" onclick="vscode.postMessage({command: 'openChatInput', text: '/bug'})">
+                    <span class="command-tag">/bug</span>
+                    <span class="command-desc">create a bug card</span>
                 </div>
             </div>
         </section>
