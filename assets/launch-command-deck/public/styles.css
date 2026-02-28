@@ -682,6 +682,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
 #boardView {
   position: relative;
   overflow: hidden;
+  grid-template-rows: auto auto auto 1fr;
 }
 
 .view-surface {
