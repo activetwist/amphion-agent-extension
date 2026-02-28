@@ -2173,6 +2173,203 @@ class KanbanHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if route == "/api/conventions":
+            intent = (params.get("intent") or [""])[0].strip().lower()
+            _MERMAID_VALID_TYPES = [
+                "flowchart", "graph", "sequenceDiagram", "classDiagram",
+                "stateDiagram", "erDiagram", "journey", "gantt", "pie",
+                "gitGraph", "mindmap", "timeline", "quadrantChart",
+                "requirementDiagram", "sankey-beta", "xychart-beta",
+            ]
+            _SCHEMAS = {
+                "chart": {
+                    "required": ["boardId", "title"],
+                    "optional": ["markdown", "description"],
+                    "mermaid": {
+                        "validTypes": _MERMAID_VALID_TYPES,
+                        "hint": "First non-comment line must begin with a valid diagram type. Fenced ```mermaid blocks accepted. Server normalizes to fenced form.",
+                        "invalidResponse": "HTTP 422 — markdown must be Mermaid chart content",
+                    },
+                },
+                "milestone": {
+                    "required": ["boardId", "title"],
+                    "optional": ["code", "metaContract", "goals", "nonGoals", "risks"],
+                    "codePattern": "^[A-Z][A-Z0-9]*-\\d+$",
+                    "codeMaxLength": MILESTONE_CODE_MAX_LEN,
+                    "textFieldMaxLength": MILESTONE_TEXT_MAX_LEN,
+                    "hint": "Supply code explicitly (e.g. AMV2-010). Server auto-extracts from title prefix if omitted.",
+                },
+                "card": {
+                    "required": ["boardId", "milestoneId", "listId", "title"],
+                    "optional": ["description", "acceptance", "priority", "owner", "targetDate"],
+                    "issueNumber": "server-assigned — never supply",
+                    "priorityValues": ["P0", "P1", "P2", "P3"],
+                    "listKeys": ["backlog", "active", "blocked", "qa", "done"],
+                    "hint": "Resolve listId from GET /api/state. issueNumber is always server-assigned.",
+                },
+                "findings": {
+                    "required": ["boardId", "artifactType", "title"],
+                    "optional": ["summary", "body", "sourceCardId", "sourceEventId"],
+                    "artifactType": "findings",
+                    "limits": {"title": ARTIFACT_TITLE_MAX_LEN, "summary": ARTIFACT_SUMMARY_MAX_LEN, "body": ARTIFACT_BODY_MAX_LEN, "sourceRef": ARTIFACT_SOURCE_REF_MAX_LEN},
+                    "immutable": True,
+                    "hint": "POST only — no PATCH or DELETE. Each POST creates a new revision. Never supply id or revision.",
+                },
+                "outcomes": {
+                    "required": ["boardId", "artifactType", "title"],
+                    "optional": ["summary", "body", "sourceCardId", "sourceEventId"],
+                    "artifactType": "outcomes",
+                    "limits": {"title": ARTIFACT_TITLE_MAX_LEN, "summary": ARTIFACT_SUMMARY_MAX_LEN, "body": ARTIFACT_BODY_MAX_LEN, "sourceRef": ARTIFACT_SOURCE_REF_MAX_LEN},
+                    "immutable": True,
+                    "hint": "POST only — no PATCH or DELETE. Each POST creates a new revision. Never supply id or revision.",
+                },
+                "memory": {
+                    "required": ["memoryKey", "value", "sourceType"],
+                    "optional": ["boardId", "eventType", "bucket", "tags", "ttlSeconds", "sourceRef"],
+                    "sourceType": list(MEMORY_ALLOWED_SOURCES),
+                    "eventType": list(MEMORY_ALLOWED_EVENT_TYPES),
+                    "bucket": list(MEMORY_ALLOWED_BUCKETS),
+                    "bucketSemantics": {"ct": "context", "dec": "decisions", "trb": "troubleshooting", "lrn": "learnings", "nx": "next actions", "ref": "reference", "misc": "miscellaneous"},
+                    "ttlSecondsMax": 31_536_000,
+                    "hint": "Use sourceType: verified-system for deterministic agent writes. Default eventType is upsert.",
+                },
+                "board-artifact": {
+                    "required": ["artifactType", "title"],
+                    "optional": ["summary", "body", "sourceRef"],
+                    "artifactType": list(BOARD_ARTIFACT_ALLOWED_TYPES),
+                    "limits": {"title": ARTIFACT_TITLE_MAX_LEN, "summary": ARTIFACT_SUMMARY_MAX_LEN, "body": ARTIFACT_BODY_MAX_LEN},
+                    "hint": "PATCH /api/boards/{id}/artifacts. Append-only revision model.",
+                },
+            }
+            _OPERATIONS = [
+                {"action": "Read state",       "method": "GET",    "route": "/api/state"},
+                {"action": "Find (board map)",  "method": "GET",    "route": "/api/find",         "note": "Lean index — 87% smaller than /api/state. Add ?q=, ?milestoneId=, ?list= to filter"},
+                {"action": "Conventions",      "method": "GET",    "route": "/api/conventions",  "note": "Add ?intent={type} for scoped schema"},
+                {"action": "Create chart",     "method": "POST",   "route": "/api/charts",       "required": ["boardId", "title"], "optional": ["markdown", "description"]},
+                {"action": "Update chart",     "method": "PATCH",  "route": "/api/charts/{id}",  "required": ["one of: title, description, markdown"]},
+                {"action": "Delete chart",     "method": "DELETE", "route": "/api/charts/{id}"},
+                {"action": "Create milestone", "method": "POST",   "route": "/api/milestones",   "required": ["boardId", "title", "code"]},
+                {"action": "Create card",      "method": "POST",   "route": "/api/cards",        "required": ["boardId", "milestoneId", "listId", "title"]},
+                {"action": "Move card",        "method": "POST",   "route": "/api/cards/{id}/move", "required": ["listId"]},
+                {"action": "Write findings",   "method": "POST",   "route": "/api/milestones/{id}/artifacts", "required": ["boardId", "artifactType:findings", "title", "summary", "body"]},
+                {"action": "Write outcomes",   "method": "POST",   "route": "/api/milestones/{id}/artifacts", "required": ["boardId", "artifactType:outcomes", "title", "summary", "body"]},
+                {"action": "Write memory",     "method": "POST",   "route": "/api/memory/events", "required": ["memoryKey", "value", "sourceType"]},
+                {"action": "Health check",     "method": "GET",    "route": "/api/health"},
+            ]
+            if intent and intent in _SCHEMAS:
+                self._send_json({"ok": True, "intent": intent, "schema": _SCHEMAS[intent]})
+            else:
+                self._send_json({
+                    "ok": True,
+                    "conventions": {
+                        "version": "1.0",
+                        "enforcement": "All board CRUD operations must use this API. Direct SQLite writes, Python scripts, and filesystem substitutes are non-canonical per GUARDRAILS.",
+                        "portResolution": "Read .amphion/config.json -> port. Default: 8765.",
+                        "rulesFiles": ["AGENTS.md", "CLAUDE.md", ".clinerules", ".cursorrules"],
+                        "intents": list(_SCHEMAS.keys()),
+                        "operations": _OPERATIONS,
+                        "schemas": _SCHEMAS,
+                    },
+                })
+            return
+
+        if route == "/api/find":
+            board_request = (params.get("boardId", [""])[0] or "").strip()
+            q = (params.get("q", [""])[0] or "").strip().lower()
+            milestone_filter = (params.get("milestoneId", [""])[0] or "").strip()
+            list_filter = (params.get("list", [""])[0] or "").strip().lower()
+
+            with STORE._lock:
+                conn = STORE.get_conn()
+                c = conn.cursor()
+                try:
+                    board_id = _resolve_board_id(c, board_request)
+                    if not board_id:
+                        self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
+                        return
+
+                    c.execute("SELECT key, value FROM meta")
+                    meta = {r["key"]: r["value"] for r in c.fetchall()}
+                    active_board_id = meta.get("activeBoardId", board_id)
+
+                    c.execute("SELECT id, name, codename FROM boards WHERE id=?", (board_id,))
+                    board_row = c.fetchone()
+
+                    c.execute("SELECT id, key, title, listOrder FROM lists WHERE boardId=? ORDER BY listOrder ASC", (board_id,))
+                    lists = c.fetchall()
+                    list_id_to_key = {l["id"]: l["key"] for l in lists}
+
+                    c.execute("SELECT id, code, title, archivedAt, msOrder FROM milestones WHERE boardId=? ORDER BY msOrder ASC", (board_id,))
+                    milestones = c.fetchall()
+
+                    c.execute("SELECT id, issueNumber, title, milestoneId, listId, priority FROM cards WHERE boardId=? ORDER BY cardOrder ASC", (board_id,))
+                    cards = c.fetchall()
+
+                    c.execute("SELECT id, title FROM charts WHERE boardId=? ORDER BY createdAt DESC", (board_id,))
+                    charts = c.fetchall()
+                finally:
+                    conn.close()
+
+            card_counts: dict = {}
+            for card in cards:
+                mid = str(card["milestoneId"] or "")
+                card_counts[mid] = card_counts.get(mid, 0) + 1
+
+            lean_milestones = []
+            for m in milestones:
+                archived = bool(str(m["archivedAt"] or "").strip())
+                code = str(m["code"] or "")
+                title = str(m["title"] or "")
+                if q and q not in code.lower() and q not in title.lower():
+                    continue
+                lean_milestones.append({
+                    "id": m["id"],
+                    "code": code,
+                    "title": title,
+                    "archived": archived,
+                    "cardCount": card_counts.get(str(m["id"]), 0),
+                })
+
+            lean_cards = []
+            for card in cards:
+                issue = str(card["issueNumber"] or "")
+                title = str(card["title"] or "")
+                ms_id = str(card["milestoneId"] or "")
+                list_id = str(card["listId"] or "")
+                list_key = list_id_to_key.get(list_id, "")
+                if q and q not in issue.lower() and q not in title.lower():
+                    continue
+                if milestone_filter and ms_id != milestone_filter:
+                    continue
+                if list_filter and list_key != list_filter:
+                    continue
+                lean_cards.append({
+                    "id": card["id"],
+                    "issueNumber": issue,
+                    "title": title,
+                    "milestoneId": ms_id,
+                    "listKey": list_key,
+                    "priority": str(card["priority"] or "P2"),
+                })
+
+            lean_board = {
+                "id": board_row["id"] if board_row else board_id,
+                "name": board_row["name"] if board_row else "",
+                "codename": board_row["codename"] if board_row else "",
+                "lists": [{"id": l["id"], "key": l["key"], "title": l["title"]} for l in lists],
+                "milestones": lean_milestones,
+                "cards": lean_cards,
+                "charts": [{"id": ch["id"], "title": ch["title"]} for ch in charts],
+            }
+
+            self._send_json({
+                "ok": True,
+                "activeBoardId": active_board_id,
+                "query": {"q": q, "milestoneId": milestone_filter, "list": list_filter, "boardId": board_id},
+                "boards": [lean_board],
+            })
+            return
+
         if route == "/api/state":
             self._send_json({"ok": True, "state": STORE.snapshot()})
             return
@@ -2628,7 +2825,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
             return
 
         if route.startswith("/api/"):
-            self._send_error("Route not found", status=HTTPStatus.NOT_FOUND)
+            self._send_json({"ok": False, "error": "Route not found", "hint": "See GET /api/conventions for the canonical API operation catalog and payload schemas."}, status=HTTPStatus.NOT_FOUND)
             return
 
         self._serve_static(route)
