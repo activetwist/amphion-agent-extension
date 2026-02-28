@@ -1021,6 +1021,14 @@ function cardMatchesFilter(board, card) {
     return false;
   }
 
+  // Hide completed tasks (done/qa) whose milestone is archived from the main board view.
+  const milestone = board.milestones.find((m) => m.id === card.milestoneId);
+  if (milestone && isArchivedMilestone(milestone)) {
+    const listMeta = getListMeta(board, card.listId);
+    const bucket = getTaskCompletionBucket(listMeta?.key);
+    if (bucket === "complete") return false;
+  }
+
   const query = state.filters.search.trim().toLowerCase();
   if (!query) return true;
 
