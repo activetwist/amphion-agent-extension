@@ -1341,6 +1341,7 @@ def ensure_sqlite_schema(db_path: Path) -> None:
                 priority TEXT,
                 owner TEXT,
                 targetDate TEXT,
+                kind TEXT DEFAULT 'task',
                 cardOrder INTEGER,
                 createdAt TEXT,
                 updatedAt TEXT
@@ -1474,6 +1475,11 @@ def ensure_sqlite_schema(db_path: Path) -> None:
                 )
                 """
             )
+        c.execute("PRAGMA table_info(cards)")
+        card_columns = {str(row.get("name") or "") for row in c.fetchall()}
+        if "kind" not in card_columns:
+            c.execute("ALTER TABLE cards ADD COLUMN kind TEXT DEFAULT 'task'")
+
         _ensure_preflight_lifecycle(c, now)
         _repair_amp007_findings_if_missing(c, now)
 
@@ -2201,11 +2207,12 @@ class KanbanHandler(BaseHTTPRequestHandler):
                 },
                 "card": {
                     "required": ["boardId", "milestoneId", "listId", "title"],
-                    "optional": ["description", "acceptance", "priority", "owner", "targetDate"],
+                    "optional": ["description", "acceptance", "priority", "owner", "targetDate", "kind"],
                     "issueNumber": "server-assigned — never supply",
                     "priorityValues": ["P0", "P1", "P2", "P3"],
+                    "kindValues": ["task", "bug"],
                     "listKeys": ["backlog", "active", "blocked", "qa", "done"],
-                    "hint": "Resolve listId from GET /api/state. issueNumber is always server-assigned.",
+                    "hint": "Resolve listId from GET /api/state. issueNumber is always server-assigned. kind defaults to 'task'.",
                 },
                 "findings": {
                     "required": ["boardId", "artifactType", "title"],
@@ -2302,7 +2309,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     c.execute("SELECT id, code, title, archivedAt, msOrder FROM milestones WHERE boardId=? ORDER BY msOrder ASC", (board_id,))
                     milestones = c.fetchall()
 
-                    c.execute("SELECT id, issueNumber, title, milestoneId, listId, priority FROM cards WHERE boardId=? ORDER BY cardOrder ASC", (board_id,))
+                    c.execute("SELECT id, issueNumber, title, milestoneId, listId, priority, kind FROM cards WHERE boardId=? ORDER BY cardOrder ASC", (board_id,))
                     cards = c.fetchall()
 
                     c.execute("SELECT id, title FROM charts WHERE boardId=? ORDER BY createdAt DESC", (board_id,))
@@ -2350,6 +2357,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     "milestoneId": ms_id,
                     "listKey": list_key,
                     "priority": str(card["priority"] or "P2"),
+                    "kind": str(card["kind"] or "task"),
                 })
 
             lean_board = {
@@ -3301,12 +3309,17 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         issue_number = f"{b_row['codename']}-{b_row['nextIssueNumber']:03d}"
                         c.execute("UPDATE boards SET nextIssueNumber = nextIssueNumber + 1 WHERE id=?", (board_id,))
                     
+                    card_kind = str(body.get("kind") or "task").lower()
+                    if card_kind not in ("task", "bug"):
+                        self._send_error("kind must be 'task' or 'bug'", status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                        return
+
                     c.execute("SELECT MAX(cardOrder) as m FROM cards WHERE listId=?", (list_id,))
                     res = c.fetchone()
                     max_ord = (res["m"] + 1) if res and res["m"] is not None else 0
 
-                    c.execute("INSERT INTO cards (id, boardId, issueNumber, title, description, acceptance, milestoneId, listId, priority, owner, targetDate, cardOrder, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        (new_id("card"), board_id, issue_number, body["title"], body.get("description", ""), body.get("acceptance", ""), milestone_id, list_id, body.get("priority", "P2"), body.get("owner", ""), body.get("targetDate", ""), max_ord, now, now))
+                    c.execute("INSERT INTO cards (id, boardId, issueNumber, title, description, acceptance, milestoneId, listId, priority, owner, targetDate, kind, cardOrder, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (new_id("card"), board_id, issue_number, body["title"], body.get("description", ""), body.get("acceptance", ""), milestone_id, list_id, body.get("priority", "P2"), body.get("owner", ""), body.get("targetDate", ""), card_kind, max_ord, now, now))
                     
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
@@ -3487,6 +3500,13 @@ class KanbanHandler(BaseHTTPRequestHandler):
                                 self._send_error(MILESTONE_CLOSED_ERROR, status=HTTPStatus.CONFLICT)
                                 return
                         body["milestoneId"] = new_milestone_id
+
+                    if "kind" in body:
+                        patch_kind = str(body.get("kind") or "task").lower()
+                        if patch_kind not in ("task", "bug"):
+                            self._send_error("kind must be 'task' or 'bug'", status=HTTPStatus.UNPROCESSABLE_ENTITY)
+                            return
+                        c.execute("UPDATE cards SET kind=?, updatedAt=? WHERE id=?", (patch_kind, now, card_id))
 
                     fields = ["title", "description", "acceptance", "owner", "targetDate", "priority", "milestoneId", "listId"]
                     for f in fields:

@@ -85,6 +85,7 @@ const el = {
   cardList: document.querySelector("#cardList"),
   cardTargetDate: document.querySelector("#cardTargetDate"),
   cardOwner: document.querySelector("#cardOwner"),
+  cardKind: document.querySelector("#cardKind"),
   cardDescription: document.querySelector("#cardDescription"),
   cardAcceptance: document.querySelector("#cardAcceptance"),
   btnDeleteCard: document.querySelector("#btnDeleteCard"),
@@ -1393,6 +1394,12 @@ function createCardNode(board, card) {
   node.dataset.cardId = card.id;
   node.draggable = true;
 
+  if (card.kind === "bug") {
+    node.classList.add("card-kind-bug");
+    const bugBadge = node.querySelector(".bug-badge");
+    if (bugBadge) bugBadge.hidden = false;
+  }
+
   const priority = node.querySelector(".priority-badge");
   priority.textContent = card.priority || "P2";
   priority.classList.add(priorityClass(card.priority));
@@ -1545,7 +1552,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     const card = board.cards.find((item) => item.id === cardId);
     if (!card) return;
 
-    el.cardDialogTitle.textContent = "Edit Task";
+    el.cardDialogTitle.textContent = card.kind === "bug" ? "Edit Bug" : "Edit Task";
     el.cardId.value = card.id;
     el.cardTitle.value = card.title;
     el.cardMilestone.value = selectedMilestoneId;
@@ -1554,6 +1561,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardList.value = card.listId;
     el.cardTargetDate.value = card.targetDate || "";
     el.cardOwner.value = card.owner || "";
+    if (el.cardKind) el.cardKind.value = card.kind || "task";
     el.cardDescription.value = card.description || "";
     el.cardAcceptance.value = card.acceptance || "";
     if (el.cardDialogIssueNumber) {
@@ -1569,6 +1577,7 @@ function openCardDialog(cardId = "", defaultListId = "") {
     el.cardMilestone.value = selectedMilestoneId;
     el.cardDialog.dataset.originalMilestoneId = "";
     el.cardPriority.value = "P1";
+    if (el.cardKind) el.cardKind.value = "task";
     el.cardList.value = fallbackListId;
     el.cardTargetDate.value = "";
     el.cardOwner.value = "";
@@ -1594,6 +1603,7 @@ async function saveCardFromDialog() {
     title: el.cardTitle.value.trim(),
     milestoneId: el.cardMilestone.value,
     priority: el.cardPriority.value,
+    kind: el.cardKind ? el.cardKind.value : "task",
     targetDate: el.cardTargetDate.value,
     owner: el.cardOwner.value.trim(),
     description: el.cardDescription.value.trim(),
