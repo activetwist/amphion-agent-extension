@@ -173,7 +173,7 @@ const el = {
   milestoneArchivesEmpty: document.querySelector("#milestoneArchivesEmpty"),
   btnWhyMcd: document.querySelector("#btnWhyMcd"),
   btnAttributionInfo: document.querySelector("#btnAttributionInfo"),
-  btnThemeToggle: document.querySelector("#btnThemeToggle"),
+  themeCheckbox: document.querySelector("#themeCheckbox"),
   btnToggleSidebar: document.querySelector("#btnToggleSidebar"),
 };
 
@@ -2111,7 +2111,7 @@ function registerEvents() {
     });
   }
 
-  if (el.btnThemeToggle) el.btnThemeToggle.onclick = toggleTheme;
+  if (el.themeCheckbox) el.themeCheckbox.addEventListener("change", toggleTheme);
   if (el.btnToggleSidebar) el.btnToggleSidebar.onclick = toggleSidebar;
   if (el.btnNewBoard) el.btnNewBoard.onclick = createNewBoard;
 }
@@ -2139,7 +2139,9 @@ async function toggleTheme() {
   const next = current === "dark" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", next);
   localStorage.setItem("mcd_theme", next);
-  el.btnThemeToggle.textContent = next === "light" ? "Dark Mode" : "Light Mode";
+  if (el.themeCheckbox) {
+    el.themeCheckbox.checked = next === "dark";
+  }
 
   configureMermaidTheme();
   if (state.currentView === "guide") {
@@ -2195,12 +2197,9 @@ async function bootstrap() {
 
   mountMilestonePanelLayer();
   registerEvents();
-  if (el.btnThemeToggle) {
+  if (el.themeCheckbox) {
     const theme = localStorage.getItem("mcd_theme") || "dark";
-    el.btnThemeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
-  }
-  if (localStorage.getItem("mcd_theme") === "light") {
-    el.btnThemeToggle.textContent = "Dark Mode";
+    el.themeCheckbox.checked = theme === "dark";
   }
   if (localStorage.getItem("mcd_sidebar_collapsed") === "true") {
     el.btnToggleSidebar.textContent = "»";
