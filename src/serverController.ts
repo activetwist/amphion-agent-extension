@@ -2,8 +2,11 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as http from 'http';
 import * as path from 'path';
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
+import { promisify } from 'util';
 import { readRuntimeConfig, resolveCommandDeckPath } from './environment';
+
+const execAsync = promisify(exec);
 import { flushPendingBoardArtifacts } from './canonicalDocs';
 
 interface ServerProcessMetadata {
@@ -47,7 +50,7 @@ const EXPECTED_RUNTIME_DATASTORE = 'sqlite';
 const EXPECTED_RUNTIME_FINGERPRINT = `${EXPECTED_RUNTIME_SERVER}:${EXPECTED_RUNTIME_IMPLEMENTATION}:${EXPECTED_RUNTIME_DATASTORE}`;
 
 export class ServerController {
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    constructor(private readonly context: vscode.ExtensionContext) { }
 
     private resolveWorkspaceRoot(root?: vscode.Uri): vscode.Uri | undefined {
         if (root) {
@@ -366,20 +369,37 @@ export class ServerController {
         }
 
         await this.writeStoredProcess(workspaceRoot, undefined);
+
+        // Force kill any process (managed or unmanaged) currently occupying the configured port
+        try {
+            if (process.platform === 'win32') {
+                // Find listening PID and force kill it on Windows
+                await execAsync(`FOR /F "tokens=5" %a in ('netstat -aon ^| findstr ":${port} "') do taskkill /F /PID %a`);
+            } else {
+                // Find listening PID and force kill it on macOS/Linux
+                await execAsync(`lsof -t -i:${port} | xargs kill -9`);
+            }
+        } catch {
+            // It's safe to ignore errors here (e.g. no process was listening, or kill failed)
+        }
+
+        // Wait briefly for the OS to release the socket
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const healthStatus = await this.healthCheck(port);
         if (healthStatus === 'canonical') {
             return {
                 ok: false,
-                state: 'unmanaged-running',
-                message: `AmphionAgent: Canonical Command Deck runtime is running on port ${port} but is not managed by this extension session.`,
+                state: 'error',
+                message: `AmphionAgent: Failed to force stop canonical Command Deck on port ${port}.`,
                 port,
             };
         }
         if (healthStatus === 'noncanonical') {
             return {
                 ok: false,
-                state: 'unmanaged-running',
-                message: `AmphionAgent: Non-canonical service is running on port ${port}.`,
+                state: 'error',
+                message: `AmphionAgent: Failed to force stop non-canonical service on port ${port}.`,
                 port,
             };
         }

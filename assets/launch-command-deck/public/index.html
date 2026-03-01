@@ -249,6 +249,22 @@
     </main>
   </div>
 
+  <dialog id="promptDialog" class="card-dialog">
+    <form method="dialog" class="doc-dialog-form">
+      <header class="modal-header">
+        <h3 id="promptDialogTitle" class="modal-title">Prompt</h3>
+      </header>
+      <div class="card-dialog-body" style="padding: 1rem;">
+        <p id="promptDialogText" style="margin-bottom: 1rem; color: var(--color-text);"></p>
+        <input id="promptDialogInput" type="text" style="width: 100%; display: none; padding: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;" />
+      </div>
+      <menu style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1rem 1rem 1rem; margin: 0;">
+        <button type="button" id="promptDialogCancel" class="btn">Cancel</button>
+        <button type="button" id="promptDialogOk" class="btn primary">OK</button>
+      </menu>
+    </form>
+  </dialog>
+
   <dialog id="docDialog" class="card-dialog doc-dialog">
     <form method="dialog" class="doc-dialog-form">
       <header class="modal-header">

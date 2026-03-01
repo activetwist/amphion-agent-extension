@@ -11,13 +11,15 @@ import urllib.request
 
 
 def request_json(url: str, method: str = "GET", body: dict | None = None) -> dict:
+    if not url.startswith(("http://", "https://")):
+        raise ValueError("Invalid URL scheme")
     data = None
     headers = {}
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
         raw = resp.read().decode("utf-8")
     return json.loads(raw)
 

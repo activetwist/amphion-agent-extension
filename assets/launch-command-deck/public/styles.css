@@ -845,6 +845,17 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   white-space: normal;
 }
 
+/* Charts Library: viewer area fills full available viewport height */
+.charts-preview-panel .charts-preview-content {
+  display: flex;
+  flex-direction: column;
+}
+.charts-preview-panel .charts-preview-content .mcd-mermaid-viewport {
+  flex: 1;
+  min-height: 220px;
+  max-height: none;
+}
+
 .charts-preview-panel:not(.is-open) .charts-preview-content {
   color: var(--text-secondary);
 }
@@ -866,7 +877,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   display: block;
   margin: var(--space-2) 0;
   min-height: 220px;
-  max-height: 560px;
+  max-height: 560px; /* overridden in .charts-preview-panel for full viewport height */
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);

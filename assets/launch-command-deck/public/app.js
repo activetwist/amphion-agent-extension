@@ -1,3 +1,73 @@
+
+// Generic HTML dialog helper
+async function showPrompt(type, title, text, defaultValue = "") {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("promptDialog");
+    if (!dialog) return resolve(null);
+
+    const titleEl = document.getElementById("promptDialogTitle");
+    const textEl = document.getElementById("promptDialogText");
+    const inputEl = document.getElementById("promptDialogInput");
+    const btnCancel = document.getElementById("promptDialogCancel");
+    const btnOk = document.getElementById("promptDialogOk");
+
+    titleEl.textContent = title || "";
+    textEl.textContent = text || "";
+
+    if (type === "alert") {
+      inputEl.style.display = "none";
+      btnCancel.style.display = "none";
+      btnOk.textContent = "OK";
+    } else if (type === "confirm") {
+      inputEl.style.display = "none";
+      btnCancel.style.display = "inline-block";
+      btnOk.textContent = "Yes";
+    } else if (type === "prompt") {
+      inputEl.style.display = "block";
+      inputEl.value = defaultValue;
+      btnCancel.style.display = "inline-block";
+      btnOk.textContent = "OK";
+    }
+
+    const cleanup = () => {
+      btnCancel.removeEventListener("click", onCancel);
+      btnOk.removeEventListener("click", onOk);
+      dialog.removeEventListener("keydown", onKeydown);
+      dialog.close();
+    };
+
+    const onCancel = (e) => {
+      e.preventDefault();
+      cleanup();
+      resolve(type === "prompt" ? null : false);
+    };
+
+    const onOk = (e) => {
+      e.preventDefault();
+      cleanup();
+      if (type === "prompt") resolve(inputEl.value);
+      else resolve(true);
+    };
+
+    const onKeydown = (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onOk(e);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel(e);
+      }
+    };
+
+    btnCancel.addEventListener("click", onCancel);
+    btnOk.addEventListener("click", onOk);
+    dialog.addEventListener("keydown", onKeydown);
+
+    dialog.showModal();
+    if (type === "prompt") inputEl.focus();
+    else btnOk.focus();
+  });
+}
 const state = {
   data: null,
   charts: [],
@@ -1259,20 +1329,17 @@ function renderMilestoneProgress() {
     const archiveButton = document.createElement("button");
     archiveButton.className = "btn btn-sm milestone-archive-btn";
     archiveButton.textContent = "Archive";
-    archiveButton.disabled = !canArchive;
-    archiveButton.setAttribute(
-      "aria-disabled",
-      canArchive ? "false" : "true"
-    );
-    archiveButton.title = canArchive
-      ? "Archive milestone"
-      : "Archive is available only when all tasks are complete (0/X remaining).";
+
     archiveButton.addEventListener("click", async (event) => {
-      if (!canArchive) return;
       event.stopPropagation();
       event.preventDefault();
+
+      if (!canArchive) {
+        await showPrompt("alert", "Error", `Cannot archive: All tasks must be complete (${total - done}/${total} remaining).`);
+        return;
+      }
       const warning = `Archive milestone "${milestone.title}"? It will be hidden from active work until restored.`;
-      if (!confirm(warning)) return;
+      if (!(await showPrompt("confirm", "Confirm Archive", warning))) return;
       try {
         await api(`/api/milestones/${milestone.id}`, "DELETE");
         if (state.filters.milestoneId === milestone.id) {
@@ -1283,7 +1350,7 @@ function renderMilestoneProgress() {
         }
         await refresh();
       } catch (error) {
-        alert(error.message);
+        await showPrompt("alert", "Error", error.message);
       }
     });
     utilityRow.appendChild(archiveButton);
@@ -1374,7 +1441,7 @@ function renderMilestoneArchives() {
         await refresh();
         renderMilestoneArchives();
       } catch (error) {
-        alert(error.message);
+        await showPrompt("alert", "Error", error.message);
       }
     });
 
@@ -1440,7 +1507,7 @@ function renderColumns() {
     title.textContent = list.title;
     title.title = "Double-click to rename column";
     title.addEventListener("dblclick", async () => {
-      const next = prompt("Rename column", list.title);
+      const next = await showPrompt("prompt", "Rename Column", "", list.title);
       if (!next || !next.trim()) return;
       await api(`/api/lists/${list.id}`, "PATCH", { title: next.trim() });
       await refresh();
@@ -1611,27 +1678,27 @@ async function saveCardFromDialog() {
   };
 
   if (!payload.title) {
-    alert("Task title is required.");
+    await showPrompt("alert", "Error", "Task title is required.");
     return;
   }
 
   if (!payload.milestoneId) {
-    alert("Milestone is required. Add to an active milestone or create a new milestone.");
+    await showPrompt("alert", "Error", "Milestone is required. Add to an active milestone or create a new milestone.");
     return;
   }
 
   const selectedMilestone = board.milestones.find((item) => item.id === payload.milestoneId);
   if (!selectedMilestone) {
-    alert("Selected milestone was not found. Reload and try again.");
+    await showPrompt("alert", "Error", "Selected milestone was not found. Reload and try again.");
     return;
   }
   const originalMilestoneId = String(el.cardDialog.dataset.originalMilestoneId || "");
   if (isArchivedMilestone(selectedMilestone) && payload.milestoneId !== originalMilestoneId) {
-    alert("Milestone is archived. Restore it from Archives before assigning new work.");
+    await showPrompt("alert", "Error", "Milestone is archived. Restore it from Archives before assigning new work.");
     return;
   }
   if (isWriteClosedPreflight(selectedMilestone) && payload.milestoneId !== originalMilestoneId) {
-    alert("Pre-flight milestone is write-closed. Select an active milestone or create a new one.");
+    await showPrompt("alert", "Error", "Pre-flight milestone is write-closed. Select an active milestone or create a new one.");
     return;
   }
 
@@ -1894,7 +1961,7 @@ function registerEvents() {
   el.btnDeleteBoard.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
-    if (!confirm(`Delete Kanban \"${board.name}\"?`)) return;
+    if (!(await showPrompt("confirm", "Delete Board", `Delete Kanban "${board.name}"?`))) return;
     await api(`/api/boards/${board.id}`, "DELETE");
     await refresh();
   });
@@ -1902,11 +1969,11 @@ function registerEvents() {
   el.btnAddMilestone.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
-    const titleInput = prompt("Milestone title");
+    const titleInput = await showPrompt("prompt", "New Milestone", "Milestone title");
     if (!titleInput || !titleInput.trim()) return;
     const parsed = parseMilestoneTitleParts(titleInput);
     const defaultCode = parsed.code || extractMilestoneCode(titleInput);
-    const codeInput = prompt("Milestone code (e.g., AMV2-005). Leave blank for none.", defaultCode);
+    const codeInput = await showPrompt("prompt", "Milestone Code", "Milestone code (e.g., AMV2-005). Leave blank for none.", defaultCode);
     if (codeInput === null) return;
     const code = extractMilestoneCode(codeInput);
     const title = (parsed.title || String(titleInput || "").trim());
@@ -1949,7 +2016,7 @@ function registerEvents() {
   el.btnAddList.addEventListener("click", async () => {
     const board = getActiveBoard();
     if (!board) return;
-    const title = prompt("Column title");
+    const title = await showPrompt("prompt", "New Column", "Column title");
     if (!title || !title.trim()) return;
     await api("/api/lists", "POST", {
       boardId: board.id,
@@ -1988,7 +2055,7 @@ function registerEvents() {
       await api("/api/boards/import", "POST", { board });
       await refresh();
     } catch (error) {
-      alert(`Import failed: ${error.message}`);
+      await showPrompt("alert", "Error", `Import failed: ${error.message}`);
     } finally {
       el.importFile.value = "";
     }
@@ -2011,7 +2078,7 @@ function registerEvents() {
     try {
       await saveCardFromDialog();
     } catch (error) {
-      alert(error.message);
+      await showPrompt("alert", "Error", error.message);
     }
   });
 
@@ -2021,7 +2088,7 @@ function registerEvents() {
 
   el.btnDeleteCard.addEventListener("click", async () => {
     if (!el.cardId.value) return;
-    if (!confirm("Delete this task?")) return;
+    if (!(await showPrompt("confirm", "Delete Task", "Delete this task?"))) return;
     await api(`/api/cards/${el.cardId.value}`, "DELETE");
     el.cardDialog.close();
     await refresh();
@@ -2037,7 +2104,7 @@ function registerEvents() {
   if (el.btnDeleteChart) {
     el.btnDeleteChart.addEventListener("click", async () => {
       if (!state.selectedChartId) return;
-      if (!confirm("Delete this Mermaid chart?")) return;
+      if (!(await showPrompt("confirm", "Delete Chart", "Delete this Mermaid chart?"))) return;
       await api(`/api/charts/${state.selectedChartId}`, "DELETE");
       state.selectedChartId = "";
       await refresh();
@@ -2087,9 +2154,9 @@ async function toggleTheme() {
 }
 
 async function createNewBoard() {
-  const name = prompt("Kanban name");
+  const name = await showPrompt("prompt", "New Board", "Kanban name");
   if (!name || !name.trim()) return;
-  const useTemplate = confirm("Seed with launch template?\nOK = yes, Cancel = empty board");
+  const useTemplate = await showPrompt("confirm", "Seed Board", "Seed with launch template?\nOK = yes, Cancel = empty board");
   await api("/api/boards", "POST", {
     name: name.trim(),
     description: "",
@@ -2143,7 +2210,7 @@ async function bootstrap() {
     await refresh();
     startPolling();
   } catch (error) {
-    alert(`Failed to load board: ${error.message}`);
+    await showPrompt("alert", "Error", `Failed to load board: ${error.message}`);
   }
 }
 
