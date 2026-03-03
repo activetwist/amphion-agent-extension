@@ -6,6 +6,29 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.53.0] - 2026-03-03
+
+### Added
+- Added generated Cursor API discoverability artifacts:
+  - `.cursor/rules/command-deck-api.mdc`
+  - `.cursor/commands/command-deck-api.md`
+- Added maintainer drift guard script for IDE API policy parity:
+  - `ops/verify-ide-api-contract.sh`
+- Added `npm run verify:ide-api-contract` script and README maintainer guidance.
+
+### Changed
+- Centralized Command Deck API policy text to a single adapter template source and propagated it across AGENTS/Claude/Cursor/Cline surfaces.
+- Switched `.cursorrules` and `.clinerules` generation to deterministic overwrite semantics to prevent duplicate section drift on regeneration.
+- Updated API guidance wording to explicit configured-port-first resolution:
+  - read `.amphion/config.json` `port`
+  - if missing/invalid use `8765`
+  - base URL `http://localhost:{resolvedPort}`
+
+### Fixed
+- Hardened `/api/state` snapshot ordering against null/malformed order values by introducing null-safe order normalization and deterministic tie-break sorting.
+- Aligned card conventions hint to resolve `listId` from `GET /api/find` (preferred) with `GET /api/state` fallback.
+- Synchronized runtime hardening in both canonical local runtime and packaged launch-command-deck server copies.
+
 ## [1.50.6] - 2026-02-27
 
 ### Fixed

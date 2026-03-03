@@ -2034,6 +2034,29 @@ class SQLiteStore:
         conn.row_factory = dict_factory
         return conn
 
+    @staticmethod
+    def _normalized_order(value: Any) -> int:
+        if value is None:
+            return 10_000_000
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return 10_000_000
+            try:
+                return int(stripped)
+            except ValueError:
+                return 10_000_000
+        return 10_000_000
+
+    @classmethod
+    def _order_sort_key(cls, row: Dict[str, Any]) -> Tuple[int, str]:
+        return (
+            cls._normalized_order(row.get("order")),
+            str(row.get("id") or ""),
+        )
+
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
             with self.get_conn() as conn:
@@ -2080,9 +2103,9 @@ class SQLiteStore:
                 artifacts_by_board.setdefault(art["boardId"], []).append(art)
 
             for b in boards:
-                b["lists"] = sorted(lists_by_board.get(b["id"], []), key=lambda x: x["order"])
-                b["milestones"] = sorted(ms_by_board.get(b["id"], []), key=lambda x: x["order"])
-                b["cards"] = sorted(cards_by_board.get(b["id"], []), key=lambda x: x["order"])
+                b["lists"] = sorted(lists_by_board.get(b["id"], []), key=self._order_sort_key)
+                b["milestones"] = sorted(ms_by_board.get(b["id"], []), key=self._order_sort_key)
+                b["cards"] = sorted(cards_by_board.get(b["id"], []), key=self._order_sort_key)
                 b["artifacts"] = sorted(
                     artifacts_by_board.get(b["id"], []),
                     key=lambda x: (x.get("artifactType", ""), -(x.get("revision") or 0)),
@@ -2213,7 +2236,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     "priorityValues": ["P0", "P1", "P2", "P3"],
                     "kindValues": ["task", "bug"],
                     "listKeys": ["backlog", "active", "blocked", "qa", "done"],
-                    "hint": "Resolve listId from GET /api/state. issueNumber is always server-assigned. kind defaults to 'task'.",
+                    "hint": "Resolve listId from GET /api/find (preferred) or GET /api/state. issueNumber is always server-assigned. kind defaults to 'task'.",
                 },
                 "findings": {
                     "required": ["boardId", "artifactType", "title"],
