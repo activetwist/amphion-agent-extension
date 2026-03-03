@@ -48,10 +48,14 @@ export async function runWizard(): Promise<ProjectConfig | undefined> {
     // Step 4: Port
     const port = await vscode.window.showInputBox({
         title: 'AmphionAgent (4/4)',
-        prompt: 'Enter the Command Deck Port (must not be in use)',
-        value: '8765',
+        prompt: 'Enter the port for your Command Deck (default: 8765)',
+        value: '', // Default value is now empty
         ignoreFocusOut: true,
         validateInput: (value) => {
+            // If the user leaves it empty, we'll use the default '8765' later
+            if (!value || value.trim().length === 0) {
+                return null;
+            }
             const num = parseInt(value, 10);
             if (isNaN(num) || num < 1024 || num > 65535) {
                 return 'Please enter a valid port number between 1024 and 65535.';

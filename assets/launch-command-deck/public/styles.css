@@ -258,7 +258,7 @@ html[data-sidebar-collapsed="true"] .app-shell {
 
 .global-header-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-2);
 }
 
@@ -275,6 +275,64 @@ html[data-sidebar-collapsed="true"] .app-shell {
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--text-primary);
+}
+
+.theme-switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 32px;
+}
+
+.theme-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.theme-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #2b2d31;
+  transition: .3s;
+  border-radius: 32px;
+  border: 1px solid #2b2d31;
+}
+
+.theme-slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #ffffff;
+  transition: .3s;
+  border-radius: 50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232b2d31' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cline x1='12' y1='2' x2='12' y2='4'/%3E%3Cline x1='12' y1='20' x2='12' y2='22'/%3E%3Cline x1='4.93' y1='4.93' x2='6.34' y2='6.34'/%3E%3Cline x1='17.66' y1='17.66' x2='19.07' y2='19.07'/%3E%3Cline x1='2' y1='12' x2='4' y2='12'/%3E%3Cline x1='20' y1='12' x2='22' y2='12'/%3E%3Cline x1='4.93' y1='19.07' x2='6.34' y2='17.66'/%3E%3Cline x1='17.66' y1='6.34' x2='19.07' y2='4.93'/%3E%3C/svg%3E");
+  background-size: 18px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+input:checked+.theme-slider {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+
+input:focus-visible+.theme-slider {
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+input:checked+.theme-slider:before {
+  transform: translateX(28px);
+  background-color: #000000;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/%3E%3C/svg%3E");
+  background-size: 16px;
 }
 
 .view-selector {
@@ -845,6 +903,18 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   white-space: normal;
 }
 
+/* Charts Library: viewer area fills full available viewport height */
+.charts-preview-panel .charts-preview-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.charts-preview-panel .charts-preview-content .mcd-mermaid-viewport {
+  flex: 1;
+  min-height: 220px;
+  max-height: none;
+}
+
 .charts-preview-panel:not(.is-open) .charts-preview-content {
   color: var(--text-secondary);
 }
@@ -867,6 +937,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
   margin: var(--space-2) 0;
   min-height: 220px;
   max-height: 560px;
+  /* overridden in .charts-preview-panel for full viewport height */
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -946,7 +1017,8 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
 
 .header-actions {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-2);
 }
 
@@ -975,7 +1047,7 @@ html[data-sidebar-collapsed="true"] .sidebar .utility-actions {
 .left-tools,
 .right-tools {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-2);
   flex-wrap: wrap;
 }

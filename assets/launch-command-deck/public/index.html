@@ -50,8 +50,13 @@
         </div>
       </div>
       <div class="global-header-actions">
-        <button id="btnThemeToggle" class="btn btn-theme-toggle">Light Mode</button>
         <button id="btnNewBoard" class="btn primary">New Board</button>
+        <div class="theme-switch-wrapper">
+          <label class="theme-switch" aria-label="Toggle Dark Mode">
+            <input type="checkbox" id="themeCheckbox">
+            <span class="theme-slider"></span>
+          </label>
+        </div>
         <button id="btnAttributionInfo" class="btn btn-attribution-info" title="Credits & Attribution"
           aria-label="Open credits and attribution">i</button>
       </div>
@@ -102,19 +107,6 @@
             <input id="importFile" type="file" accept="application/json" hidden />
           </div>
 
-          <div class="agent-commands">
-            <p class="agent-commands-label">Agent Commands</p>
-            <dl class="agent-commands-list">
-              <div class="agent-command-entry">
-                <dt>/bug</dt>
-                <dd>Create a bug card on the active board</dd>
-              </div>
-              <div class="agent-command-entry">
-                <dt>/test</dt>
-                <dd>Run the declared testing suites</dd>
-              </div>
-            </dl>
-          </div>
         </details>
       </section>
     </aside>
@@ -218,10 +210,6 @@
 
       <section class="toolbar">
         <div class="left-tools">
-          <button id="btnAddCard" class="btn primary">+ Task</button>
-          <button id="btnAddList" class="btn">+ Column</button>
-        </div>
-        <div class="right-tools">
           <label>
             Milestone
             <select id="milestoneFilter"></select>
@@ -230,6 +218,10 @@
             Search
             <input id="searchInput" placeholder="Find task" />
           </label>
+        </div>
+        <div class="right-tools">
+          <button id="btnAddCard" class="btn primary">+ Task</button>
+          <button id="btnAddList" class="btn">+ Column</button>
         </div>
       </section>
       <div id="milestonePolicyHint" class="milestone-policy-hint"></div>
@@ -248,6 +240,23 @@
       </aside>
     </main>
   </div>
+
+  <dialog id="promptDialog" class="card-dialog">
+    <form method="dialog" class="doc-dialog-form">
+      <header class="modal-header">
+        <h3 id="promptDialogTitle" class="modal-title">Prompt</h3>
+      </header>
+      <div class="card-dialog-body" style="padding: 1rem;">
+        <p id="promptDialogText" style="margin-bottom: 1rem; color: var(--color-text);"></p>
+        <input id="promptDialogInput" type="text"
+          style="width: 100%; display: none; padding: 0.5rem; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 4px;" />
+      </div>
+      <menu style="display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1rem 1rem 1rem; margin: 0;">
+        <button type="button" id="promptDialogCancel" class="btn">Cancel</button>
+        <button type="button" id="promptDialogOk" class="btn primary">OK</button>
+      </menu>
+    </form>
+  </dialog>
 
   <dialog id="docDialog" class="card-dialog doc-dialog">
     <form method="dialog" class="doc-dialog-form">

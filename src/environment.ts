@@ -3,6 +3,7 @@ import * as path from 'path';
 import { ProjectConfig } from './wizard';
 import {
     renderAgentsMd,
+    renderClineRules,
     renderClaudeMd,
     renderCursorCommand,
     renderCursorRule,
@@ -64,7 +65,8 @@ const DEFAULT_ENVIRONMENT_STATE: AmphionEnvironmentState = {
     lastPromptAt: '',
 };
 
-const ADAPTER_COMMANDS: string[] = ['evaluate', 'contract', 'execute', 'closeout', 'remember', 'docs'];
+const ADAPTER_COMMANDS: string[] = ['evaluate', 'contract', 'execute', 'closeout', 'help', 'remember', 'docs'];
+const CURSOR_EXTRA_COMMANDS: string[] = ['command-deck-api'];
 
 function nowIso(): string {
     return new Date().toISOString();
@@ -106,7 +108,7 @@ async function ensureDir(root: vscode.Uri, relativePath: string): Promise<void> 
 
 function normalizeRuntimeConfig(raw?: Partial<AmphionRuntimeConfig>): AmphionRuntimeConfig {
     return {
-        port: String(raw?.port || DEFAULT_RUNTIME_CONFIG.port),
+        port: (raw?.port && String(raw.port).trim().length > 0) ? String(raw.port) : DEFAULT_RUNTIME_CONFIG.port,
         serverLang: 'python',
         codename: typeof raw?.codename === 'string' && raw.codename.trim().length > 0
             ? raw.codename.trim()
@@ -305,14 +307,18 @@ export async function ensureAdaptersForTargets(
 
     if (normalizedTargets.includes('claude')) {
         await writeMaybe('CLAUDE.md', renderClaudeMd(project));
-        await writeMaybe('.clinerules', renderCursorRules(project), true);
+        await writeMaybe('.clinerules', renderClineRules(project));
     }
 
     if (normalizedTargets.includes('cursor')) {
         await ensureDir(root, '.cursor/rules');
         await ensureDir(root, '.cursor/commands');
-        await writeMaybe('.cursorrules', renderCursorRules(project), true);
+        await writeMaybe('.cursorrules', renderCursorRules(project));
         for (const cmd of ADAPTER_COMMANDS) {
+            await writeMaybe(`.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, project));
+            await writeMaybe(`.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, project));
+        }
+        for (const cmd of CURSOR_EXTRA_COMMANDS) {
             await writeMaybe(`.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, project));
             await writeMaybe(`.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, project));
         }

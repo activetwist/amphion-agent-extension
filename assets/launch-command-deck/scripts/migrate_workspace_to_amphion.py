@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 import zipfile
 import datetime as dt
@@ -405,7 +406,7 @@ def main() -> int:
             archive_file = Path(str(report["archive"].get("path", "")))
             if archive_file.exists():
                 if sys.platform == "darwin":
-                    os.system(f'open "{archive_file}"')
+                    subprocess.run(["open", str(archive_file)], check=False)
                 elif os.name == "nt":
                     os.startfile(str(archive_file))  # type: ignore[attr-defined]
             # Do not delete on open.

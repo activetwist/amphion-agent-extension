@@ -14,6 +14,7 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
 
 ## Utility Commands
+- **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: `.amphion/control-plane/MCD_HELP_SOURCE.md`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
 ## Operational Rules
@@ -21,6 +22,63 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 2. Always read the corresponding command file before starting a phase.
 3. Ensure approved contract cards exist on the board before performing any `EXECUTE` actions.
 4. Maintain deterministic naming for all artifacts and records.
+
+## Command Deck API
+
+**ALL board writes MUST use the Command Deck API. Direct SQLite writes, Python scripts, and filesystem substitutes are non-canonical and violate GUARDRAILS write-boundary policy.**
+
+Resolve API location:
+1. Read `port` from `.amphion/config.json`.
+2. If `port` is missing/invalid, use default `8765`.
+3. Base URL is `http://localhost:{resolvedPort}`.
+
+Before any write operation:
+- Call `GET /api/conventions?intent={type}` for the scoped payload schema.
+- Valid intents: `chart` | `milestone` | `card` | `findings` | `outcomes` | `memory` | `board-artifact`.
+
+For full session orientation:
+- Call `GET /api/conventions` to load the API operation catalog and schema map.
+
+| Action | Method | Route | Required Fields |
+|---|---|---|---|
+| Read state | GET | `/api/state` | — |
+| Find (board map) | GET | `/api/find` | — (optional: `?q=`, `?milestoneId=`, `?list=`) |
+| Conventions (scoped) | GET | `/api/conventions?intent={type}` | — |
+| Create chart | POST | `/api/charts` | `boardId`, `title`; opt: `markdown`, `description` |
+| Create milestone | POST | `/api/milestones` | `boardId`, `title`, `code` |
+| Create card | POST | `/api/cards` | `boardId`, `milestoneId`, `listId`, `title` |
+| Write findings | POST | `/api/milestones/{id}/artifacts` | `boardId`, `artifactType:findings`, `title`, `summary`, `body` |
+| Write memory | POST | `/api/memory/events` | `memoryKey`, `value`, `sourceType`, `eventType:upsert` |
+
+## Discrete Context Windows
+
+Each MCD contract card is a discrete context window. Treat each card as an isolated task.
+
+**Task start (fresh session):**
+1. `GET /api/find` (or `GET /api/state`) to resolve active board + milestone.
+2. `GET /api/memory/query?key=task.{issueNumber}.handoff` to load prior handoff state if it exists.
+3. `GET /api/conventions?intent={entityType}` to validate payload schema before writes.
+
+**Task completion (before ending session):**
+```
+POST /api/memory/events
+{
+  "memoryKey": "task.{issueNumber}.handoff",
+  "eventType": "upsert",
+  "sourceType": "verified-system",
+  "bucket": "ref",
+  "ttlSeconds": 604800,
+  "value": {
+    "issueNumber": "...",
+    "cardTitle": "...",
+    "completedAt": "...",
+    "outcomeArtifactId": "... or null",
+    "summary": "1-2 sentence completion summary",
+    "residualNotes": "anything the next session should know"
+  }
+}
+```
+
 
 ## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.

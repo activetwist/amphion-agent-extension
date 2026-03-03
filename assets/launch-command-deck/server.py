@@ -25,12 +25,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
-DATA_DIR = BASE_DIR / "data"
 WORKSPACE_DIR = BASE_DIR.parent.parent
-CONTROL_PLANE_DIR = WORKSPACE_DIR / ".amphion" / "control-plane"
-LEGACY_DOCS_DIR = WORKSPACE_DIR / "referenceDocs"
+DATA_DIR = WORKSPACE_DIR / ".amphion" / "command-deck" / "data"
 DB_FILE = DATA_DIR / "amphion.db"
 LEGACY_STATE_FILE = DATA_DIR / "state.json"
+CONTROL_PLANE_DIR = WORKSPACE_DIR / ".amphion" / "control-plane"
+LEGACY_DOCS_DIR = WORKSPACE_DIR / "referenceDocs"
 RUNTIME_SERVER = "launch-command-deck"
 RUNTIME_IMPLEMENTATION = "python"
 RUNTIME_DATASTORE = "sqlite"
@@ -885,7 +885,7 @@ def _append_outcomes_for_milestone_closeout(
         INSERT INTO milestone_artifacts (
             id, boardId, milestoneId, artifactType, revision,
             title, summary, body, sourceCardId, sourceEventId, createdAt, updatedAt
-        ) VALUES (?, ?, ?, 'outcomes', ?, ?, ?, ?, '', ?, ?, ?)
+        ) VALUES (?, ?, ?, 'outcomes', ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             new_id("mfa"),
@@ -895,6 +895,7 @@ def _append_outcomes_for_milestone_closeout(
             payload["title"],
             payload["summary"],
             payload["body"],
+            "",  # sourceCardId
             str(source_event_id or "")[:ARTIFACT_SOURCE_REF_MAX_LEN],
             now,
             now,
@@ -2033,6 +2034,29 @@ class SQLiteStore:
         conn.row_factory = dict_factory
         return conn
 
+    @staticmethod
+    def _normalized_order(value: Any) -> int:
+        if value is None:
+            return 10_000_000
+        if isinstance(value, (int, float)):
+            return int(value)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return 10_000_000
+            try:
+                return int(stripped)
+            except ValueError:
+                return 10_000_000
+        return 10_000_000
+
+    @classmethod
+    def _order_sort_key(cls, row: Dict[str, Any]) -> Tuple[int, str]:
+        return (
+            cls._normalized_order(row.get("order")),
+            str(row.get("id") or ""),
+        )
+
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
             with self.get_conn() as conn:
@@ -2079,9 +2103,9 @@ class SQLiteStore:
                 artifacts_by_board.setdefault(art["boardId"], []).append(art)
 
             for b in boards:
-                b["lists"] = sorted(lists_by_board.get(b["id"], []), key=lambda x: x["order"])
-                b["milestones"] = sorted(ms_by_board.get(b["id"], []), key=lambda x: x["order"])
-                b["cards"] = sorted(cards_by_board.get(b["id"], []), key=lambda x: x["order"])
+                b["lists"] = sorted(lists_by_board.get(b["id"], []), key=self._order_sort_key)
+                b["milestones"] = sorted(ms_by_board.get(b["id"], []), key=self._order_sort_key)
+                b["cards"] = sorted(cards_by_board.get(b["id"], []), key=self._order_sort_key)
                 b["artifacts"] = sorted(
                     artifacts_by_board.get(b["id"], []),
                     key=lambda x: (x.get("artifactType", ""), -(x.get("revision") or 0)),
@@ -2212,7 +2236,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     "priorityValues": ["P0", "P1", "P2", "P3"],
                     "kindValues": ["task", "bug"],
                     "listKeys": ["backlog", "active", "blocked", "qa", "done"],
-                    "hint": "Resolve listId from GET /api/state. issueNumber is always server-assigned. kind defaults to 'task'.",
+                    "hint": "Resolve listId from GET /api/find (preferred) or GET /api/state. issueNumber is always server-assigned. kind defaults to 'task'.",
                 },
                 "findings": {
                     "required": ["boardId", "artifactType", "title"],
@@ -2594,13 +2618,8 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         self._send_error("Board not found", status=HTTPStatus.NOT_FOUND)
                         return
 
-                    where = "boardId=?"
-                    query_args: List[Any] = [board_id]
-                    if not include_deleted:
-                        where += " AND isDeleted=0"
-
                     c.execute(
-                        f"SELECT * FROM memory_objects WHERE {where} ORDER BY updatedAt DESC, memoryKey ASC LIMIT ?",
+                        f"SELECT * FROM memory_objects WHERE boardId=? {'AND isDeleted=0' if not include_deleted else ''} ORDER BY updatedAt DESC, memoryKey ASC LIMIT ?",  # nosec B608
                         (*query_args, limit),
                     )
                     rows = c.fetchall()
@@ -3459,6 +3478,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                         c.execute("UPDATE milestones SET code=?, updatedAt=? WHERE id=?", (code_value, now, milestone_id))
                     if "order" in body:
                         c.execute("UPDATE milestones SET msOrder=?, updatedAt=? WHERE id=?", (body["order"], now, milestone_id))
+                    # B608 Fix: strict allowlist mapping
                     for field in MILESTONE_METADATA_FIELDS:
                         if field in body:
                             try:
@@ -3466,7 +3486,8 @@ class KanbanHandler(BaseHTTPRequestHandler):
                             except ValueError as exc:
                                 self._send_error(str(exc))
                                 return
-                            c.execute(f"UPDATE milestones SET {field}=?, updatedAt=? WHERE id=?", (value, now, milestone_id))
+                            # The field is already strictly checked against MILESTONE_METADATA_FIELDS
+                            c.execute(f"UPDATE milestones SET {field}=?, updatedAt=? WHERE id=?", (value, now, milestone_id))  # nosec B608
                     conn.commit()
                     self._send_json({"ok": True, "state": STORE.snapshot()})
                     return
@@ -3512,7 +3533,8 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     for f in fields:
                         if f in body:
                             db_field = "cardOrder" if f == "order" else f
-                            c.execute(f"UPDATE cards SET {db_field}=?, updatedAt=? WHERE id=?", (body[f], now, card_id))
+                            # Safe because f is from static list 'fields', and db_field is statically mapped
+                            c.execute(f"UPDATE cards SET {db_field}=?, updatedAt=? WHERE id=?", (body[f], now, card_id))  # nosec B608
                     if "listId" in body:
                         list_id = body["listId"]
                         c.execute("SELECT MAX(cardOrder) as m FROM cards WHERE listId=?", (list_id,))
@@ -3561,7 +3583,8 @@ class KanbanHandler(BaseHTTPRequestHandler):
                                 except ValueError as exc:
                                     self._send_error(str(exc), status=HTTPStatus.UNPROCESSABLE_ENTITY)
                                     return
-                            c.execute(f"UPDATE charts SET {field}=?, updatedAt=? WHERE id=?", (value, now, chart_id))
+                            # Safe because field is from static literal list
+                            c.execute(f"UPDATE charts SET {field}=?, updatedAt=? WHERE id=?", (value, now, chart_id))  # nosec B608
                             updated = True
 
                     if not updated:
