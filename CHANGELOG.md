@@ -6,6 +6,26 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.54.0] - 2026-03-03
+
+### Added
+- Added canonical `/help` command generation with `HELP.md` workflow output under `.amphion/control-plane/mcd`.
+- Added bundled canonical MCD help source asset:
+  - `assets/referenceDocs/00_Governance/Shipping Quality Software Fast with Micro-Contract Development - Slim.md`
+- Added scaffold/migration materialization of canonical help source into:
+  - `.amphion/control-plane/MCD_HELP_SOURCE.md`
+- Added cross-IDE `/help` adapter generation parity for `.agents`, `.cursor`, `.windsurf`, and top-level rules surfaces.
+
+### Changed
+- Extended adapter command registry to emit `/help` workflows/rules alongside lifecycle and utility commands.
+- Enhanced Agent Controls server management UX with host-authoritative runtime status polling and direct browser-open action for the configured Command Deck port.
+- Added in-panel version label in Agent Controls showing installed `AmphionAgent` extension version.
+- Updated onboarding port prompt to support empty input with default-port fallback behavior.
+
+### Fixed
+- Removed utility tile description dependency for server status by using indicator-only status signal.
+- Normalized server link placement beneath runtime status indicator for clearer operator flow.
+
 ## [1.53.0] - 2026-03-03
 
 ### Added

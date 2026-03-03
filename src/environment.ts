@@ -65,7 +65,7 @@ const DEFAULT_ENVIRONMENT_STATE: AmphionEnvironmentState = {
     lastPromptAt: '',
 };
 
-const ADAPTER_COMMANDS: string[] = ['evaluate', 'contract', 'execute', 'closeout', 'remember', 'docs'];
+const ADAPTER_COMMANDS: string[] = ['evaluate', 'contract', 'execute', 'closeout', 'help', 'remember', 'docs'];
 const CURSOR_EXTRA_COMMANDS: string[] = ['command-deck-api'];
 
 function nowIso(): string {

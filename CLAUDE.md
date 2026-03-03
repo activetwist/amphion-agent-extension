@@ -14,6 +14,7 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
 
 ## Utility Commands
+- **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: `.amphion/control-plane/MCD_HELP_SOURCE.md`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
 ## Operational Rules

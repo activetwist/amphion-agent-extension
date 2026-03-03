@@ -42,6 +42,13 @@ interface CommandDeckHealthPayload {
 }
 
 type CommandDeckHealthStatus = 'canonical' | 'noncanonical' | 'unreachable';
+export type CommandDeckRuntimeStatus = 'online' | 'offline' | 'noncanonical';
+
+export interface RuntimeStatusResult {
+    status: CommandDeckRuntimeStatus;
+    port: string;
+    url: string;
+}
 
 const DEFAULT_PORT = '8765';
 const EXPECTED_RUNTIME_SERVER = 'launch-command-deck';
@@ -72,6 +79,29 @@ export class ServerController {
         } catch {
             return DEFAULT_PORT;
         }
+    }
+
+    public async getPort(root?: vscode.Uri): Promise<string> {
+        const workspaceRoot = this.resolveWorkspaceRoot(root);
+        if (!workspaceRoot) {
+            return DEFAULT_PORT;
+        }
+        return this.readPort(workspaceRoot);
+    }
+
+    public async getRuntimeStatus(root?: vscode.Uri): Promise<RuntimeStatusResult> {
+        const port = await this.getPort(root);
+        const health = await this.healthCheck(port);
+        const status: CommandDeckRuntimeStatus = health === 'canonical'
+            ? 'online'
+            : health === 'noncanonical'
+                ? 'noncanonical'
+                : 'offline';
+        return {
+            status,
+            port,
+            url: `http://127.0.0.1:${port}`,
+        };
     }
 
     private readStoredProcess(root: vscode.Uri): ServerProcessMetadata | undefined {

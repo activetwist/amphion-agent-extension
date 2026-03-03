@@ -1,4 +1,5 @@
 import { ProjectConfig } from '../wizard';
+import { CANONICAL_HELP_SOURCE_PATH } from './commands';
 
 interface ApiPolicyOptions {
     headingLevel?: number;
@@ -138,6 +139,7 @@ function getCommandDescription(command: string, config: ProjectConfig): string {
     if (cmd === 'docs') return `Generate Project Strategy (Charter & PRD) from source documents for ${config.projectName}`;
     if (cmd === 'command-deck-api') return `Resolve Command Deck API contract and schema conventions for ${config.projectName}`;
     if (cmd === 'board') return `Deprecated command: route BOARD requests to CONTRACT task population for ${config.projectName}`;
+    if (cmd === 'help') return `Provide MCD and AmphionAgent help using ${CANONICAL_HELP_SOURCE_PATH}`;
     if (cmd === 'remember') return `Capture a compact memory checkpoint for ${config.projectName} without phase transition`;
     return `Run MCD ${command.toUpperCase()} command for ${config.projectName}`;
 }
@@ -187,6 +189,7 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
 
 ## Utility Commands
+- **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: \`${CANONICAL_HELP_SOURCE_PATH}\`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
 ## Operational Rules
@@ -222,6 +225,7 @@ Before performing any task, the agent must identify the current phase and load t
 4. **Finalize** via the Closeout command.
 
 ## Utility Commands
+- **Help** via the Help command (\`/help\`): [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: \`${CANONICAL_HELP_SOURCE_PATH}\`).
 - **Remember** via the Remember command (\`/remember\`) for non-phase memory checkpoints.
 
 **Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
@@ -257,6 +261,7 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 - **Contract**: Refer to \`.amphion/control-plane/mcd/CONTRACT.md\`
 - **Execute**: Refer to \`.amphion/control-plane/mcd/EXECUTE.md\`
 - **Closeout**: Refer to \`.amphion/control-plane/mcd/CLOSEOUT.md\`
+- **Help**: Refer to \`.amphion/control-plane/mcd/HELP.md\`
 - **Remember**: Refer to \`.amphion/control-plane/mcd/REMEMBER.md\`
 - **Bug**: Refer to \`.amphion/control-plane/mcd/BUG.md\`
 - **Test**: Refer to \`.amphion/control-plane/mcd/TEST.md\`
