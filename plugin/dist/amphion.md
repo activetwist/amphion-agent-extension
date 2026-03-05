@@ -16,12 +16,22 @@ This skill scaffolds a new AmphionAgent project for Micro-Contract Development a
 
 ## Collect Project Configuration
 
-Ask the user for the following (use defaults if not provided):
+Collect configuration conversationally — one question at a time. Do not list all fields upfront. Wait for each response before asking the next.
 
-1. **Project Name** (required): `$ARGUMENTS` or ask if not provided.
-2. **Codename** (required): A short uppercase identifier (e.g., `BLACKCLAW`, `PHOENIX`). Ask the user.
-3. **Initial Version** (optional, default: `v0.01a`): The starting version string.
-4. **Port** (optional, default: `8765`): The Command Deck server port (must be 1024–65535).
+**Step 1 — Project Name (required)**
+If `$ARGUMENTS` is provided, use it as the project name and skip asking. Otherwise ask only:
+> "What's your project name?"
+
+Wait for the response.
+
+**Step 2 — Codename (required)**
+Ask only:
+> "Give it a codename — a short uppercase word. Something like PHOENIX, NOVA, or BLACKCLAW."
+
+Wait for the response.
+
+**Step 3 — Version and Port (optional)**
+Use defaults (`v0.01a` / `8765`) without asking unless the user has already mentioned specific preferences. Do not prompt for these unless relevant.
 
 ### Trademark Guardrail
 
