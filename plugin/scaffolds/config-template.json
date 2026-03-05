@@ -1,0 +1,9 @@
+{
+  "port": "{{PORT}}",
+  "serverLang": "python",
+  "codename": "{{CODENAME}}",
+  "projectName": "{{PROJECT_NAME}}",
+  "initialVersion": "{{INITIAL_VERSION}}",
+  "mcdVersion": "{{MCD_VERSION}}",
+  "commandDeckPath": ".amphion/command-deck"
+}

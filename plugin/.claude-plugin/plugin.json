@@ -1,0 +1,11 @@
+{
+  "name": "amphion-agent",
+  "version": "1.54.0",
+  "description": "Scaffold operator-gated Micro-Contract Development workspaces with governance docs and a local Command Deck.",
+  "author": "Stanton Brooks / Active Twist Consulting Group, LLC",
+  "license": "Proprietary",
+  "keywords": ["mcd", "governance", "project-management", "kanban", "micro-contract"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}
