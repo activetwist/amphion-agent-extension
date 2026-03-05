@@ -43,6 +43,17 @@ No phase skipping is permitted.
 - Canonical write boundary: API-mediated writes only.
 - Memory model: append-only event log + deterministic LWW materialized state + bounded compaction.
 
+## Security Gate Policy
+Security findings discovered during testing must be dispositioned before a closeout seal may be accepted. Disposition is mandatory — not advisory — for MEDIUM and higher severity.
+
+| Severity | Gate Behavior |
+|---|---|
+| **HIGH** | Hard block. Mandatory hotfix contract cycle before seal. Closeout cannot proceed under any circumstances. |
+| **MEDIUM** | Operator hold. Either (a) hotfix contract executed before seal, OR (b) operator explicitly accepts risk: rationale documented in outcomes artifact AND a remediation card committed to the next milestone as a precondition of this closeout. |
+| **LOW / Info** | Non-blocking. Surfaced in outcomes artifact, tracked as tech debt. Closeout may proceed. |
+
+False positives must be annotated with inline rationale (e.g. `# nosec B608 — field from hardcoded constant`) and must not be silently suppressed.
+
 ## Closeout Procedure
 A version is not closed until:
 1. Contract cards in scope are executed/reviewed.
@@ -50,6 +61,7 @@ A version is not closed until:
 3. Outcomes artifact exists in milestone artifacts.
 4. Required source/runtime artifacts are staged.
 5. `closeout:` commit is completed when in scope.
+6. All MEDIUM+ security findings are dispositioned per the Security Gate Policy (remediated or explicitly accepted with documented rationale).
 
 ## Commit Message Format
 ```
@@ -80,3 +92,4 @@ Exception: `GUARDRAILS.md` keeps stable basename.
 - [ ] Agent memory updated and validated via `/api/memory/*`.
 - [ ] Outcomes artifact exists for closed milestone/version.
 - [ ] Git commit completed with all artifacts staged (when closing a version).
+- [ ] Security findings dispositioned per Security Gate Policy — MEDIUM+ must be remediated or explicitly accepted with rationale before seal.

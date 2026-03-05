@@ -1,0 +1,30 @@
+{
+  "name": "amphion-agent",
+  "owner": {
+    "name": "Stanton Brooks",
+    "email": "stanton@activetwist.com"
+  },
+  "metadata": {
+    "description": "AmphionAgent — Micro-Contract Development governance workspace for Claude Code",
+    "version": "1.54.0"
+  },
+  "plugins": [
+    {
+      "name": "amphion-agent",
+      "description": "Full AmphionAgent skill suite: initialize MCD workspace, evaluate, contract, execute, closeout, generate docs, manage server, access help, and write session memory",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./plugin/skills/amphion",
+        "./plugin/skills/evaluate",
+        "./plugin/skills/contract",
+        "./plugin/skills/execute",
+        "./plugin/skills/closeout",
+        "./plugin/skills/docs",
+        "./plugin/skills/server",
+        "./plugin/skills/help",
+        "./plugin/skills/remember"
+      ]
+    }
+  ]
+}
