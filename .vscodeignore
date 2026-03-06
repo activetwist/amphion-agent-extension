@@ -29,3 +29,7 @@ AGENTS.md
 CLAUDE.md
 .clinerules
 .cursorrules
+docs/**
+knowledeTransfer/**
+.pytest_cache/**
+.claude/**

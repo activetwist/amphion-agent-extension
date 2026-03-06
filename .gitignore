@@ -51,3 +51,7 @@ GoldfishBrain/
 # Legacy local runtime state (do not publish)
 ops/launch-command-deck/data/
 mcd-starter-kit-dev/extension/assets/launch-command-deck/data/
+
+# Book prep — internal only, never publish or track
+docs/
+knowledeTransfer/

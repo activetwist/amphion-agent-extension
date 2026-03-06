@@ -159,7 +159,12 @@ async function maybePromptIdeAdapters(root: vscode.Uri): Promise<void> {
 
 export function activate(context: vscode.ExtensionContext) {
     const serverController = new ServerController(context);
-    const sidebarProvider = new AgentControlsSidebarProvider(context.extensionUri, serverController);
+    const extensionVersion = String(context.extension.packageJSON.version ?? '0.0.0');
+    const sidebarProvider = new AgentControlsSidebarProvider(
+        context.extensionUri,
+        serverController,
+        extensionVersion,
+    );
     const sidebarProviderDisposable = vscode.window.registerWebviewViewProvider(
         AgentControlsSidebarProvider.viewType,
         sidebarProvider,

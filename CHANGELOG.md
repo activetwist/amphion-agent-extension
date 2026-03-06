@@ -6,6 +6,85 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.56.0] - 2026-03-06
+
+### Added
+- MCP bridge expanded from 11 to 21 tools — full Command Deck API coverage including `move_card`, `delete_card`, `create_chart`, `update_chart`, `delete_chart`, `update_milestone`, `delete_milestone`, `restore_milestone`, `write_board_artifact`, and `memory_state`.
+- All MCP tool schemas now embed full JSON Schema constraints (enum, pattern, maxLength, description) so agents can write payloads without calling conventions first.
+- MCP bridge server version now reads dynamically from `.amphion/config.json` instead of hardcoded value.
+- `/amphion` skill now downloads from GitHub `/releases/latest/` instead of `refs/heads/main` for stable release resolution.
+- `/amphion` skill extracts `mcdVersion` dynamically from downloaded `package.json` — zero hardcoded version strings.
+- `/amphion` skill detects existing workspaces and offers safe-copy environment update (preserves `amphion.db` and user data).
+- `/amphion` skill scaffolds per-IDE MCP registration: `.mcp.json` (Claude Code), `.vscode/mcp.json` (VS Code/Antigravity), `.cursor/mcp.json` (Cursor).
+- VS Code extension `ensureAdaptersForTargets()` now generates MCP config files per detected IDE target.
+- Three new adapter renderers: `renderClaudeMcpConfig()`, `renderVscodeMcpConfig()`, `renderCursorMcpConfig()`.
+- `mcp-bridge.py` included in Command Deck scaffold for project-level distribution.
+
+### Changed
+- Eliminated "librarian pattern" — agents no longer need to call `GET /api/conventions` before every write operation.
+- Removed conventions-before-writes instructions from 4 skill files (`evaluate`, `contract`, `closeout`, `amphion`).
+- Updated CLAUDE.md scaffold and `adapters.ts` API policy to reflect MCP-first write strategy.
+- API policy tables expanded with `update_card`, `move_card`, `delete_card`, `write_outcomes`, and `query_memory` routes.
+- Context Window protocol simplified: removed conventions call from task-start checklist.
+
+## [1.55.0] - 2026-03-06
+
+### Changed
+- All port resolution now reads exclusively from `.amphion/config.json` — no hard-coded fallback constants anywhere in the runtime.
+- Onboarding pre-populates `8888` as the default port suggestion (was `8765`).
+- All `http://localhost:` URLs replaced with `http://127.0.0.1:` across TypeScript, Python, shell scripts, skill docs, and scaffolds.
+- Shell scripts (`start-server.sh`, `stop-server.sh`, `health-check.sh`, `run.sh`) error cleanly if no config.json port is found instead of falling back to a default.
+- Python `server.py --port` is now required (no default) in all server copies.
+- Migration scripts default port changed from `8765` to `8888`.
+
+### Fixed
+- Fixed onboarding bug where user-selected port was discarded and `8888` was always written to config.json (precedence flip in `scaffolder.ts`).
+- Fixed port type mismatch in onboarding webview (`parseInt` removed — port now sent as string matching `ProjectConfig.port` type).
+- Removed all stale `DEFAULT_PORT = '8765'` constants from `serverController.ts`, `commandDeckDashboard.ts`, and `mcp-bridge.py`.
+
+## [1.54.0] - 2026-03-03
+
+### Added
+- Added canonical `/help` command generation with `HELP.md` workflow output under `.amphion/control-plane/mcd`.
+- Added bundled canonical MCD help source asset:
+  - `assets/referenceDocs/00_Governance/Shipping Quality Software Fast with Micro-Contract Development - Slim.md`
+- Added scaffold/migration materialization of canonical help source into:
+  - `.amphion/control-plane/MCD_HELP_SOURCE.md`
+- Added cross-IDE `/help` adapter generation parity for `.agents`, `.cursor`, `.windsurf`, and top-level rules surfaces.
+
+### Changed
+- Extended adapter command registry to emit `/help` workflows/rules alongside lifecycle and utility commands.
+- Enhanced Agent Controls server management UX with host-authoritative runtime status polling and direct browser-open action for the configured Command Deck port.
+- Added in-panel version label in Agent Controls showing installed `AmphionAgent` extension version.
+- Updated onboarding port prompt to support empty input with default-port fallback behavior.
+
+### Fixed
+- Removed utility tile description dependency for server status by using indicator-only status signal.
+- Normalized server link placement beneath runtime status indicator for clearer operator flow.
+
+## [1.53.0] - 2026-03-03
+
+### Added
+- Added generated Cursor API discoverability artifacts:
+  - `.cursor/rules/command-deck-api.mdc`
+  - `.cursor/commands/command-deck-api.md`
+- Added maintainer drift guard script for IDE API policy parity:
+  - `ops/verify-ide-api-contract.sh`
+- Added `npm run verify:ide-api-contract` script and README maintainer guidance.
+
+### Changed
+- Centralized Command Deck API policy text to a single adapter template source and propagated it across AGENTS/Claude/Cursor/Cline surfaces.
+- Switched `.cursorrules` and `.clinerules` generation to deterministic overwrite semantics to prevent duplicate section drift on regeneration.
+- Updated API guidance wording to explicit configured-port-first resolution:
+  - read `.amphion/config.json` `port`
+  - if missing/invalid use `8765`
+  - base URL `http://localhost:{resolvedPort}`
+
+### Fixed
+- Hardened `/api/state` snapshot ordering against null/malformed order values by introducing null-safe order normalization and deterministic tie-break sorting.
+- Aligned card conventions hint to resolve `listId` from `GET /api/find` (preferred) with `GET /api/state` fallback.
+- Synchronized runtime hardening in both canonical local runtime and packaged launch-command-deck server copies.
+
 ## [1.50.6] - 2026-02-27
 
 ### Fixed

@@ -1,4 +1,91 @@
 import { ProjectConfig } from '../wizard';
+import { CANONICAL_HELP_SOURCE_PATH } from './commands';
+
+interface ApiPolicyOptions {
+    headingLevel?: number;
+    includeContextWindows?: boolean;
+}
+
+function renderCommandDeckApiPolicy(options?: ApiPolicyOptions): string {
+    const requestedHeading = options?.headingLevel ?? 2;
+    const headingLevel = Number.isInteger(requestedHeading)
+        ? Math.min(6, Math.max(1, requestedHeading))
+        : 2;
+    const heading = `${'#'.repeat(headingLevel)} Command Deck API`;
+    const contextWindows = options?.includeContextWindows ?? true;
+    const contextWindowSection = contextWindows ? `
+## Discrete Context Windows
+
+Each MCD contract card is a discrete context window. Treat each card as an isolated task.
+
+**Task start (fresh session):**
+1. \`GET /api/find\` (or \`GET /api/state\`) to resolve active board + milestone.
+2. \`GET /api/memory/query?key=task.{issueNumber}.handoff\` to load prior handoff state if it exists.
+
+**Task completion (before ending session):**
+\`\`\`
+POST /api/memory/events
+{
+  "memoryKey": "task.{issueNumber}.handoff",
+  "eventType": "upsert",
+  "sourceType": "verified-system",
+  "bucket": "ref",
+  "ttlSeconds": 604800,
+  "value": {
+    "issueNumber": "...",
+    "cardTitle": "...",
+    "completedAt": "...",
+    "outcomeArtifactId": "... or null",
+    "summary": "1-2 sentence completion summary",
+    "residualNotes": "anything the next session should know"
+  }
+}
+\`\`\`
+` : '';
+
+    return `${heading}
+
+**ALL board writes MUST use the Command Deck API. Direct SQLite writes, Python scripts, and filesystem substitutes are non-canonical and violate GUARDRAILS write-boundary policy.**
+
+Resolve API location:
+1. Read \`port\` from \`.amphion/config.json\`.
+2. If \`port\` is missing or config.json does not exist, run \`/amphion\` to configure the workspace.
+3. Base URL is \`http://127.0.0.1:{resolvedPort}\`.
+
+All write operations use MCP bridge tools when available. Tool schemas carry full payload definitions (enum, required fields, constraints) — no need to call conventions before writes.
+
+If MCP tools are unavailable, fall back to the REST API:
+
+| Action | Method | Route | Required Fields |
+|---|---|---|---|
+| Read state | GET | \`/api/state\` | — |
+| Find (board map) | GET | \`/api/find\` | — (optional: \`?q=\`, \`?milestoneId=\`, \`?list=\`) |
+| Create chart | POST | \`/api/charts\` | \`boardId\`, \`title\`; opt: \`markdown\`, \`description\` |
+| Create milestone | POST | \`/api/milestones\` | \`boardId\`, \`title\`, \`code\` |
+| Create card | POST | \`/api/cards\` | \`boardId\`, \`milestoneId\`, \`listId\`, \`title\`; opt: \`priority\` (P0-P3), \`kind\` (task|bug) |
+| Update card | PATCH | \`/api/cards/{id}\` | \`boardId\`; opt: \`listId\`, \`title\`, \`priority\`, \`kind\` |
+| Move card | POST | \`/api/cards/{id}/move\` | \`listId\` |
+| Delete card | DELETE | \`/api/cards/{id}\` | — |
+| Write findings | POST | \`/api/milestones/{id}/artifacts\` | \`boardId\`, \`artifactType:findings\`, \`title\`, \`summary\`, \`body\` |
+| Write outcomes | POST | \`/api/milestones/{id}/artifacts\` | \`boardId\`, \`artifactType:outcomes\`, \`title\`, \`summary\`, \`body\` |
+| Write memory | POST | \`/api/memory/events\` | \`memoryKey\`, \`value\`, \`sourceType\`, \`eventType:upsert\` |
+| Query memory | GET | \`/api/memory/query\` | \`?q=\` (key prefix) |
+${contextWindowSection}`;
+}
+
+function renderCommandDeckApiCommandContent(): string {
+    return `Use this command to align agent behavior to the canonical Command Deck API contract.
+
+1. Resolve API base URL from \`.amphion/config.json\`:
+   - read \`port\`
+   - if missing or config.json does not exist, run \`/amphion\` to configure
+   - base URL \`http://127.0.0.1:{resolvedPort}\`
+2. Resolve board context with \`GET /api/find\` (or \`GET /api/state\`).
+3. Perform writes through MCP bridge tools (preferred) or canonical API routes. Never write SQLite/files directly.
+4. MCP tool schemas embed full payload definitions — no need to call conventions before writes.
+
+${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}`;
+}
 
 export function renderAntigravityWorkflow(command: string, config: ProjectConfig): string {
     const cmdUpper = command.toUpperCase();
@@ -49,7 +136,9 @@ ${content}
 function getCommandDescription(command: string, config: ProjectConfig): string {
     const cmd = command.toLowerCase();
     if (cmd === 'docs') return `Generate Project Strategy (Charter & PRD) from source documents for ${config.projectName}`;
+    if (cmd === 'command-deck-api') return `Resolve Command Deck API contract and schema conventions for ${config.projectName}`;
     if (cmd === 'board') return `Deprecated command: route BOARD requests to CONTRACT task population for ${config.projectName}`;
+    if (cmd === 'help') return `Provide MCD and AmphionAgent help using ${CANONICAL_HELP_SOURCE_PATH}`;
     if (cmd === 'remember') return `Capture a compact memory checkpoint for ${config.projectName} without phase transition`;
     return `Run MCD ${command.toUpperCase()} command for ${config.projectName}`;
 }
@@ -65,6 +154,9 @@ function getCommandContent(command: string): string {
 4.  **Derive PRD**: Fill every section marked \`*[Derive from source documents]*\` in the latest High-Level PRD in \`.amphion/control-plane/\`.
 5.  **Cleanup**: Remove any remaining stub markers or introductory agent instructions from both the Charter and the PRD.
 6.  **Completion**: Once finished, tell the user: "The Project PRD and Strategy documents are complete! Please return to the Onboarding WebUI and click **Complete & Launch Command Deck**."`;
+    }
+    if (cmd === 'command-deck-api') {
+        return renderCommandDeckApiCommandContent();
     }
 
     const cmdUpper = command.toUpperCase();
@@ -96,6 +188,7 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
 
 ## Utility Commands
+- **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: \`${CANONICAL_HELP_SOURCE_PATH}\`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
 
 ## Operational Rules
@@ -103,6 +196,8 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 2. Always read the corresponding command file before starting a phase.
 3. Ensure approved contract cards exist on the board before performing any \`EXECUTE\` actions.
 4. Maintain deterministic naming for all artifacts and records.
+
+${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}
 
 ## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
@@ -129,6 +224,7 @@ Before performing any task, the agent must identify the current phase and load t
 4. **Finalize** via the Closeout command.
 
 ## Utility Commands
+- **Help** via the Help command (\`/help\`): [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: \`${CANONICAL_HELP_SOURCE_PATH}\`).
 - **Remember** via the Remember command (\`/remember\`) for non-phase memory checkpoints.
 
 **Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
@@ -136,6 +232,8 @@ Before performing any task, the agent must identify the current phase and load t
 ## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.
 2. **Observability**: Always keep the Command Deck updated by creating/updating contract cards in the active milestone.
+
+${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}
 `;
 }
 
@@ -162,6 +260,65 @@ This repository is governed by the Micro-Contract Development (MCD) protocol.
 - **Contract**: Refer to \`.amphion/control-plane/mcd/CONTRACT.md\`
 - **Execute**: Refer to \`.amphion/control-plane/mcd/EXECUTE.md\`
 - **Closeout**: Refer to \`.amphion/control-plane/mcd/CLOSEOUT.md\`
+- **Help**: Refer to \`.amphion/control-plane/mcd/HELP.md\`
 - **Remember**: Refer to \`.amphion/control-plane/mcd/REMEMBER.md\`
+- **Bug**: Refer to \`.amphion/control-plane/mcd/BUG.md\`
+- **Test**: Refer to \`.amphion/control-plane/mcd/TEST.md\`
+
+${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}
 `;
+}
+
+export function renderClineRules(config: ProjectConfig): string {
+    return renderCursorRules(config).replace('# Cursor Rules', '# Cline Rules');
+}
+
+// -- MCP config renderers --
+// Each IDE uses a different key and file path for MCP server registration.
+
+const MCP_BRIDGE_PATH = '.amphion/command-deck/scripts/mcp-bridge.py';
+
+/**
+ * Claude Code / Cline: .mcp.json with "mcpServers" key.
+ */
+export function renderClaudeMcpConfig(): string {
+    return JSON.stringify({
+        mcpServers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
+}
+
+/**
+ * VS Code (Copilot) / Antigravity: .vscode/mcp.json with "servers" key.
+ */
+export function renderVscodeMcpConfig(): string {
+    return JSON.stringify({
+        servers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
+}
+
+/**
+ * Cursor: .cursor/mcp.json with "mcpServers" key.
+ */
+export function renderCursorMcpConfig(): string {
+    return JSON.stringify({
+        mcpServers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
 }

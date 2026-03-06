@@ -1,5 +1,7 @@
 import { ProjectConfig } from '../wizard';
 
+export const CANONICAL_HELP_SOURCE_PATH = '.amphion/control-plane/MCD_HELP_SOURCE.md';
+
 export function renderEvaluate(config: ProjectConfig): string {
     return `# EVALUATE · ${config.projectName}
 
@@ -159,6 +161,33 @@ Use this command to capture a compact memory checkpoint without changing lifecyc
 - [ ] Memory event(s) recorded in SQLite authority via \`/api/memory/events\`.
 - [ ] Memory state verification evidence (\`/api/memory/state\` or \`/api/memory/query\`).
 - [ ] Brief user-facing confirmation that memory checkpoint was recorded.
+`;
+}
+
+export function renderHelp(config: ProjectConfig): string {
+    return `# HELP · ${config.projectName}
+
+**Type:** Utility Command (Non-Phase)
+**Status:** Canonical Instruction Set
+**Codename:** \`${config.codename}\`
+
+## When to Use
+Invoke this command when the operator asks for guidance on AmphionAgent usage or the MCD methodology.
+
+## Inputs
+- [ ] User help request
+- [ ] Canonical help source: \`${CANONICAL_HELP_SOURCE_PATH}\`
+- [ ] Governance context: \`.amphion/control-plane/GUARDRAILS.md\`
+
+## Instructions
+1. **Load Canonical Source**: Read \`${CANONICAL_HELP_SOURCE_PATH}\` before answering.
+2. **Answer Grounded in Source**: Use the canonical help source as the primary authority for MCD and AmphionAgent guidance.
+3. **Fallback Sources**: If required details are missing, use \`.amphion/control-plane/MCD_PLAYBOOK.md\` and \`.amphion/control-plane/GUARDRAILS.md\`.
+4. **Response Quality**: Provide direct, actionable help. Clearly label assumptions.
+5. **No Side Effects**: Do not modify board state, files, or lifecycle phase while serving \`/help\`.
+
+## Output
+- [ ] Operator receives a concise answer grounded in canonical local help sources.
 `;
 }
 

@@ -9,8 +9,9 @@ export class AgentControlsSidebarProvider implements vscode.WebviewViewProvider 
 
     constructor(
         private readonly extensionUri: vscode.Uri,
-        private readonly serverController: ServerController
-    ) {}
+        private readonly serverController: ServerController,
+        private readonly extensionVersion: string,
+    ) { }
 
     public resolveWebviewView(webviewView: vscode.WebviewView): void {
         this.disposeViewDisposables();
@@ -20,12 +21,14 @@ export class AgentControlsSidebarProvider implements vscode.WebviewViewProvider 
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'assets')],
         };
-        webviewView.webview.html = CommandDeckDashboard.getHtmlForWebview();
+
         CommandDeckDashboard.registerMessageHandlers(
             webviewView.webview,
             this._viewDisposables,
             this.serverController
         );
+
+        void this.render(webviewView);
 
         this._viewDisposables.push(
             webviewView.onDidDispose(() => {
@@ -44,6 +47,17 @@ export class AgentControlsSidebarProvider implements vscode.WebviewViewProvider 
         await vscode.commands.executeCommand(`${AgentControlsSidebarProvider.viewType}.focus`);
     }
 
+    private async render(webviewView: vscode.WebviewView): Promise<void> {
+        const port = await this.serverController.getPort();
+        if (this._view !== webviewView) {
+            return;
+        }
+        webviewView.webview.html = CommandDeckDashboard.getHtmlForWebview({
+            port,
+            version: this.extensionVersion,
+        });
+    }
+
     private disposeViewDisposables(): void {
         while (this._viewDisposables.length > 0) {
             const disposable = this._viewDisposables.pop();
@@ -51,4 +65,3 @@ export class AgentControlsSidebarProvider implements vscode.WebviewViewProvider 
         }
     }
 }
-

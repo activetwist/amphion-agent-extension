@@ -6,7 +6,16 @@ import { exec } from 'child_process';
 import { ProjectConfig } from './wizard';
 import { renderGuardrails } from './templates/guardrails';
 import { getPlaybookContent } from './templates/playbook';
-import { renderEvaluate, renderBoard, renderContract, renderExecute, renderCloseout, renderRemember } from './templates/commands';
+import {
+    CANONICAL_HELP_SOURCE_PATH,
+    renderEvaluate,
+    renderBoard,
+    renderContract,
+    renderExecute,
+    renderCloseout,
+    renderRemember,
+    renderHelp
+} from './templates/commands';
 import { generateMermaidExampleTemplate } from './templates/mermaidExample';
 import {
     detectIdeTargets,
@@ -31,6 +40,8 @@ const CONFLICT_CHECK_DIRS = [
     'ops/launch-command-deck', // legacy fallback/migration path
 ];
 
+const CANONICAL_HELP_SOURCE_ASSET_PATH = 'assets/referenceDocs/00_Governance/Shipping Quality Software Fast with Micro-Contract Development - Slim.md';
+
 interface AmphionConfigFile {
     port?: string | number;
     serverLang?: 'python' | string;
@@ -45,6 +56,19 @@ async function writeFile(root: vscode.Uri, relativePath: string, content: string
     const uri = vscode.Uri.joinPath(root, relativePath);
     const encoder = new TextEncoder();
     await vscode.workspace.fs.writeFile(uri, encoder.encode(content));
+}
+
+async function copyBundledFile(
+    root: vscode.Uri,
+    extensionUri: vscode.Uri,
+    sourceRelativePath: string,
+    destinationRelativePath: string
+): Promise<void> {
+    const sourceSegments = sourceRelativePath.split('/').filter(Boolean);
+    const sourceUri = vscode.Uri.joinPath(extensionUri, ...sourceSegments);
+    const destinationUri = vscode.Uri.joinPath(root, destinationRelativePath);
+    const bytes = await vscode.workspace.fs.readFile(sourceUri);
+    await vscode.workspace.fs.writeFile(destinationUri, bytes);
 }
 
 async function appendOrWriteFile(root: vscode.Uri, relativePath: string, content: string): Promise<void> {
@@ -270,7 +294,7 @@ function normalizeProjectConfig(raw: AmphionConfigFile): ProjectConfig {
         serverLang: 'python',
         codename: typeof raw.codename === 'string' && raw.codename.trim().length > 0 ? raw.codename : 'BLACKCLAW',
         initialVersion: typeof raw.initialVersion === 'string' && raw.initialVersion.trim().length > 0 ? raw.initialVersion : '0.1.0',
-        port: String(raw.port ?? '8765')
+        port: String(raw.port ?? '')
     };
 }
 
@@ -318,12 +342,14 @@ export async function migrateEnvironment(
     const projectConfig = toProjectConfig(runtimeConfig);
     await repairGeneratedGuardrailsDoc(root, '.amphion/control-plane/GUARDRAILS.md', renderGuardrails(projectConfig));
     await writeFile(root, '.amphion/control-plane/MCD_PLAYBOOK.md', getPlaybookContent());
+    await copyBundledFile(root, extensionUri, CANONICAL_HELP_SOURCE_ASSET_PATH, CANONICAL_HELP_SOURCE_PATH);
     await writeFile(root, `${mcdDir}/EVALUATE.md`, renderEvaluate(projectConfig));
     await writeFile(root, `${mcdDir}/BOARD.md`, renderBoard(projectConfig));
     await writeFile(root, `${mcdDir}/CONTRACT.md`, renderContract(projectConfig));
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(projectConfig));
     await repairGeneratedCloseoutDoc(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(projectConfig));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(projectConfig));
+    await writeFile(root, `${mcdDir}/HELP.md`, renderHelp(projectConfig));
 
     const deckSrc = vscode.Uri.joinPath(extensionUri, 'assets', 'launch-command-deck');
     const deckDest = resolveCommandDeckPath(root, runtimeConfig);
@@ -388,8 +414,9 @@ export async function buildScaffold(
     }
 
     // 1.5 Write config context (.amphion canonical with ops compatibility mirror).
+    const existingRuntimeConfig = await readRuntimeConfig(root);
     const runtimeConfig = {
-        port: config.port,
+        port: config.port || existingRuntimeConfig.port,
         serverLang: 'python' as const,
         codename: config.codename,
         projectName: config.projectName,
@@ -415,6 +442,7 @@ export async function buildScaffold(
         '.amphion/control-plane/MCD_PLAYBOOK.md',
         getPlaybookContent()
     );
+    await copyBundledFile(root, extensionUri, CANONICAL_HELP_SOURCE_ASSET_PATH, CANONICAL_HELP_SOURCE_PATH);
 
     // 4. Write Canonical Commands
     const mcdDir = '.amphion/control-plane/mcd';
@@ -424,6 +452,7 @@ export async function buildScaffold(
     await writeFile(root, `${mcdDir}/EXECUTE.md`, renderExecute(config));
     await writeFile(root, `${mcdDir}/CLOSEOUT.md`, renderCloseout(config));
     await writeFile(root, `${mcdDir}/REMEMBER.md`, renderRemember(config));
+    await writeFile(root, `${mcdDir}/HELP.md`, renderHelp(config));
 
     // 5. Generate only adapters needed for detected environment.
     const targets = await detectIdeTargets(root);
@@ -479,7 +508,7 @@ export async function launchCommandDeck(root: vscode.Uri, config: ProjectConfig)
     }
     vscode.window.showInformationMessage(result.message);
 
-    const url = `http://localhost:${result.port || config.port}`;
+    const url = `http://127.0.0.1:${result.port || config.port}`;
 
     setTimeout(() => {
         // Reveal the sidebar-hosted Agent Controls view

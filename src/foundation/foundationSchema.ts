@@ -33,6 +33,12 @@ export interface AIContext {
     providers: string[];
     multiModel: boolean;
     safetyNotes: string[];
+    agentProtocol?: {
+        apiGateway: string;
+        navigationEndpoint: string;
+        conventionsEndpoint: string;
+        contextWindowProtocol: string;
+    };
 }
 
 export interface ConstraintContext {
@@ -40,6 +46,10 @@ export interface ConstraintContext {
     data: string;
     security: string[];
     performance: string[];
+    testingSuites: {
+        unit: string[];
+        security: string[];
+    };
     outOfScope: string[];
     ai: AIContext;
 }

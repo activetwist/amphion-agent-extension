@@ -71,3 +71,11 @@ Publisher: `active-twist`
 
 - The Command Deck runs locally (`127.0.0.1`) and does not require cloud services.
 - Architecture diagrams in governance docs are expected to use Mermaid.js.
+
+## Maintainer Checks
+
+Run the IDE API contract drift guard after adapter/template changes:
+
+```bash
+npm run verify:ide-api-contract
+```

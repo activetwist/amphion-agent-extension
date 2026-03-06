@@ -25,6 +25,8 @@ interface GuidedSubmissionData {
     deploy: string;
     dataStore: string;
     security: string[];
+    testingUnit: string;
+    testingSecurity: string;
     openQs: string;
 }
 
@@ -242,6 +244,8 @@ export class OnboardingPanel {
             deploy: toString(data.deploy),
             dataStore: toString(data.dataStore),
             security: toStringArray(data.security),
+            testingUnit: toString(data.testingUnit),
+            testingSecurity: toString(data.testingSecurity),
             openQs: toString(data.openQs),
         };
     }
@@ -301,6 +305,14 @@ export class OnboardingPanel {
                 data: data.dataStore.trim(),
                 security: cleanArray(data.security),
                 performance: [],
+                testingSuites: {
+                    unit: data.testingUnit.trim()
+                        ? data.testingUnit.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+                        : [],
+                    security: data.testingSecurity.trim()
+                        ? data.testingSecurity.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+                        : [],
+                },
                 outOfScope: [],
                 ai: {
                     usesAI: false,
@@ -526,7 +538,7 @@ export class OnboardingPanel {
                 <div style="display: flex; gap: 16px;">
                     <div class="form-group" style="flex: 1;">
                         <label>Port</label>
-                        <input type="text" id="initPort" value="8765">
+                        <input type="text" id="initPort" value="8888">
                         <span class="hint">Command Deck port.</span>
                     </div>
                     <div class="form-group" style="flex: 1;">
@@ -795,10 +807,23 @@ export class OnboardingPanel {
                     </select>
                 </div>
 
-                <!-- H. Wrap up -->
-                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">H. Notes</h4>
+                <!-- H. Testing Suites -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">H. Testing Suites <span style="font-weight: 400; color: #8b949e;">(Optional)</span></h4>
                 <div class="form-group">
-                    <label>18. Open questions (optional)</label>
+                    <label>18. Unit testing tools</label>
+                    <input type="text" id="guidedTestingUnit" placeholder="e.g. pytest, vitest">
+                    <span class="hint">Comma separated. Leave blank to skip.</span>
+                </div>
+                <div class="form-group">
+                    <label>19. Security testing tools</label>
+                    <input type="text" id="guidedTestingSecurity" placeholder="e.g. bandit, npm audit, semgrep">
+                    <span class="hint">Comma separated. Leave blank to skip.</span>
+                </div>
+
+                <!-- I. Notes -->
+                <h4 style="margin: 32px 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--mcd-border);">I. Notes</h4>
+                <div class="form-group">
+                    <label>20. Open questions (optional)</label>
                     <input type="text" id="guidedOpenQs" placeholder="e.g. Which VPS provider? Stripe vs LemonSqueezy?">
                     <span class="hint">Comma separated.</span>
                 </div>
@@ -905,7 +930,7 @@ export class OnboardingPanel {
                 const data = {
                     projectName: document.getElementById('initProjectName').value,
                     codename: document.getElementById('initCodename').value,
-                    port: parseInt(document.getElementById('initPort').value) || 4000,
+                    port: document.getElementById('initPort').value.trim() || '8888',
                     initialVersion: document.getElementById('initVersion').value,
                     serverLang: 'python'
                 };
@@ -1038,6 +1063,8 @@ export class OnboardingPanel {
                     deploy: document.getElementById('guidedDeploy').value,
                     dataStore: document.getElementById('guidedDataStore').value,
                     security,
+                    testingUnit: getInputValue('guidedTestingUnit'),
+                    testingSecurity: getInputValue('guidedTestingSecurity'),
                     openQs: getInputValue('guidedOpenQs')
                 };
 

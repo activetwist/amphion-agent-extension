@@ -16,26 +16,28 @@ Optional host/port overrides:
 KANBAN_HOST=127.0.0.1 KANBAN_PORT=8766 ./run.sh
 ```
 
-Or directly:
+Or directly (port is required — read from `.amphion/config.json`):
 ```bash
-python3 server.py --host 127.0.0.1 --port 8765
+python3 server.py --host 127.0.0.1 --port {port}
 ```
 
 Open in browser:
-- `http://127.0.0.1:<PORT>`
+- `http://127.0.0.1:{port}`
+
+The project's configured port (used by the extension and agents) is in `.amphion/config.json` under `port`. This is the single source of truth — there is no fallback default.
 
 ## Runtime verification
 Verify the canonical runtime before debugging browser behavior.
 
 1. Confirm listener process:
 ```bash
-lsof -nP -iTCP:8765 -sTCP:LISTEN
+lsof -nP -iTCP:{port} -sTCP:LISTEN
 ```
 Expected runtime: `COMMAND` is `python3` (or equivalent Python executable).
 
 2. Confirm health/runtime fingerprint:
 ```bash
-curl -sS http://127.0.0.1:8765/api/health | jq
+curl -sS http://127.0.0.1:{port}/api/health | jq
 ```
 Expected payload includes:
 - `runtime.server = "launch-command-deck"`
