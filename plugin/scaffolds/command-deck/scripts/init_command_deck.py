@@ -426,7 +426,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Initialize Launch Command Deck (SQLite) for a project")
     parser.add_argument("--project-name", required=True, help="Project name")
     parser.add_argument("--codename", default="Genesis", help="Project codename")
-    parser.add_argument("--initial-version", default="v0.01a", help="Initial project version")
+    parser.add_argument("--initial-version", default="0.1.0", help="Initial project version")
     parser.add_argument("--milestone-title", default="Version 0a Pre-Release", help="Initial milestone title")
     parser.add_argument(
         "--seed-template",

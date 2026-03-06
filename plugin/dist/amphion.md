@@ -11,8 +11,113 @@ This skill scaffolds a new AmphionAgent project for Micro-Contract Development a
 ## Pre-Check
 
 1. Check if `.amphion/` already exists in the project root.
-   - If it exists, inform the user: "This project already has an AmphionAgent workspace. Use `/server start` to launch the Command Deck, or `/docs` to generate strategy documents."
-   - Do not overwrite an existing workspace.
+   - If it does **not** exist, proceed to **Collect Project Configuration** below.
+   - If it **does** exist, run the **Environment Update** flow instead:
+
+### Environment Update (existing workspace)
+
+When `.amphion/` exists, compare the installed version against the latest release and offer to update:
+
+1. Read installed version, resolve the latest release from GitHub, and download — run as a **single command**:
+   ```bash
+   python3 - << 'PYEOF'
+   import subprocess, json, os, sys
+
+   # Read installed version
+   try:
+       with open(".amphion/config.json") as f:
+           installed = json.load(f).get("mcdVersion", "0.0.0")
+   except Exception:
+       installed = "0.0.0"
+   print(f"Installed version: {installed}")
+
+   # Resolve latest release via curl → GitHub API (avoids Python SSL cert issues on macOS)
+   r = subprocess.run(
+       ["curl", "-sf", "-H", "User-Agent: AmphionAgent",
+        "https://api.github.com/repos/activetwist/amphion-agent-extension/releases/latest"],
+       capture_output=True, text=True
+   )
+   url = "https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz"
+   tag = ""
+   try:
+       data = json.loads(r.stdout)
+       tag = data["tag_name"]
+       url = f"https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/{tag}.tar.gz"
+       print(f"Latest release: {tag}")
+   except Exception as e:
+       print(f"Could not check for updates ({e}). You have version {installed}.")
+       sys.exit(0)
+
+   # Download and extract
+   os.makedirs("/tmp/amphion-dl", exist_ok=True)
+   r = subprocess.run(
+       ["bash", "-c", f"curl -sL '{url}' | tar xz -C /tmp/amphion-dl --strip-components=1"]
+   )
+   if r.returncode != 0:
+       print("Download failed. Check your network connection.")
+       sys.exit(1)
+
+   # Get latest version from downloaded package.json
+   try:
+       with open("/tmp/amphion-dl/package.json") as f:
+           latest = json.load(f).get("version", "0.0.0")
+   except Exception:
+       latest = tag.lstrip("v") if tag else "0.0.0"
+   print(f"Latest version: {latest}")
+   PYEOF
+   ```
+
+2. Compare versions using the `Installed version` and `Latest version` printed above:
+   - If `Installed version` >= `Latest version`: inform the user "Your AmphionAgent workspace is up to date (v{installed}). Use `/server start` to launch the Command Deck." and **stop**.
+   - If `Latest version` > `Installed version`: ask the user:
+     > "A new version of AmphionAgent is available (v{latest}, you have v{installed}). Would you like to update? Your data (board, context documents) will be preserved."
+
+3. If the user approves the update, perform a **safe-copy update**:
+
+   a. **Update governance docs** (overwrite templates, preserve user content):
+   ```bash
+   cp -R /tmp/amphion-dl/plugin/scaffolds/control-plane/* .amphion/control-plane/
+   ```
+   Then re-apply placeholder replacements (`{{PROJECT_NAME}}`, `{{CODENAME}}`, etc.) using values from `.amphion/config.json`.
+
+   b. **Update Command Deck assets** (skip the database to preserve user data):
+   ```bash
+   # Copy everything EXCEPT the database
+   rsync -a --exclude='amphion.db' --exclude='amphion.db-wal' --exclude='amphion.db-shm' \
+     /tmp/amphion-dl/plugin/scaffolds/command-deck/ .amphion/command-deck/
+   ```
+   If `rsync` is not available, copy files manually but **never overwrite** `amphion.db`, `amphion.db-wal`, or `amphion.db-shm`.
+
+   c. **Update project-level skills**:
+   ```bash
+   for skill_dir in /tmp/amphion-dl/plugin/skills/*/; do
+     skill_name=$(basename "$skill_dir")
+     cp "$skill_dir/SKILL.md" ".claude/commands/${skill_name}.md"
+   done
+   ```
+
+   d. **Update CLAUDE.md** from template:
+   ```bash
+   cp /tmp/amphion-dl/plugin/scaffolds/CLAUDE.md ./CLAUDE.md
+   ```
+   Then re-apply placeholder replacements using values from `.amphion/config.json`.
+
+   e. **Update mcdVersion** in `.amphion/config.json` — replace `{latest}` with the `Latest version` value printed in step 1:
+   ```bash
+   python3 -c "
+   import json
+   with open('.amphion/config.json', 'r') as f:
+       config = json.load(f)
+   config['mcdVersion'] = '{latest}'
+   with open('.amphion/config.json', 'w') as f:
+       json.dump(config, f, indent=2)
+       f.write('\n')
+   "
+   ```
+
+   f. **Confirm**: Tell the user "AmphionAgent workspace updated to v{latest}. Your board data and context documents are preserved. Use `/server start` to launch the updated Command Deck."
+
+4. **Stop** — do not continue to the fresh-init flow below.
 
 ## Collect Project Configuration
 
@@ -30,8 +135,17 @@ Ask only:
 
 Wait for the response.
 
-**Step 3 — Version and Port (optional)**
-Use defaults (`v0.01a` / `8765`) without asking unless the user has already mentioned specific preferences. Do not prompt for these unless relevant.
+**Step 3 — Version (required)**
+Ask only:
+> "What version are you starting at? (default: 0.1.0)"
+
+If the user skips or accepts the default, use `0.1.0`. Wait for the response.
+
+**Step 4 — Port (required)**
+Ask only:
+> "What port should the Command Deck run on? (default: 8888)"
+
+If the user skips or accepts the default, use `8888`. Write the chosen port to `config.json`. This is the single source of truth for all port resolution.
 
 ### Trademark Guardrail
 
@@ -45,15 +159,41 @@ Do NOT proceed until the user either confirms ownership or provides a different 
 
 Once configuration is confirmed, download the AmphionAgent scaffold bundle from GitHub and set up the project.
 
-### Step 1: Download scaffold bundle from GitHub
+### Step 1: Download latest release from GitHub
+
+Resolve the latest release tag via the GitHub API and download it — run as a **single command**:
 
 ```bash
-mkdir -p /tmp/amphion-dl && \
-curl -sL https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz | \
-  tar xz -C /tmp/amphion-dl --strip-components=1
+python3 - << 'PYEOF'
+import subprocess, json, os, sys
+
+# Resolve latest release via curl → GitHub API (avoids Python SSL cert issues on macOS)
+r = subprocess.run(
+    ["curl", "-sf", "-H", "User-Agent: AmphionAgent",
+     "https://api.github.com/repos/activetwist/amphion-agent-extension/releases/latest"],
+    capture_output=True, text=True
+)
+url = "https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz"
+try:
+    data = json.loads(r.stdout)
+    tag = data["tag_name"]
+    url = f"https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/{tag}.tar.gz"
+    print(f"Downloading AmphionAgent {tag}...")
+except Exception as e:
+    print(f"Warning: could not resolve latest release ({e}). Using main branch.")
+
+os.makedirs("/tmp/amphion-dl", exist_ok=True)
+r = subprocess.run(
+    ["bash", "-c", f"curl -sL '{url}' | tar xz -C /tmp/amphion-dl --strip-components=1"]
+)
+if r.returncode != 0:
+    print("Download failed. Check your network connection.")
+    sys.exit(1)
+print("Download complete.")
+PYEOF
 ```
 
-If the download fails, inform the user: "Could not download AmphionAgent scaffolds from GitHub. Check your network connection and try again."
+If the script exits with an error, inform the user: "Could not download AmphionAgent scaffolds from GitHub. Check your network connection and try again."
 
 The extracted files will be at `/tmp/amphion-dl/plugin/scaffolds/` and `/tmp/amphion-dl/plugin/skills/`.
 
@@ -98,6 +238,12 @@ In every copied file under `.amphion/control-plane/`, replace these placeholder 
 
 ### Step 4: Write config.json
 
+Extract the version from the downloaded `package.json` to use as `mcdVersion`:
+
+```bash
+MCD_VERSION=$(python3 -c "import json; print(json.load(open('/tmp/amphion-dl/package.json')).get('version','0.0.0'))" 2>/dev/null || echo "0.0.0")
+```
+
 Create `.amphion/config.json`:
 ```json
 {
@@ -106,10 +252,12 @@ Create `.amphion/config.json`:
   "codename": "{codename}",
   "projectName": "{projectName}",
   "initialVersion": "{initialVersion}",
-  "mcdVersion": "1.54.0",
+  "mcdVersion": "{MCD_VERSION}",
   "commandDeckPath": ".amphion/command-deck"
 }
 ```
+
+Where `{MCD_VERSION}` is the version extracted above (e.g. `1.55.0`). Do NOT hardcode a version string.
 
 ### Step 5: Generate CLAUDE.md
 
@@ -133,13 +281,71 @@ done
 
 This installs: `/amphion`, `/docs`, `/evaluate`, `/contract`, `/execute`, `/closeout`, `/help`, `/remember`, `/server`
 
-### Step 7: Clean up temp files
+### Step 7: Register MCP bridge for Command Deck access
+
+Create the MCP server registration so the IDE can discover the Command Deck bridge without bash permission prompts.
+
+**For Claude Code** (always create — this is the primary target):
+```bash
+cat > .mcp.json << 'MCPEOF'
+{
+  "mcpServers": {
+    "amphion-command-deck": {
+      "command": "python3",
+      "args": [".amphion/command-deck/scripts/mcp-bridge.py"],
+      "env": {}
+    }
+  }
+}
+MCPEOF
+```
+
+**For VS Code / Antigravity** (create if `.vscode/` exists):
+```bash
+if [ -d ".vscode" ]; then
+  mkdir -p .vscode
+  cat > .vscode/mcp.json << 'MCPEOF'
+{
+  "servers": {
+    "amphion-command-deck": {
+      "command": "python3",
+      "args": [".amphion/command-deck/scripts/mcp-bridge.py"],
+      "env": {}
+    }
+  }
+}
+MCPEOF
+fi
+```
+
+**For Cursor** (create if `.cursor/` or `.cursorrc` exists):
+```bash
+if [ -d ".cursor" ] || [ -f ".cursorrc" ]; then
+  mkdir -p .cursor
+  cat > .cursor/mcp.json << 'MCPEOF'
+{
+  "mcpServers": {
+    "amphion-command-deck": {
+      "command": "python3",
+      "args": [".amphion/command-deck/scripts/mcp-bridge.py"],
+      "env": {}
+    }
+  }
+}
+MCPEOF
+fi
+```
+
+**For Windsurf**: Windsurf uses a global config file (`~/.codeium/windsurf/mcp_config.json`). Inform the user:
+> "Windsurf uses a global MCP config. To enable Command Deck access, add the amphion-command-deck server entry to `~/.codeium/windsurf/mcp_config.json`."
+
+### Step 8: Clean up temp files
 
 ```bash
 rm -rf /tmp/amphion-dl
 ```
 
-### Step 8: Initialize the Command Deck database
+### Step 9: Initialize the Command Deck database
 
 Run the initialization script:
 ```bash
@@ -150,16 +356,16 @@ If the init script does not exist, start the server directly — it will create 
 python3 .amphion/command-deck/server.py --port {port} &
 ```
 
-### Step 9: Verify server
+### Step 10: Verify server
 
 1. Wait 2 seconds for the server to start.
-2. Verify health: `curl -s http://localhost:{port}/api/health`
-3. Open the Command Deck dashboard: `open http://localhost:{port}`
+2. Verify health: `curl -s http://127.0.0.1:{port}/api/health`
+3. Open the Command Deck dashboard: `open http://127.0.0.1:{port}`
 4. Report to the user:
    - "AmphionAgent workspace initialized for **{projectName}** (`{codename}`)."
-   - "Command Deck running at http://localhost:{port}"
+   - "Command Deck running at http://127.0.0.1:{port}"
 
-## Step 10: Strategy Initialization Process (SIP)
+## Step 11: Strategy Initialization Process (SIP)
 
 Now guide the user through creating their foundational strategy documents. Present the three options:
 
@@ -236,10 +442,9 @@ Skip to **Completion** below.
 ## Write Strategy Artifacts
 
 1. Read port from `.amphion/config.json`.
-2. `GET http://localhost:{port}/api/state` to resolve `activeBoardId`.
-3. `GET http://localhost:{port}/api/conventions?intent=board-artifact` for the payload schema.
+2. `GET http://127.0.0.1:{port}/api/state` to resolve `activeBoardId`.
 
-4. Generate the **Charter** markdown:
+3. Generate the **Charter** markdown:
 ```
 # Project Charter — {projectName}
 
@@ -346,7 +551,7 @@ Date: `{date}`
 
 6. Write the Charter artifact:
    ```
-   POST http://localhost:{port}/api/boards/{boardId}/artifacts
+   POST http://127.0.0.1:{port}/api/boards/{boardId}/artifacts
    {
      "artifactType": "charter",
      "title": "Project Charter — {projectName}",
@@ -357,7 +562,7 @@ Date: `{date}`
 
 7. Write the PRD artifact:
    ```
-   POST http://localhost:{port}/api/boards/{boardId}/artifacts
+   POST http://127.0.0.1:{port}/api/boards/{boardId}/artifacts
    {
      "artifactType": "prd",
      "title": "High-Level PRD — {projectName}",
@@ -372,5 +577,5 @@ Date: `{date}`
 
 Report to the user:
 - "Project Charter and High-Level PRD have been generated and saved to the Command Deck."
-- "You can view them in the Command Deck dashboard at http://localhost:{port}"
+- "You can view them in the Command Deck dashboard at http://127.0.0.1:{port}"
 - "To begin your first MCD cycle, run `/evaluate`."

@@ -135,11 +135,14 @@ Ask only:
 
 Wait for the response.
 
-**Step 3 — Version (optional)**
-Use default `v0.01a` for version without asking unless the user has already mentioned a specific preference.
+**Step 3 — Version (required)**
+Ask only:
+> "What version are you starting at? (default: 0.1.0)"
+
+If the user skips or accepts the default, use `0.1.0`. Wait for the response.
 
 **Step 4 — Port (required)**
-Always ask:
+Ask only:
 > "What port should the Command Deck run on? (default: 8888)"
 
 If the user skips or accepts the default, use `8888`. Write the chosen port to `config.json`. This is the single source of truth for all port resolution.
