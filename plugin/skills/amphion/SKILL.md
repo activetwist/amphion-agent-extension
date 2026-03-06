@@ -30,8 +30,14 @@ Ask only:
 
 Wait for the response.
 
-**Step 3 — Version and Port (optional)**
-Use defaults (`v0.01a` / `8765`) without asking unless the user has already mentioned specific preferences. Do not prompt for these unless relevant.
+**Step 3 — Version (optional)**
+Use default `v0.01a` for version without asking unless the user has already mentioned a specific preference.
+
+**Step 4 — Port (required)**
+Always ask:
+> "What port should the Command Deck run on? (default: 8888)"
+
+If the user skips or accepts the default, use `8888`. Write the chosen port to `config.json`. This is the single source of truth for all port resolution.
 
 ### Trademark Guardrail
 
@@ -153,11 +159,11 @@ python3 .amphion/command-deck/server.py --port {port} &
 ### Step 9: Verify server
 
 1. Wait 2 seconds for the server to start.
-2. Verify health: `curl -s http://localhost:{port}/api/health`
-3. Open the Command Deck dashboard: `open http://localhost:{port}`
+2. Verify health: `curl -s http://127.0.0.1:{port}/api/health`
+3. Open the Command Deck dashboard: `open http://127.0.0.1:{port}`
 4. Report to the user:
    - "AmphionAgent workspace initialized for **{projectName}** (`{codename}`)."
-   - "Command Deck running at http://localhost:{port}"
+   - "Command Deck running at http://127.0.0.1:{port}"
 
 ## Step 10: Strategy Initialization Process (SIP)
 
@@ -236,8 +242,8 @@ Skip to **Completion** below.
 ## Write Strategy Artifacts
 
 1. Read port from `.amphion/config.json`.
-2. `GET http://localhost:{port}/api/state` to resolve `activeBoardId`.
-3. `GET http://localhost:{port}/api/conventions?intent=board-artifact` for the payload schema.
+2. `GET http://127.0.0.1:{port}/api/state` to resolve `activeBoardId`.
+3. `GET http://127.0.0.1:{port}/api/conventions?intent=board-artifact` for the payload schema.
 
 4. Generate the **Charter** markdown:
 ```
@@ -346,7 +352,7 @@ Date: `{date}`
 
 6. Write the Charter artifact:
    ```
-   POST http://localhost:{port}/api/boards/{boardId}/artifacts
+   POST http://127.0.0.1:{port}/api/boards/{boardId}/artifacts
    {
      "artifactType": "charter",
      "title": "Project Charter — {projectName}",
@@ -357,7 +363,7 @@ Date: `{date}`
 
 7. Write the PRD artifact:
    ```
-   POST http://localhost:{port}/api/boards/{boardId}/artifacts
+   POST http://127.0.0.1:{port}/api/boards/{boardId}/artifacts
    {
      "artifactType": "prd",
      "title": "High-Level PRD — {projectName}",
@@ -372,5 +378,5 @@ Date: `{date}`
 
 Report to the user:
 - "Project Charter and High-Level PRD have been generated and saved to the Command Deck."
-- "You can view them in the Command Deck dashboard at http://localhost:{port}"
+- "You can view them in the Command Deck dashboard at http://127.0.0.1:{port}"
 - "To begin your first MCD cycle, run `/evaluate`."

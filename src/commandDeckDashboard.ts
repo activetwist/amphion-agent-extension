@@ -8,7 +8,6 @@ interface DashboardRenderOptions {
     version?: string;
 }
 
-const DEFAULT_PORT = '8765';
 const DEFAULT_VERSION = '0.0.0';
 
 function escapeHtml(value: string): string {
@@ -62,7 +61,7 @@ export class CommandDeckDashboard {
         serverController: ServerController,
         root?: vscode.Uri,
     ): Promise<void> {
-        let runtime = fallbackRuntimeStatus(DEFAULT_PORT);
+        let runtime = fallbackRuntimeStatus('');
         try {
             runtime = await serverController.getRuntimeStatus(root);
         } catch {
@@ -204,7 +203,7 @@ export class CommandDeckDashboard {
     }
 
     public static getHtmlForWebview(options: DashboardRenderOptions = {}) {
-        const port = String(options.port ?? DEFAULT_PORT).trim() || DEFAULT_PORT;
+        const port = String(options.port ?? '').trim();
         const version = String(options.version ?? DEFAULT_VERSION).trim() || DEFAULT_VERSION;
         const safePort = escapeHtml(port);
         const safeVersion = escapeHtml(version);

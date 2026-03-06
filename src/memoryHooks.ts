@@ -70,7 +70,7 @@ async function resolvePort(workspaceRoot: string): Promise<string> {
             // Continue to next config candidate.
         }
     }
-    return '8765';
+    return '';
 }
 
 function requestJson<T>(baseUrl: string, route: string, method: 'GET' | 'POST', payload?: unknown): Promise<T> {

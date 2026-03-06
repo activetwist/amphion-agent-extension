@@ -49,7 +49,7 @@ const TARGET_SENTINELS: Record<IdeTarget, string[]> = {
 };
 
 const DEFAULT_RUNTIME_CONFIG: AmphionRuntimeConfig = {
-    port: '8765',
+    port: '8888',
     serverLang: 'python',
     codename: 'BLACKCLAW',
     projectName: 'Amphion Project',

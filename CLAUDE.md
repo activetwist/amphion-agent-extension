@@ -29,8 +29,8 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 
 Resolve API location:
 1. Read `port` from `.amphion/config.json`.
-2. If `port` is missing/invalid, use default `8765`.
-3. Base URL is `http://localhost:{resolvedPort}`.
+2. If `port` is missing or config.json does not exist, run `/amphion` to configure the workspace.
+3. Base URL is `http://127.0.0.1:{resolvedPort}`.
 
 Before any write operation:
 - Call `GET /api/conventions?intent={type}` for the scoped payload schema.

@@ -7,14 +7,19 @@
 set -euo pipefail
 
 CONFIG_FILE=".amphion/config.json"
-DEFAULT_PORT="8765"
 
-# Resolve port
+# Resolve port from config.json (single source of truth)
 if [ -f "$CONFIG_FILE" ]; then
-  PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('port', '$DEFAULT_PORT'))" 2>/dev/null || echo "$DEFAULT_PORT")
+  PORT=$(python3 -c "import json; p=json.load(open('$CONFIG_FILE')).get('port',''); print(p)" 2>/dev/null)
+  if [ -z "$PORT" ]; then
+    echo "No port configured in $CONFIG_FILE. Run /amphion to set up."
+    exit 0
+  fi
 else
-  PORT="$DEFAULT_PORT"
+  echo "No AmphionAgent workspace found. Run /amphion to set up."
+  exit 0
 fi
+PORT="${KANBAN_PORT:-$PORT}"
 
 # Resolve command deck path
 if [ -f "$CONFIG_FILE" ]; then

@@ -294,7 +294,7 @@ function normalizeProjectConfig(raw: AmphionConfigFile): ProjectConfig {
         serverLang: 'python',
         codename: typeof raw.codename === 'string' && raw.codename.trim().length > 0 ? raw.codename : 'BLACKCLAW',
         initialVersion: typeof raw.initialVersion === 'string' && raw.initialVersion.trim().length > 0 ? raw.initialVersion : '0.1.0',
-        port: String(raw.port ?? '8765')
+        port: String(raw.port ?? '')
     };
 }
 
@@ -416,7 +416,7 @@ export async function buildScaffold(
     // 1.5 Write config context (.amphion canonical with ops compatibility mirror).
     const existingRuntimeConfig = await readRuntimeConfig(root);
     const runtimeConfig = {
-        port: existingRuntimeConfig.port || config.port,
+        port: config.port || existingRuntimeConfig.port,
         serverLang: 'python' as const,
         codename: config.codename,
         projectName: config.projectName,
@@ -508,7 +508,7 @@ export async function launchCommandDeck(root: vscode.Uri, config: ProjectConfig)
     }
     vscode.window.showInformationMessage(result.message);
 
-    const url = `http://localhost:${result.port || config.port}`;
+    const url = `http://127.0.0.1:${result.port || config.port}`;
 
     setTimeout(() => {
         // Reveal the sidebar-hosted Agent Controls view

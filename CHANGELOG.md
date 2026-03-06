@@ -6,6 +6,21 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.55.0] - 2026-03-06
+
+### Changed
+- All port resolution now reads exclusively from `.amphion/config.json` — no hard-coded fallback constants anywhere in the runtime.
+- Onboarding pre-populates `8888` as the default port suggestion (was `8765`).
+- All `http://localhost:` URLs replaced with `http://127.0.0.1:` across TypeScript, Python, shell scripts, skill docs, and scaffolds.
+- Shell scripts (`start-server.sh`, `stop-server.sh`, `health-check.sh`, `run.sh`) error cleanly if no config.json port is found instead of falling back to a default.
+- Python `server.py --port` is now required (no default) in all server copies.
+- Migration scripts default port changed from `8765` to `8888`.
+
+### Fixed
+- Fixed onboarding bug where user-selected port was discarded and `8888` was always written to config.json (precedence flip in `scaffolder.ts`).
+- Fixed port type mismatch in onboarding webview (`parseInt` removed — port now sent as string matching `ProjectConfig.port` type).
+- Removed all stale `DEFAULT_PORT = '8765'` constants from `serverController.ts`, `commandDeckDashboard.ts`, and `mcp-bridge.py`.
+
 ## [1.54.0] - 2026-03-03
 
 ### Added

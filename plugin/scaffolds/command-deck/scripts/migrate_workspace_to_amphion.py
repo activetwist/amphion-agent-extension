@@ -335,7 +335,7 @@ def main() -> int:
     cfg = _read_json(amphion_cfg) or _read_json(ops_cfg)
     cfg["commandDeckPath"] = ".amphion/command-deck"
     if "port" not in cfg:
-        cfg["port"] = "8765"
+        cfg["port"] = "8888"
     if "serverLang" not in cfg:
         cfg["serverLang"] = "python"
     _write_json(amphion_cfg, cfg)
