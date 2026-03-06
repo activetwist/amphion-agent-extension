@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "AmphionAgent — Micro-Contract Development governance workspace for Claude Code",
-    "version": "1.54.0"
+    "version": "1.56.0"
   },
   "plugins": [
     {

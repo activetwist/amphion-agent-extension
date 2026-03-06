@@ -10,6 +10,9 @@ import {
     renderCursorRules,
     renderAntigravityWorkflow,
     renderWindsurfWorkflow,
+    renderClaudeMcpConfig,
+    renderVscodeMcpConfig,
+    renderCursorMcpConfig,
 } from './templates/adapters';
 
 export type IdeTarget = 'agents' | 'cursor' | 'windsurf' | 'claude';
@@ -301,6 +304,9 @@ export async function ensureAdaptersForTargets(
         for (const cmd of ADAPTER_COMMANDS) {
             await writeMaybe(`.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
         }
+        // VS Code / Antigravity MCP config
+        await ensureDir(root, '.vscode');
+        await writeMaybe('.vscode/mcp.json', renderVscodeMcpConfig());
     } else {
         skipped.push('AGENTS.md');
     }
@@ -308,6 +314,8 @@ export async function ensureAdaptersForTargets(
     if (normalizedTargets.includes('claude')) {
         await writeMaybe('CLAUDE.md', renderClaudeMd(project));
         await writeMaybe('.clinerules', renderClineRules(project));
+        // Claude Code / Cline MCP config
+        await writeMaybe('.mcp.json', renderClaudeMcpConfig());
     }
 
     if (normalizedTargets.includes('cursor')) {
@@ -322,6 +330,8 @@ export async function ensureAdaptersForTargets(
             await writeMaybe(`.cursor/rules/${cmd}.mdc`, renderCursorRule(cmd, project));
             await writeMaybe(`.cursor/commands/${cmd}.md`, renderCursorCommand(cmd, project));
         }
+        // Cursor MCP config
+        await writeMaybe('.cursor/mcp.json', renderCursorMcpConfig());
     }
 
     if (normalizedTargets.includes('windsurf')) {
@@ -329,6 +339,7 @@ export async function ensureAdaptersForTargets(
         for (const cmd of ADAPTER_COMMANDS) {
             await writeMaybe(`.windsurf/workflows/${cmd}.md`, renderWindsurfWorkflow(cmd, project));
         }
+        // Windsurf uses global MCP config — cannot scaffold per-project
     }
 
     return { written, skipped };

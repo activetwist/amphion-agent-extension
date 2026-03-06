@@ -6,6 +6,27 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.56.0] - 2026-03-06
+
+### Added
+- MCP bridge expanded from 11 to 21 tools — full Command Deck API coverage including `move_card`, `delete_card`, `create_chart`, `update_chart`, `delete_chart`, `update_milestone`, `delete_milestone`, `restore_milestone`, `write_board_artifact`, and `memory_state`.
+- All MCP tool schemas now embed full JSON Schema constraints (enum, pattern, maxLength, description) so agents can write payloads without calling conventions first.
+- MCP bridge server version now reads dynamically from `.amphion/config.json` instead of hardcoded value.
+- `/amphion` skill now downloads from GitHub `/releases/latest/` instead of `refs/heads/main` for stable release resolution.
+- `/amphion` skill extracts `mcdVersion` dynamically from downloaded `package.json` — zero hardcoded version strings.
+- `/amphion` skill detects existing workspaces and offers safe-copy environment update (preserves `amphion.db` and user data).
+- `/amphion` skill scaffolds per-IDE MCP registration: `.mcp.json` (Claude Code), `.vscode/mcp.json` (VS Code/Antigravity), `.cursor/mcp.json` (Cursor).
+- VS Code extension `ensureAdaptersForTargets()` now generates MCP config files per detected IDE target.
+- Three new adapter renderers: `renderClaudeMcpConfig()`, `renderVscodeMcpConfig()`, `renderCursorMcpConfig()`.
+- `mcp-bridge.py` included in Command Deck scaffold for project-level distribution.
+
+### Changed
+- Eliminated "librarian pattern" — agents no longer need to call `GET /api/conventions` before every write operation.
+- Removed conventions-before-writes instructions from 4 skill files (`evaluate`, `contract`, `closeout`, `amphion`).
+- Updated CLAUDE.md scaffold and `adapters.ts` API policy to reflect MCP-first write strategy.
+- API policy tables expanded with `update_card`, `move_card`, `delete_card`, `write_outcomes`, and `query_memory` routes.
+- Context Window protocol simplified: removed conventions call from task-start checklist.
+
 ## [1.55.0] - 2026-03-06
 
 ### Changed

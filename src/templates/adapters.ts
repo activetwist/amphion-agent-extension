@@ -21,7 +21,6 @@ Each MCD contract card is a discrete context window. Treat each card as an isola
 **Task start (fresh session):**
 1. \`GET /api/find\` (or \`GET /api/state\`) to resolve active board + milestone.
 2. \`GET /api/memory/query?key=task.{issueNumber}.handoff\` to load prior handoff state if it exists.
-3. \`GET /api/conventions?intent={entityType}\` to validate payload schema before writes.
 
 **Task completion (before ending session):**
 \`\`\`
@@ -53,37 +52,37 @@ Resolve API location:
 2. If \`port\` is missing or config.json does not exist, run \`/amphion\` to configure the workspace.
 3. Base URL is \`http://127.0.0.1:{resolvedPort}\`.
 
-Before any write operation:
-- Call \`GET /api/conventions?intent={type}\` for the scoped payload schema.
-- Valid intents: \`chart\` | \`milestone\` | \`card\` | \`findings\` | \`outcomes\` | \`memory\` | \`board-artifact\`.
+All write operations use MCP bridge tools when available. Tool schemas carry full payload definitions (enum, required fields, constraints) — no need to call conventions before writes.
 
-For full session orientation:
-- Call \`GET /api/conventions\` to load the API operation catalog and schema map.
+If MCP tools are unavailable, fall back to the REST API:
 
 | Action | Method | Route | Required Fields |
 |---|---|---|---|
 | Read state | GET | \`/api/state\` | — |
 | Find (board map) | GET | \`/api/find\` | — (optional: \`?q=\`, \`?milestoneId=\`, \`?list=\`) |
-| Conventions (scoped) | GET | \`/api/conventions?intent={type}\` | — |
 | Create chart | POST | \`/api/charts\` | \`boardId\`, \`title\`; opt: \`markdown\`, \`description\` |
 | Create milestone | POST | \`/api/milestones\` | \`boardId\`, \`title\`, \`code\` |
-| Create card | POST | \`/api/cards\` | \`boardId\`, \`milestoneId\`, \`listId\`, \`title\` |
+| Create card | POST | \`/api/cards\` | \`boardId\`, \`milestoneId\`, \`listId\`, \`title\`; opt: \`priority\` (P0-P3), \`kind\` (task|bug) |
+| Update card | PATCH | \`/api/cards/{id}\` | \`boardId\`; opt: \`listId\`, \`title\`, \`priority\`, \`kind\` |
+| Move card | POST | \`/api/cards/{id}/move\` | \`listId\` |
+| Delete card | DELETE | \`/api/cards/{id}\` | — |
 | Write findings | POST | \`/api/milestones/{id}/artifacts\` | \`boardId\`, \`artifactType:findings\`, \`title\`, \`summary\`, \`body\` |
+| Write outcomes | POST | \`/api/milestones/{id}/artifacts\` | \`boardId\`, \`artifactType:outcomes\`, \`title\`, \`summary\`, \`body\` |
 | Write memory | POST | \`/api/memory/events\` | \`memoryKey\`, \`value\`, \`sourceType\`, \`eventType:upsert\` |
+| Query memory | GET | \`/api/memory/query\` | \`?q=\` (key prefix) |
 ${contextWindowSection}`;
 }
 
 function renderCommandDeckApiCommandContent(): string {
-    return `Use this command to align agent behavior to the canonical Command Deck API contract before any board write activity.
+    return `Use this command to align agent behavior to the canonical Command Deck API contract.
 
 1. Resolve API base URL from \`.amphion/config.json\`:
    - read \`port\`
    - if missing or config.json does not exist, run \`/amphion\` to configure
    - base URL \`http://127.0.0.1:{resolvedPort}\`
-2. Call \`GET /api/conventions\` for the operation catalog.
-3. Call \`GET /api/conventions?intent={type}\` for every entity write.
-4. Resolve board context with \`GET /api/find\` (or \`GET /api/state\`).
-5. Perform writes only through canonical API routes. Never write SQLite/files directly.
+2. Resolve board context with \`GET /api/find\` (or \`GET /api/state\`).
+3. Perform writes through MCP bridge tools (preferred) or canonical API routes. Never write SQLite/files directly.
+4. MCP tool schemas embed full payload definitions — no need to call conventions before writes.
 
 ${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}`;
 }
@@ -272,4 +271,54 @@ ${renderCommandDeckApiPolicy({ headingLevel: 2, includeContextWindows: true })}
 
 export function renderClineRules(config: ProjectConfig): string {
     return renderCursorRules(config).replace('# Cursor Rules', '# Cline Rules');
+}
+
+// -- MCP config renderers --
+// Each IDE uses a different key and file path for MCP server registration.
+
+const MCP_BRIDGE_PATH = '.amphion/command-deck/scripts/mcp-bridge.py';
+
+/**
+ * Claude Code / Cline: .mcp.json with "mcpServers" key.
+ */
+export function renderClaudeMcpConfig(): string {
+    return JSON.stringify({
+        mcpServers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
+}
+
+/**
+ * VS Code (Copilot) / Antigravity: .vscode/mcp.json with "servers" key.
+ */
+export function renderVscodeMcpConfig(): string {
+    return JSON.stringify({
+        servers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
+}
+
+/**
+ * Cursor: .cursor/mcp.json with "mcpServers" key.
+ */
+export function renderCursorMcpConfig(): string {
+    return JSON.stringify({
+        mcpServers: {
+            'amphion-command-deck': {
+                command: 'python3',
+                args: [MCP_BRIDGE_PATH],
+                env: {},
+            },
+        },
+    }, null, 2) + '\n';
 }

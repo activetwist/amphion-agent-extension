@@ -32,23 +32,24 @@ Resolve API location:
 2. If `port` is missing or config.json does not exist, run `/amphion` to configure the workspace.
 3. Base URL is `http://127.0.0.1:{resolvedPort}`.
 
-Before any write operation:
-- Call `GET /api/conventions?intent={type}` for the scoped payload schema.
-- Valid intents: `chart` | `milestone` | `card` | `findings` | `outcomes` | `memory` | `board-artifact`.
+All write operations use MCP bridge tools when available. Tool schemas carry full payload definitions (enum, required fields, constraints) — no need to call conventions before writes.
 
-For full session orientation:
-- Call `GET /api/conventions` to load the API operation catalog and schema map.
+If MCP tools are unavailable, fall back to the REST API:
 
 | Action | Method | Route | Required Fields |
 |---|---|---|---|
 | Read state | GET | `/api/state` | — |
 | Find (board map) | GET | `/api/find` | — (optional: `?q=`, `?milestoneId=`, `?list=`) |
-| Conventions (scoped) | GET | `/api/conventions?intent={type}` | — |
 | Create chart | POST | `/api/charts` | `boardId`, `title`; opt: `markdown`, `description` |
 | Create milestone | POST | `/api/milestones` | `boardId`, `title`, `code` |
-| Create card | POST | `/api/cards` | `boardId`, `milestoneId`, `listId`, `title` |
+| Create card | POST | `/api/cards` | `boardId`, `milestoneId`, `listId`, `title`; opt: `priority` (P0-P3), `kind` (task\|bug) |
+| Update card | PATCH | `/api/cards/{id}` | `boardId`; opt: `listId`, `title`, `priority`, `kind` |
+| Move card | POST | `/api/cards/{id}/move` | `listId` |
+| Delete card | DELETE | `/api/cards/{id}` | — |
 | Write findings | POST | `/api/milestones/{id}/artifacts` | `boardId`, `artifactType:findings`, `title`, `summary`, `body` |
+| Write outcomes | POST | `/api/milestones/{id}/artifacts` | `boardId`, `artifactType:outcomes`, `title`, `summary`, `body` |
 | Write memory | POST | `/api/memory/events` | `memoryKey`, `value`, `sourceType`, `eventType:upsert` |
+| Query memory | GET | `/api/memory/query` | `?q=` (key prefix) |
 
 ## Discrete Context Windows
 
@@ -57,7 +58,6 @@ Each MCD contract card is a discrete context window. Treat each card as an isola
 **Task start (fresh session):**
 1. `GET /api/find` (or `GET /api/state`) to resolve active board + milestone.
 2. `GET /api/memory/query?key=task.{issueNumber}.handoff` to load prior handoff state if it exists.
-3. `GET /api/conventions?intent={entityType}` to validate payload schema before writes.
 
 **Task completion (before ending session):**
 ```
