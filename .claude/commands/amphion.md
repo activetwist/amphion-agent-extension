@@ -18,33 +18,61 @@ This skill scaffolds a new AmphionAgent project for Micro-Contract Development a
 
 When `.amphion/` exists, compare the installed version against the latest release and offer to update:
 
-1. Read the current `mcdVersion` from `.amphion/config.json`:
+1. Read installed version, resolve the latest release from GitHub, and download — run as a **single command**:
    ```bash
-   INSTALLED_VERSION=$(python3 -c "import json; print(json.load(open('.amphion/config.json')).get('mcdVersion','0.0.0'))" 2>/dev/null || echo "0.0.0")
+   python3 - << 'PYEOF'
+   import subprocess, json, os, sys
+
+   # Read installed version
+   try:
+       with open(".amphion/config.json") as f:
+           installed = json.load(f).get("mcdVersion", "0.0.0")
+   except Exception:
+       installed = "0.0.0"
+   print(f"Installed version: {installed}")
+
+   # Resolve latest release via curl → GitHub API (avoids Python SSL cert issues on macOS)
+   r = subprocess.run(
+       ["curl", "-sf", "-H", "User-Agent: AmphionAgent",
+        "https://api.github.com/repos/activetwist/amphion-agent-extension/releases/latest"],
+       capture_output=True, text=True
+   )
+   url = "https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz"
+   tag = ""
+   try:
+       data = json.loads(r.stdout)
+       tag = data["tag_name"]
+       url = f"https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/{tag}.tar.gz"
+       print(f"Latest release: {tag}")
+   except Exception as e:
+       print(f"Could not check for updates ({e}). You have version {installed}.")
+       sys.exit(0)
+
+   # Download and extract
+   os.makedirs("/tmp/amphion-dl", exist_ok=True)
+   r = subprocess.run(
+       ["bash", "-c", f"curl -sL '{url}' | tar xz -C /tmp/amphion-dl --strip-components=1"]
+   )
+   if r.returncode != 0:
+       print("Download failed. Check your network connection.")
+       sys.exit(1)
+
+   # Get latest version from downloaded package.json
+   try:
+       with open("/tmp/amphion-dl/package.json") as f:
+           latest = json.load(f).get("version", "0.0.0")
+   except Exception:
+       latest = tag.lstrip("v") if tag else "0.0.0"
+   print(f"Latest version: {latest}")
+   PYEOF
    ```
 
-2. Resolve the latest release version from GitHub:
-   ```bash
-   RELEASE_TAG=$(curl -sI https://github.com/activetwist/amphion-agent-extension/releases/latest/ 2>/dev/null | grep -i '^location:' | sed 's|.*/tag/||' | tr -d '\r\n')
-   if [ -z "$RELEASE_TAG" ]; then
-     echo "Could not check for updates. Your current version is $INSTALLED_VERSION."
-   fi
-   ```
+2. Compare versions using the `Installed version` and `Latest version` printed above:
+   - If `Installed version` >= `Latest version`: inform the user "Your AmphionAgent workspace is up to date (v{installed}). Use `/server start` to launch the Command Deck." and **stop**.
+   - If `Latest version` > `Installed version`: ask the user:
+     > "A new version of AmphionAgent is available (v{latest}, you have v{installed}). Would you like to update? Your data (board, context documents) will be preserved."
 
-3. Download and extract the version number:
-   ```bash
-   mkdir -p /tmp/amphion-dl && \
-   curl -sL "https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/${RELEASE_TAG}.tar.gz" | \
-     tar xz -C /tmp/amphion-dl --strip-components=1
-   LATEST_VERSION=$(python3 -c "import json; print(json.load(open('/tmp/amphion-dl/package.json')).get('version','0.0.0'))" 2>/dev/null || echo "0.0.0")
-   ```
-
-4. Compare versions:
-   - If `INSTALLED_VERSION` >= `LATEST_VERSION`: inform the user "Your AmphionAgent workspace is up to date (v{INSTALLED_VERSION}). Use `/server start` to launch the Command Deck." and **stop**.
-   - If `LATEST_VERSION` > `INSTALLED_VERSION`: ask the user:
-     > "A new version of AmphionAgent is available (v{LATEST_VERSION}, you have v{INSTALLED_VERSION}). Would you like to update? Your data (board, context documents) will be preserved."
-
-5. If the user approves the update, perform a **safe-copy update**:
+3. If the user approves the update, perform a **safe-copy update**:
 
    a. **Update governance docs** (overwrite templates, preserve user content):
    ```bash
@@ -74,22 +102,22 @@ When `.amphion/` exists, compare the installed version against the latest releas
    ```
    Then re-apply placeholder replacements using values from `.amphion/config.json`.
 
-   e. **Update mcdVersion** in `.amphion/config.json`:
+   e. **Update mcdVersion** in `.amphion/config.json` — replace `{latest}` with the `Latest version` value printed in step 1:
    ```bash
    python3 -c "
    import json
    with open('.amphion/config.json', 'r') as f:
        config = json.load(f)
-   config['mcdVersion'] = '${LATEST_VERSION}'
+   config['mcdVersion'] = '{latest}'
    with open('.amphion/config.json', 'w') as f:
        json.dump(config, f, indent=2)
        f.write('\n')
    "
    ```
 
-   f. **Confirm**: Tell the user "AmphionAgent workspace updated to v{LATEST_VERSION}. Your board data and context documents are preserved. Use `/server start` to launch the updated Command Deck."
+   f. **Confirm**: Tell the user "AmphionAgent workspace updated to v{latest}. Your board data and context documents are preserved. Use `/server start` to launch the updated Command Deck."
 
-6. **Stop** — do not continue to the fresh-init flow below.
+4. **Stop** — do not continue to the fresh-init flow below.
 
 ## Collect Project Configuration
 
@@ -130,22 +158,39 @@ Once configuration is confirmed, download the AmphionAgent scaffold bundle from 
 
 ### Step 1: Download latest release from GitHub
 
-Resolve the latest release tag and download it:
+Resolve the latest release tag via the GitHub API and download it — run as a **single command**:
 
 ```bash
-RELEASE_TAG=$(curl -sI https://github.com/activetwist/amphion-agent-extension/releases/latest/ 2>/dev/null | grep -i '^location:' | sed 's|.*/tag/||' | tr -d '\r\n')
-if [ -z "$RELEASE_TAG" ]; then
-  echo "Could not resolve latest release. Falling back to main branch."
-  RELEASE_TAG="main"
-  DOWNLOAD_URL="https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz"
-else
-  DOWNLOAD_URL="https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/${RELEASE_TAG}.tar.gz"
-fi
-mkdir -p /tmp/amphion-dl && \
-curl -sL "$DOWNLOAD_URL" | tar xz -C /tmp/amphion-dl --strip-components=1
+python3 - << 'PYEOF'
+import subprocess, json, os, sys
+
+# Resolve latest release via curl → GitHub API (avoids Python SSL cert issues on macOS)
+r = subprocess.run(
+    ["curl", "-sf", "-H", "User-Agent: AmphionAgent",
+     "https://api.github.com/repos/activetwist/amphion-agent-extension/releases/latest"],
+    capture_output=True, text=True
+)
+url = "https://github.com/activetwist/amphion-agent-extension/archive/refs/heads/main.tar.gz"
+try:
+    data = json.loads(r.stdout)
+    tag = data["tag_name"]
+    url = f"https://github.com/activetwist/amphion-agent-extension/archive/refs/tags/{tag}.tar.gz"
+    print(f"Downloading AmphionAgent {tag}...")
+except Exception as e:
+    print(f"Warning: could not resolve latest release ({e}). Using main branch.")
+
+os.makedirs("/tmp/amphion-dl", exist_ok=True)
+r = subprocess.run(
+    ["bash", "-c", f"curl -sL '{url}' | tar xz -C /tmp/amphion-dl --strip-components=1"]
+)
+if r.returncode != 0:
+    print("Download failed. Check your network connection.")
+    sys.exit(1)
+print("Download complete.")
+PYEOF
 ```
 
-If the download fails, inform the user: "Could not download AmphionAgent scaffolds from GitHub. Check your network connection and try again."
+If the script exits with an error, inform the user: "Could not download AmphionAgent scaffolds from GitHub. Check your network connection and try again."
 
 The extracted files will be at `/tmp/amphion-dl/plugin/scaffolds/` and `/tmp/amphion-dl/plugin/skills/`.
 
