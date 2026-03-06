@@ -11,18 +11,18 @@ This skill invokes the canonical MCD REMEMBER command.
 1. **Read the command instructions** at `.amphion/control-plane/mcd/REMEMBER.md`.
 
 2. **Runtime gate**:
-   - Read port from `.amphion/config.json` (default: `8765`).
-   - `GET http://localhost:{port}/api/health` — confirm canonical runtime.
+   - Read port from `.amphion/config.json`.
+   - `GET http://127.0.0.1:{port}/api/health` — confirm canonical runtime.
 
-3. **Resolve board context**: `GET http://localhost:{port}/api/find` to identify active board.
+3. **Resolve board context**: `GET http://127.0.0.1:{port}/api/find` to identify active board.
 
-4. **Write memory event**: `POST http://localhost:{port}/api/memory/events` with:
+4. **Write memory event**: `POST http://127.0.0.1:{port}/api/memory/events` with:
    - `memoryKey`: deterministic key for the checkpoint
    - `eventType`: `upsert`
    - `sourceType`: `user` or `verified-system`
    - `value`: compact facts to remember about: `$ARGUMENTS`
 
-5. **Verify**: `GET http://localhost:{port}/api/memory/query?key={memoryKey}` to confirm persistence.
+5. **Verify**: `GET http://127.0.0.1:{port}/api/memory/query?key={memoryKey}` to confirm persistence.
 
 6. **No phase transition**: Confirm checkpoint completion and remain in current lifecycle phase.
 

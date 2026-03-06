@@ -50,7 +50,6 @@ export interface RuntimeStatusResult {
     url: string;
 }
 
-const DEFAULT_PORT = '8765';
 const EXPECTED_RUNTIME_SERVER = 'launch-command-deck';
 const EXPECTED_RUNTIME_IMPLEMENTATION = 'python';
 const EXPECTED_RUNTIME_DATASTORE = 'sqlite';
@@ -72,19 +71,17 @@ export class ServerController {
     }
 
     private async readPort(root: vscode.Uri): Promise<string> {
-        try {
-            const parsed = await readRuntimeConfig(root);
-            const port = String(parsed.port ?? DEFAULT_PORT).trim();
-            return port.length > 0 ? port : DEFAULT_PORT;
-        } catch {
-            return DEFAULT_PORT;
-        }
+        const parsed = await readRuntimeConfig(root);
+        return String(parsed.port).trim();
     }
 
     public async getPort(root?: vscode.Uri): Promise<string> {
         const workspaceRoot = this.resolveWorkspaceRoot(root);
         if (!workspaceRoot) {
-            return DEFAULT_PORT;
+            const parsed = await readRuntimeConfig(
+                vscode.workspace.workspaceFolders?.[0]?.uri ?? vscode.Uri.file(''),
+            );
+            return String(parsed.port).trim();
         }
         return this.readPort(workspaceRoot);
     }
@@ -254,7 +251,7 @@ export class ServerController {
                 ok: false,
                 state: 'error',
                 message: 'AmphionAgent: No workspace folder open to start server.',
-                port: DEFAULT_PORT,
+                port: '',
             };
         }
 
@@ -369,7 +366,7 @@ export class ServerController {
                 ok: false,
                 state: 'error',
                 message: 'AmphionAgent: No workspace folder open to stop server.',
-                port: DEFAULT_PORT,
+                port: '',
             };
         }
 

@@ -538,7 +538,7 @@ export class OnboardingPanel {
                 <div style="display: flex; gap: 16px;">
                     <div class="form-group" style="flex: 1;">
                         <label>Port</label>
-                        <input type="text" id="initPort" value="8765">
+                        <input type="text" id="initPort" value="8888">
                         <span class="hint">Command Deck port.</span>
                     </div>
                     <div class="form-group" style="flex: 1;">
@@ -930,7 +930,7 @@ export class OnboardingPanel {
                 const data = {
                     projectName: document.getElementById('initProjectName').value,
                     codename: document.getElementById('initCodename').value,
-                    port: parseInt(document.getElementById('initPort').value) || 4000,
+                    port: document.getElementById('initPort').value.trim() || '8888',
                     initialVersion: document.getElementById('initVersion').value,
                     serverLang: 'python'
                 };

@@ -49,8 +49,8 @@ for file in "${core_surfaces[@]}"; do
     [[ -f "$file" ]] || continue
     require_contains "$file" "ALL board writes MUST use the Command Deck API"
     require_contains "$file" ".amphion/config.json"
-    require_contains "$file" "missing/invalid, use default \`8765\`"
-    require_contains "$file" "http://localhost:{resolvedPort}"
+    require_contains "$file" "config.json does not exist"
+    require_contains "$file" "http://127.0.0.1:{resolvedPort}"
     require_contains "$file" "GET /api/conventions?intent={type}"
     require_contains "$file" "GET /api/conventions"
 done
@@ -73,7 +73,7 @@ for file in "${cursor_api_surfaces[@]}"; do
     [[ -f "$file" ]] || continue
     require_contains "$file" "GET /api/conventions?intent={type}"
     require_contains "$file" ".amphion/config.json"
-    require_contains "$file" "http://localhost:{resolvedPort}"
+    require_contains "$file" "http://127.0.0.1:{resolvedPort}"
     require_contains "$file" "Never write SQLite/files directly"
 done
 

@@ -11,18 +11,22 @@ import urllib.request
 import urllib.error
 import os
 
-DEFAULT_PORT = "8765"
-
-
 def resolve_port():
-    """Read port from .amphion/config.json, fallback to default."""
+    """Read port from .amphion/config.json. Errors if config is missing."""
     config_path = os.path.join(os.getcwd(), ".amphion", "config.json")
     try:
         with open(config_path, "r") as f:
             config = json.load(f)
-            return str(config.get("port", DEFAULT_PORT))
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
-        return DEFAULT_PORT
+            port = str(config.get("port", "")).strip()
+            if not port:
+                raise ValueError("No port configured in .amphion/config.json")
+            return port
+    except FileNotFoundError:
+        sys.stderr.write("No .amphion/config.json found. Run /amphion to set up.\n")
+        raise
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        sys.stderr.write(f"Invalid .amphion/config.json: {e}\n")
+        raise
 
 
 def api_request(method, path, body=None):

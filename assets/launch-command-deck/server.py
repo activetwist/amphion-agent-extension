@@ -2295,7 +2295,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
                     "conventions": {
                         "version": "1.0",
                         "enforcement": "All board CRUD operations must use this API. Direct SQLite writes, Python scripts, and filesystem substitutes are non-canonical per GUARDRAILS.",
-                        "portResolution": "Read .amphion/config.json -> port. Default: 8765.",
+                        "portResolution": "Read .amphion/config.json -> port. No fallback — config.json is the single source of truth.",
                         "rulesFiles": ["AGENTS.md", "CLAUDE.md", ".clinerules", ".cursorrules"],
                         "intents": list(_SCHEMAS.keys()),
                         "operations": _OPERATIONS,
@@ -3722,7 +3722,7 @@ class KanbanHandler(BaseHTTPRequestHandler):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the local Kanban micro-service")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host")
-    parser.add_argument("--port", type=int, default=8765, help="Bind port")
+    parser.add_argument("--port", type=int, required=True, help="Bind port (read from .amphion/config.json)")
     return parser.parse_args()
 
 def main() -> None:

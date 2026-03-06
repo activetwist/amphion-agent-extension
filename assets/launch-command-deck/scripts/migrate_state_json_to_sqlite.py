@@ -27,7 +27,7 @@ def request_json(url: str, method: str = "GET", body: dict | None = None) -> dic
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run legacy state.json -> SQLite migration via Command Deck API.")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", default="8765")
+    parser.add_argument("--port", required=True, help="Port from .amphion/config.json")
     parser.add_argument("--force", action="store_true", help="Force migration even if SQLite already has boards.")
     parser.add_argument(
         "--expect-min-cards",

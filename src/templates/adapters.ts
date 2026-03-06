@@ -50,8 +50,8 @@ POST /api/memory/events
 
 Resolve API location:
 1. Read \`port\` from \`.amphion/config.json\`.
-2. If \`port\` is missing/invalid, use default \`8765\`.
-3. Base URL is \`http://localhost:{resolvedPort}\`.
+2. If \`port\` is missing or config.json does not exist, run \`/amphion\` to configure the workspace.
+3. Base URL is \`http://127.0.0.1:{resolvedPort}\`.
 
 Before any write operation:
 - Call \`GET /api/conventions?intent={type}\` for the scoped payload schema.
@@ -78,8 +78,8 @@ function renderCommandDeckApiCommandContent(): string {
 
 1. Resolve API base URL from \`.amphion/config.json\`:
    - read \`port\`
-   - if missing/invalid, use \`8765\`
-   - base URL \`http://localhost:{resolvedPort}\`
+   - if missing or config.json does not exist, run \`/amphion\` to configure
+   - base URL \`http://127.0.0.1:{resolvedPort}\`
 2. Call \`GET /api/conventions\` for the operation catalog.
 3. Call \`GET /api/conventions?intent={type}\` for every entity write.
 4. Resolve board context with \`GET /api/find\` (or \`GET /api/state\`).

@@ -48,11 +48,11 @@ export async function runWizard(): Promise<ProjectConfig | undefined> {
     // Step 4: Port
     const port = await vscode.window.showInputBox({
         title: 'AmphionAgent (4/4)',
-        prompt: 'Enter the port for your Command Deck (default: 8765)',
-        value: '', // Default value is now empty
+        prompt: 'Enter the port for your Command Deck (default: 8888)',
+        value: '8888',
         ignoreFocusOut: true,
         validateInput: (value) => {
-            // If the user leaves it empty, we'll use the default '8765' later
+            // If the user leaves it empty, we'll use the default '8888' later
             if (!value || value.trim().length === 0) {
                 return null;
             }
