@@ -421,6 +421,9 @@ To utilize the MCD protocol, the human Operator guides the AI through these disc
     conn.commit()
     conn.close()
 
+    # Set agent-friendly permissions (777) so any process in the project can read/write
+    os.chmod(db_path, 0o777)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Initialize Launch Command Deck (SQLite) for a project")

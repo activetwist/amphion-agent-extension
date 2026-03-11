@@ -24,18 +24,18 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
 3. **Scoping**: Define boundaries. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine whether new Architecture Primitives are required.
-5. **DB Findings Write (Required)**: Record findings in milestone artifacts via API (\`artifactType: findings\`). Filesystem findings documents are not canonical.
-6. **Visibility Verification**: Verify the findings artifact revision and milestone/card visibility in \`/api/state\` or board UI before closing Evaluate.
-7. **Phase Isolation**: Do not draft implementation details beyond scoping in this phase.
+5. **Findings Presentation**: Present detailed findings in chat (research summary, gaps, scoping boundaries, assumptions). Findings will be persisted to DB during CONTRACT phase.
+6. **Phase Isolation**: Do not draft implementation details beyond scoping in this phase.
 
-**CRITICAL AGENT INSTRUCTION:** If board/API runtime is unavailable, halt as **blocked** and request runtime recovery. Do not emit chat text or local files as a substitute for canonical findings artifacts.
+**CRITICAL AGENT INSTRUCTION:** Findings are presented in chat and remain in chat context pending CONTRACT phase. Do not write to DB during EVALUATE; findings become canonical only when written during CONTRACT card creation.
 
-**CRITICAL AGENT INSTRUCTION:** After recording findings artifacts and updating board context, halt execution and request explicit \`/contract\` authorization.
+**CRITICAL AGENT INSTRUCTION:** After presenting findings in chat, halt execution and request explicit \`/contract\` authorization to proceed with contract creation and canonical findings write.
 
 ## Output
-- [ ] Findings artifact recorded in DB milestone artifacts.
-- [ ] Scope summary presented to operator with target milestone context.
+- [ ] Detailed findings presented in chat (research, gaps, scoping, assumptions).
+- [ ] Scope summary with target milestone context ready for CONTRACT card creation.
 - [ ] (Optional) New or revised Architecture Primitives.
+- [ ] Chat context preserved for CONTRACT phase (findings not yet persisted to DB).
 `;
 }
 
@@ -76,7 +76,7 @@ export function renderContract(config: ProjectConfig): string {
 Invoke this command after Evaluate is complete and scope is locked. This phase defines the implementation "How" and secures operator approval before execution.
 
 ## Inputs
-- [ ] Evaluation findings artifact (DB)
+- [ ] Evaluation findings (from chat context of prior EVALUATE session)
 - [ ] Active board context
 - [ ] Target milestone (new milestone for net-new work)
 - [ ] Affected File Paths (AFPs)
@@ -84,18 +84,20 @@ Invoke this command after Evaluate is complete and scope is locked. This phase d
 ## Instructions
 1. **Runtime Gate**: Confirm Command Deck API is reachable and board context resolves.
 2. **Blocked Behavior**: If API/board is unavailable, halt as blocked. Do not emit a chat-only or file-only contract as authority.
-3. **Macro Contract Metadata**: Populate milestone-level contract metadata (\`metaContract\`, \`goals\`, \`nonGoals\`, \`risks\`).
-4. **Micro-Contract Cards (Required)**: Create/update sequenced contract cards on board, each milestone-bound and acceptance-driven.
-5. **AFP Enumeration**: Include exact files to be created/modified/deleted in card descriptions/acceptance.
-6. **Risk Coverage**: Explicitly capture side effects and failure handling in contract scope.
-7. **Approval Handoff**: Present milestone ID + issue-numbered contract cards for formal operator approval.
-8. **Trigger-Based Execution**: \`/execute\` may begin only after explicit approval of the board-authored contract set.
+3. **Canonical Findings Write (Required)**: Write findings artifact to DB via API (\`artifactType: findings\`) using evaluated findings from chat context. This is the canonical persistence point.
+4. **Macro Contract Metadata**: Populate milestone-level contract metadata (\`metaContract\`, \`goals\`, \`nonGoals\`, \`risks\`).
+5. **Micro-Contract Cards (Required)**: Create/update sequenced contract cards on board, each milestone-bound and acceptance-driven.
+6. **AFP Enumeration**: Include exact files to be created/modified/deleted in card descriptions/acceptance.
+7. **Risk Coverage**: Explicitly capture side effects and failure handling in contract scope.
+8. **Approval Handoff**: Present milestone ID + issue-numbered contract cards for formal operator approval.
+9. **Trigger-Based Execution**: \`/execute\` may begin only after explicit approval of the board-authored contract set.
 
-**CRITICAL AGENT INSTRUCTION:** Chat summaries are explanatory only. Board/DB contract cards are the sole execution authority.
+**CRITICAL AGENT INSTRUCTION:** Findings become canonical when written to DB during this phase. Once findings are persisted and contract cards authored, they are the sole execution authority.
 
-**CRITICAL AGENT INSTRUCTION:** After contract cards are authored and presented, halt and await explicit \`/execute\` authorization.
+**CRITICAL AGENT INSTRUCTION:** After canonical findings write and contract cards are authored and presented, halt and await explicit \`/execute\` authorization.
 
 ## Output
+- [ ] Findings artifact recorded in DB milestone artifacts (canonical persistence).
 - [ ] Approved, milestone-bound contract card set on board (DB canonical).
 - [ ] Milestone contract metadata recorded.
 - [ ] Operator-facing summary with milestone ID + issue IDs.

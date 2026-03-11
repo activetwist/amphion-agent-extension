@@ -52,7 +52,7 @@ Your project gets a complete `.amphion/` control plane including:
 
 ## Install
 
-### Option 1: Drop the file (manual)
+### Option 1: Drop the file (manual) — Install `/amphion` (recommended)
 
 1. Copy `amphion.md` from this ZIP to `~/.claude/commands/`:
    ```
@@ -61,7 +61,7 @@ Your project gets a complete `.amphion/` control plane including:
 2. Open Claude Code in any project directory.
 3. Type `/amphion`.
 
-That's it. Claude handles everything from there.
+That's it. Claude handles everything from there, including automatic installation of the other 8 MCD skills.
 
 ### Option 2: One-liner (terminal)
 
@@ -70,7 +70,22 @@ curl -sL https://github.com/activetwist/amphion-agent-extension/releases/latest/
   -o ~/.claude/commands/amphion.md
 ```
 
-> **Note:** `~/.claude/commands/` is the personal skill scope — `/amphion` will be available in every project you open in Claude Code, permanently.
+### Option 3: Install individual skills manually
+
+All 9 skills are included in this ZIP under the `skills/` directory:
+- `skills/amphion.md` — Initialize a new MCD workspace
+- `skills/evaluate.md` — Run the EVALUATE phase
+- `skills/contract.md` — Run the CONTRACT phase
+- `skills/execute.md` — Run the EXECUTE phase
+- `skills/closeout.md` — Run the CLOSEOUT phase
+- `skills/help.md` — Get MCD methodology help
+- `skills/remember.md` — Save operational memory
+- `skills/docs.md` — Generate project documents
+- `skills/server.md` — Manage the local Command Deck server
+
+Copy any of these to `~/.claude/commands/` to install them as personal skills.
+
+> **Note:** `~/.claude/commands/` is the personal skill scope — installed skills will be available in every project you open in Claude Code, permanently. Typically, you only need `/amphion` initially; it will install the other 8 skills into your project when you run it.
 
 ---
 

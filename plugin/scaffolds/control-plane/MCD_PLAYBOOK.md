@@ -14,14 +14,14 @@ An AI agent completing a phase must halt, present results, and request explicit 
 ### 1. `@[/evaluate]`
 *Understand before building.*
 - **Action**: Assess current state and scope required changes.
-- **Output**: Milestone `findings` artifact written through Command Deck API (DB canonical).
-- **Rule**: No implementation changes during Evaluate.
+- **Output**: Detailed findings presented in chat; findings become canonical when written during Contract phase.
+- **Rule**: No implementation changes during Evaluate. No DB writes in this phase.
 
 ### 2. `@[/contract]`
 *Authorize the work.*
-- **Action**: Write milestone contract metadata and sequenced micro-contract cards on the board.
-- **Output**: Milestone-bound contract card set (issue-numbered, acceptance-bound).
-- **Rule**: If board/API runtime is unavailable, halt as blocked; chat text cannot substitute for canonical contracts.
+- **Action**: Write canonical findings artifact, then create milestone contract metadata and sequenced micro-contract cards on the board.
+- **Output**: Milestone `findings` artifact (DB canonical), plus milestone-bound contract card set (issue-numbered, acceptance-bound).
+- **Rule**: If board/API runtime is unavailable, halt as blocked; chat text cannot substitute for canonical contracts. Findings become canonical in this phase.
 
 ### 3. `@[/execute]`
 *Build to specification.*

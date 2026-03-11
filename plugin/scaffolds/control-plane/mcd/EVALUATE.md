@@ -19,15 +19,15 @@ Invoke this command when starting a new milestone, feature, or complex bug fix. 
 2. **Gap Analysis**: Identify what is missing or what needs to change in the current system.
 3. **Scoping**: Define boundaries. What is in-scope? What is strictly out-of-scope?
 4. **Primitive Review**: Determine whether new Architecture Primitives are required.
-5. **DB Findings Write (Required)**: Record findings in milestone artifacts via API (`artifactType: findings`). Filesystem findings documents are not canonical.
-6. **Visibility Verification**: Verify the findings artifact revision and milestone/card visibility in `/api/state` or board UI before closing Evaluate.
-7. **Phase Isolation**: Do not draft implementation details beyond scoping in this phase.
+5. **Findings Presentation**: Present detailed findings in chat (research summary, gaps, scoping boundaries, assumptions). Findings will be persisted to DB during CONTRACT phase.
+6. **Phase Isolation**: Do not draft implementation details beyond scoping in this phase.
 
-**CRITICAL AGENT INSTRUCTION:** If board/API runtime is unavailable, halt as **blocked** and request runtime recovery. Do not emit chat text or local files as a substitute for canonical findings artifacts.
+**CRITICAL AGENT INSTRUCTION:** Findings are presented in chat and remain in chat context pending CONTRACT phase. Do not write to DB during EVALUATE; findings become canonical only when written during CONTRACT card creation.
 
-**CRITICAL AGENT INSTRUCTION:** After recording findings artifacts and updating board context, halt execution and request explicit `/contract` authorization.
+**CRITICAL AGENT INSTRUCTION:** After presenting findings in chat, halt execution and request explicit `/contract` authorization to proceed with contract creation and canonical findings write.
 
 ## Output
-- [ ] Findings artifact recorded in DB milestone artifacts.
-- [ ] Scope summary presented to operator with target milestone context.
+- [ ] Detailed findings presented in chat (research, gaps, scoping, assumptions).
+- [ ] Scope summary with target milestone context ready for CONTRACT card creation.
 - [ ] (Optional) New or revised Architecture Primitives.
+- [ ] Chat context preserved for CONTRACT phase (findings not yet persisted to DB).

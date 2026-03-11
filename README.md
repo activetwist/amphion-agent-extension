@@ -30,6 +30,8 @@ AmphionAgent uses explicit slash-command phases:
 
 Each phase must halt and wait for explicit operator authorization before moving to the next.
 
+**All 9 Commands:** See the [Command Reference Guide](./assets/referenceDocs/00_Governance/COMMAND_REFERENCE.md) for complete documentation of all MCD commands and their availability across VS Code, Claude Code, Cursor, Windsurf, and Antigravity.
+
 ## Screenshots
 
 ### Project Onboarding

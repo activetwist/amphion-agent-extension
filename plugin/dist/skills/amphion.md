@@ -279,29 +279,10 @@ mkdir -p .claude/commands
 for skill_dir in /tmp/amphion-dl/plugin/skills/*/; do
   skill_name=$(basename "$skill_dir")
   cp "$skill_dir/SKILL.md" ".claude/commands/${skill_name}.md"
-  echo "Installed: /${skill_name}"
 done
 ```
 
-**Installed Skills:**
-- `/evaluate` — Research, scope, and record findings for a new milestone
-- `/contract` — Author milestone-bound contract cards with acceptance criteria
-- `/execute` — Implement exactly what the approved contract authorizes
-- `/closeout` — Seal a version with verified outcomes and a canonical git commit
-- `/help` — Surface MCD methodology guidance and command reference
-- `/remember` — Write compact operational memory across sessions
-- `/docs` — Generate your Project Charter and High-Level PRD
-- `/server` — Start, stop, or check the status of your local Command Deck
-- `/amphion` — Re-initialize or update your AmphionAgent workspace
-
-**Next Steps:**
-After the initialization completes, you can immediately use:
-- `/evaluate` to start researching your first feature or milestone
-- `/help` to learn more about the MCD methodology
-- `/server start` to launch the Command Deck in your browser
-
-**Verification:**
-Confirm that `.claude/commands/` now contains all 9 skill files (*.md). If any skills are missing, check file permissions or available disk space.
+This installs: `/amphion`, `/docs`, `/evaluate`, `/contract`, `/execute`, `/closeout`, `/help`, `/remember`, `/server`
 
 ### Step 7: Register MCP bridge for Command Deck access
 
