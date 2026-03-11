@@ -1,6 +1,6 @@
 {
   "name": "amphion-agent",
-  "version": "1.56.0",
+  "version": "1.57.0",
   "description": "Scaffold operator-gated Micro-Contract Development workspaces with governance docs and a local Command Deck.",
   "author": "Stanton Brooks / Active Twist Consulting Group, LLC",
   "license": "Proprietary",

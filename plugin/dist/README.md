@@ -134,4 +134,4 @@ The eBook at mcdbook.com is free, ungated, and comprehensive. If you want to und
 
 ---
 
-*AmphionAgent v1.54.0 · MIT License · © Active Twist Consulting Group, LLC*
+*AmphionAgent v1.57.0 · MIT License · © Active Twist Consulting Group, LLC*

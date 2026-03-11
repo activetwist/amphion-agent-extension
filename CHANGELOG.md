@@ -6,6 +6,25 @@ All notable changes to this extension are documented in this file.
 
 _No changes yet._
 
+## [1.57.0] - 2026-03-10
+
+### Added
+- Complete standalone skill distribution: all 9 MCD skills now included in `plugin/dist/skills/` for direct installation to any Claude Code personal or project scope.
+- `assets/referenceDocs/00_Governance/COMMAND_REFERENCE.md` — 9×5 command availability matrix across Claude Code, VS Code, Cursor, Windsurf, and Antigravity with per-command documentation, environment-specific notes, prerequisites, and troubleshooting guide.
+- README updated with Option 3 (install individual skills manually) alongside the original one-liner.
+- `amphion` skill Step 6 enhanced with explicit skill list, descriptions, and verification instructions.
+
+### Changed
+- EVALUATE phase no longer writes findings to DB — findings are presented in chat only and remain in context until CONTRACT writes them.
+- CONTRACT phase now performs canonical findings write (POST `/api/milestones/{id}/artifacts`) atomically before creating contract cards.
+- GUARDRAILS.md updated: findings become canonical during CONTRACT, not EVALUATE.
+- MCD Playbook phase descriptions updated to reflect deferred DB write model.
+- All agent instruction sets (active + scaffold + reference docs + templates) propagated with updated phase behavior.
+
+### Fixed
+- Command Deck now arrives with 777 permissions — `init_command_deck.py` sets `os.chmod(db_path, 0o777)` after DB creation.
+- `amphion` skill adds `chmod -R 777 .amphion/command-deck/` in both new init and environment update flows.
+
 ## [1.56.0] - 2026-03-06
 
 ### Added
