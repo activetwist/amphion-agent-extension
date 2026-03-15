@@ -98,6 +98,33 @@ When `.amphion/` exists, compare the installed version against the latest releas
    done
    ```
 
+   Also update IDE-specific adapter commands for any VS Code-based IDEs detected in the project:
+   ```bash
+   PROJECT_NAME_ESCAPED=$(python3 -c "import json; print(json.load(open('.amphion/config.json'))['projectName'])" 2>/dev/null || echo "My Project")
+
+   # Cursor
+   if [ -d ".cursor" ] || [ -f ".cursorrc" ]; then
+     mkdir -p .cursor/commands
+     cp /tmp/amphion-dl/plugin/dist/adapters/cursor/* .cursor/commands/
+   fi
+
+   # Windsurf
+   if [ -d ".windsurf" ]; then
+     mkdir -p .windsurf/workflows
+     for f in /tmp/amphion-dl/plugin/dist/adapters/windsurf/*; do
+       sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".windsurf/workflows/$(basename $f)"
+     done
+   fi
+
+   # VS Code / Antigravity
+   if [ -d ".vscode" ] || [ -d ".agents" ]; then
+     mkdir -p .agents/workflows
+     for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
+       sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
+     done
+   fi
+   ```
+
    d. **Update CLAUDE.md** from template:
    ```bash
    cp /tmp/amphion-dl/plugin/scaffolds/CLAUDE.md ./CLAUDE.md
@@ -283,6 +310,37 @@ for skill_dir in /tmp/amphion-dl/plugin/skills/*/; do
 done
 ```
 
+**Install IDE-specific adapter commands** for any VS Code-based IDEs detected in the project:
+
+```bash
+PROJECT_NAME_ESCAPED=$(python3 -c "import json; print(json.load(open('.amphion/config.json'))['projectName'])" 2>/dev/null || echo "My Project")
+
+# Cursor
+if [ -d ".cursor" ] || [ -f ".cursorrc" ]; then
+  mkdir -p .cursor/commands
+  cp /tmp/amphion-dl/plugin/dist/adapters/cursor/* .cursor/commands/
+  echo "Installed Cursor commands → .cursor/commands/"
+fi
+
+# Windsurf
+if [ -d ".windsurf" ]; then
+  mkdir -p .windsurf/workflows
+  for f in /tmp/amphion-dl/plugin/dist/adapters/windsurf/*; do
+    sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".windsurf/workflows/$(basename $f)"
+  done
+  echo "Installed Windsurf workflows → .windsurf/workflows/"
+fi
+
+# VS Code / Antigravity
+if [ -d ".vscode" ] || [ -d ".agents" ]; then
+  mkdir -p .agents/workflows
+  for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
+    sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
+  done
+  echo "Installed Agents workflows → .agents/workflows/"
+fi
+```
+
 **Installed Skills:**
 - `/evaluate` — Research, scope, and record findings for a new milestone
 - `/contract` — Author milestone-bound contract cards with acceptance criteria
@@ -301,7 +359,7 @@ After the initialization completes, you can immediately use:
 - `/server start` to launch the Command Deck in your browser
 
 **Verification:**
-Confirm that `.claude/commands/` now contains all 9 skill files (*.md). If any skills are missing, check file permissions or available disk space.
+Confirm that `.claude/commands/` now contains all 9 skill files (*.md). If VS Code-based IDEs were detected, confirm the corresponding adapter directories were populated. If any files are missing, check file permissions or available disk space.
 
 ### Step 7: Register MCP bridge for Command Deck access
 
