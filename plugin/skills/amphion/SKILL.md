@@ -117,12 +117,10 @@ When `.amphion/` exists, compare the installed version against the latest releas
    fi
 
    # VS Code / Antigravity
-   if [ -d ".vscode" ] || [ -d ".agents" ]; then
-     mkdir -p .agents/workflows
-     for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
-       sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
-     done
-   fi
+   mkdir -p .agent/workflows
+   for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
+     sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agent/workflows/$(basename $f)"
+   done
    ```
 
    d. **Update CLAUDE.md** from template:
@@ -331,14 +329,12 @@ if [ -d ".windsurf" ]; then
   echo "Installed Windsurf workflows → .windsurf/workflows/"
 fi
 
-# VS Code / Antigravity
-if [ -d ".vscode" ] || [ -d ".agents" ]; then
-  mkdir -p .agents/workflows
-  for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
-    sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
-  done
-  echo "Installed Agents workflows → .agents/workflows/"
-fi
+# VS Code / Antigravity (always install — no directory existence check needed)
+mkdir -p .agent/workflows
+for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
+  sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agent/workflows/$(basename $f)"
+done
+echo "Installed Antigravity/VS Code workflows → .agent/workflows/"
 ```
 
 **Installed Skills:**

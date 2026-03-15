@@ -14,6 +14,7 @@ node_modules/**
 *.vsix
 .amphion/**
 .agents/**
+.agent/**
 .cursor/**
 .windsurf/**
 .antigravity/**

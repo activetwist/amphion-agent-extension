@@ -45,7 +45,7 @@ export interface AdapterWriteSummary {
 }
 
 const TARGET_SENTINELS: Record<IdeTarget, string[]> = {
-    agents: ['AGENTS.md', '.agents/workflows/evaluate.md'],
+    agents: ['AGENTS.md', '.agent/workflows/evaluate.md'],
     cursor: ['.cursor/rules/evaluate.mdc', '.cursor/commands/evaluate.md'],
     windsurf: ['.windsurf/workflows/evaluate.md'],
     claude: ['CLAUDE.md'],
@@ -299,10 +299,10 @@ export async function ensureAdaptersForTargets(
     };
 
     if (normalizedTargets.includes('agents')) {
-        await ensureDir(root, '.agents/workflows');
+        await ensureDir(root, '.agent/workflows');
         await writeMaybe('AGENTS.md', renderAgentsMd(project));
         for (const cmd of ADAPTER_COMMANDS) {
-            await writeMaybe(`.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
+            await writeMaybe(`.agent/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
         }
         // VS Code / Antigravity MCP config
         await ensureDir(root, '.vscode');
