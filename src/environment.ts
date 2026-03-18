@@ -15,7 +15,7 @@ import {
     renderCursorMcpConfig,
 } from './templates/adapters';
 
-export type IdeTarget = 'agents' | 'cursor' | 'windsurf' | 'claude';
+export type IdeTarget = 'agents' | 'antigravity' | 'cursor' | 'windsurf' | 'claude';
 
 export interface AmphionRuntimeConfig {
     port: string;
@@ -45,10 +45,11 @@ export interface AdapterWriteSummary {
 }
 
 const TARGET_SENTINELS: Record<IdeTarget, string[]> = {
-    agents: ['AGENTS.md', '.agent/workflows/evaluate.md'],
+    claude: ['CLAUDE.md', '.clinerules', '.claude/commands/evaluate.md'],
+    agents: ['.agents/workflows/evaluate.md'],
+    antigravity: ['.agents/workflows/evaluate.md'],
     cursor: ['.cursor/rules/evaluate.mdc', '.cursor/commands/evaluate.md'],
     windsurf: ['.windsurf/workflows/evaluate.md'],
-    claude: ['CLAUDE.md'],
 };
 
 const DEFAULT_RUNTIME_CONFIG: AmphionRuntimeConfig = {
@@ -69,6 +70,7 @@ const DEFAULT_ENVIRONMENT_STATE: AmphionEnvironmentState = {
 };
 
 const ADAPTER_COMMANDS: string[] = ['evaluate', 'contract', 'execute', 'closeout', 'help', 'remember', 'docs'];
+const AGENTS_EXTRA_COMMANDS: string[] = ['bug'];
 const CURSOR_EXTRA_COMMANDS: string[] = ['command-deck-api'];
 
 function nowIso(): string {
@@ -216,6 +218,9 @@ export function resolveCommandDeckPath(workspaceRoot: vscode.Uri, config: Amphio
 export async function detectIdeTargets(root: vscode.Uri): Promise<IdeTarget[]> {
     const targets: Set<IdeTarget> = new Set<IdeTarget>(['agents']);
     const appName = (vscode.env.appName || '').toLowerCase();
+    if (appName.includes('antigravity')) {
+        targets.add('agents'); // Antigravity maps to the agents adapter block
+    }
     if (appName.includes('cursor')) {
         targets.add('cursor');
     }
@@ -299,9 +304,17 @@ export async function ensureAdaptersForTargets(
     };
 
     if (normalizedTargets.includes('agents')) {
+        // .agents/ (plural) is the primary path read by Antigravity's workflow scanner
+        await ensureDir(root, '.agents/workflows');
+        // .agent/ (singular) is kept as a compatibility mirror for other VS Code-based agents
         await ensureDir(root, '.agent/workflows');
         await writeMaybe('AGENTS.md', renderAgentsMd(project));
         for (const cmd of ADAPTER_COMMANDS) {
+            await writeMaybe(`.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
+            await writeMaybe(`.agent/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
+        }
+        for (const cmd of AGENTS_EXTRA_COMMANDS) {
+            await writeMaybe(`.agents/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
             await writeMaybe(`.agent/workflows/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
         }
         // VS Code / Antigravity MCP config
@@ -312,10 +325,14 @@ export async function ensureAdaptersForTargets(
     }
 
     if (normalizedTargets.includes('claude')) {
+        await ensureDir(root, '.claude/commands');
         await writeMaybe('CLAUDE.md', renderClaudeMd(project));
         await writeMaybe('.clinerules', renderClineRules(project));
         // Claude Code / Cline MCP config
         await writeMaybe('.mcp.json', renderClaudeMcpConfig());
+        for (const cmd of ADAPTER_COMMANDS) {
+            await writeMaybe(`.claude/commands/${cmd}.md`, renderAntigravityWorkflow(cmd, project));
+        }
     }
 
     if (normalizedTargets.includes('cursor')) {

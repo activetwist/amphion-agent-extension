@@ -1,6 +1,6 @@
 ---
 name: execute
-description: "Run MCD EXECUTE command for Amphion Project"
+description: "Run MCD EXECUTE command for {{PROJECT_NAME}}"
 ---
 
 # EXECUTE

@@ -1,26 +1,16 @@
 ---
 name: evaluate
-description: "Run MCD EVALUATE phase — research, gap analysis, scoping, and findings recording. Use when starting a new milestone, feature, or complex bug fix."
-argument-hint: "[topic or feature to evaluate]"
+description: "Run MCD EVALUATE command for Amphion Project"
 ---
 
-This skill invokes the canonical MCD EVALUATE command.
+# EVALUATE
 
-## Instructions
+This workflow invokes the canonical MCD EVALUATE command.
 
-1. **Read the command instructions** at `.amphion/control-plane/mcd/EVALUATE.md` and follow them precisely.
+1. Read the command instructions:
+[EVALUATE.md](file:///${projectRoot}/.amphion/control-plane/mcd/EVALUATE.md)
 
-2. **Resolve board context** before starting:
-   - Read port from `.amphion/config.json`.
-   - `GET http://127.0.0.1:{port}/api/health` — confirm canonical runtime.
-   - `GET http://127.0.0.1:{port}/api/find` — resolve active board and milestone.
-   - If the server is offline, halt as **blocked** and ask the user to run `/server start`.
+2. Follow the step-by-step instructions in the file to complete the phase.
 
-3. **Research the topic**: `$ARGUMENTS`
-
-4. **Record findings** via the Command Deck API:
-   - `POST http://127.0.0.1:{port}/api/milestones/{milestoneId}/artifacts` with `artifactType: findings`, `boardId`, `title`, `summary`, `body`.
-
-5. **Verify visibility**: Confirm the findings artifact appears in `/api/state` or the board UI.
-
-6. **Halt and prompt**: Present your findings summary and request explicit `/contract` authorization. Do not proceed to contract without operator approval.
+3. If launched from the Command Deck dashboard, run the deterministic memory intent hook first:
+   - Write `phase.intent.evaluate` via `POST /api/memory/events` using `sourceType: verified-system`.

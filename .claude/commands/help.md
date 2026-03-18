@@ -1,21 +1,16 @@
 ---
 name: help
-description: "Get help with AmphionAgent usage and MCD methodology. Answers are grounded in the canonical help source."
-argument-hint: "[question about MCD or AmphionAgent]"
+description: "Provide MCD and AmphionAgent help using .amphion/control-plane/MCD_HELP_SOURCE.md"
 ---
 
-This skill invokes the canonical MCD HELP command.
+# HELP
 
-## Instructions
+This workflow invokes the canonical MCD HELP command.
 
-1. **Read the command instructions** at `.amphion/control-plane/mcd/HELP.md`.
+1. Read the command instructions:
+[HELP.md](file:///${projectRoot}/.amphion/control-plane/mcd/HELP.md)
 
-2. **Load canonical source**: Read `.amphion/control-plane/MCD_HELP_SOURCE.md` as the primary authority.
+2. Follow the step-by-step instructions in the file to complete the phase.
 
-3. **Answer the question**: `$ARGUMENTS`
-   - Use the canonical help source as the primary authority for MCD and AmphionAgent guidance.
-   - If required details are missing, use `.amphion/control-plane/MCD_PLAYBOOK.md` and `.amphion/control-plane/GUARDRAILS.md` as fallback sources.
-
-4. **No side effects**: Do not modify board state, files, or lifecycle phase while serving `/help`.
-
-5. Provide direct, actionable help. Clearly label assumptions.
+3. If launched from the Command Deck dashboard, run the deterministic memory intent hook first:
+   - Write `phase.intent.help` via `POST /api/memory/events` using `sourceType: verified-system`.

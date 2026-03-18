@@ -1,6 +1,6 @@
 ---
 name: evaluate
-description: "Run MCD EVALUATE command for Amphion Project"
+description: "Run MCD EVALUATE command for {{PROJECT_NAME}}"
 ---
 
 # EVALUATE

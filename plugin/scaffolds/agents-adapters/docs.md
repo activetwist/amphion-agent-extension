@@ -1,6 +1,6 @@
 ---
 name: docs
-description: "Generate Project Strategy (Charter & PRD) from source documents for Amphion Project"
+description: "Generate Project Strategy (Charter & PRD) from source documents for {{PROJECT_NAME}}"
 ---
 
 # DOCS

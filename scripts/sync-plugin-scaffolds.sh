@@ -48,6 +48,21 @@ fs.writeFileSync(path.join(mcdDir, 'CLOSEOUT.md'), commands.renderCloseout(place
 fs.writeFileSync(path.join(mcdDir, 'REMEMBER.md'), commands.renderRemember(placeholderConfig));
 fs.writeFileSync(path.join(mcdDir, 'HELP.md'), commands.renderHelp(placeholderConfig));
 
+// Antigravity agent workflow adapters (written to .agents/ at deploy time)
+const agentsAdapterDir = path.join(scaffolds, 'agents-adapters');
+fs.mkdirSync(agentsAdapterDir, { recursive: true });
+const agentCmds = ['evaluate', 'contract', 'execute', 'closeout', 'help', 'remember', 'docs', 'bug'];
+for (const cmd of agentCmds) {
+  fs.writeFileSync(path.join(agentsAdapterDir, \`\${cmd}.md\`), adapters.renderAntigravityWorkflow(cmd, placeholderConfig));
+}
+
+// Claude Code command adapters
+const claudeAdapterDir = path.join(scaffolds, 'claude-commands');
+fs.mkdirSync(claudeAdapterDir, { recursive: true });
+for (const cmd of agentCmds) {
+  fs.writeFileSync(path.join(claudeAdapterDir, \`\${cmd}.md\`), adapters.renderAntigravityWorkflow(cmd, placeholderConfig));
+}
+
 // Governance docs
 const cpDir = path.join(scaffolds, 'control-plane');
 fs.writeFileSync(path.join(cpDir, 'GUARDRAILS.md'), guardrails.renderGuardrails(placeholderConfig));
@@ -55,6 +70,9 @@ fs.writeFileSync(path.join(cpDir, 'MCD_PLAYBOOK.md'), playbook.getPlaybookConten
 
 // CLAUDE.md
 fs.writeFileSync(path.join(scaffolds, 'CLAUDE.md'), adapters.renderClaudeMd(placeholderConfig));
+
+// AGENTS.md
+fs.writeFileSync(path.join(scaffolds, 'AGENTS.md'), adapters.renderAgentsMd(placeholderConfig));
 
 console.log('Templates rendered.');
 "

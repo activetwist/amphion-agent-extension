@@ -93,7 +93,8 @@ export function renderAntigravityWorkflow(command: string, config: ProjectConfig
     const content = getCommandContent(command);
 
     return `---
-description: ${description}
+name: ${command}
+description: "${description}"
 ---
 
 # ${cmdUpper}
@@ -158,6 +159,15 @@ function getCommandContent(command: string): string {
     if (cmd === 'command-deck-api') {
         return renderCommandDeckApiCommandContent();
     }
+    if (cmd === 'bug') {
+        return `This workflow handles the creation of a new bug card on the active Command Deck board.
+
+1. Ensure you have the context of the bug (title and description) from the user's request.
+2. Obtain the ID of the active board and active milestone. **CRITICAL: The bug card MUST be connected to the current active milestone.**
+3. Create a new card via \`POST /api/cards\` with \`kind\` set to \`bug\` and \`milestoneId\` set appropriately.
+4. If testing or verification is needed, outline or execute the steps.
+5. Provide the user with the issue number of the newly created bug card.`;
+    }
 
     const cmdUpper = command.toUpperCase();
     return `This workflow invokes the canonical MCD ${cmdUpper} command.
@@ -186,10 +196,25 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Contract**: [CONTRACT.md](.amphion/control-plane/mcd/CONTRACT.md)
 - **Execute**: [EXECUTE.md](.amphion/control-plane/mcd/EXECUTE.md)
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
+- **Bug**: Create a new bug card on the active Command Deck board.
 
 ## Utility Commands
 - **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: \`${CANONICAL_HELP_SOURCE_PATH}\`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
+- **Docs**: Derive strategy documents from context sources.
+
+## Workflow Routing
+
+To invoke a slash command, read the corresponding workflow file:
+
+- **evaluate** → [.agents/workflows/evaluate.md](.agents/workflows/evaluate.md)
+- **contract** → [.agents/workflows/contract.md](.agents/workflows/contract.md)
+- **execute** → [.agents/workflows/execute.md](.agents/workflows/execute.md)
+- **closeout** → [.agents/workflows/closeout.md](.agents/workflows/closeout.md)
+- **help** → [.agents/workflows/help.md](.agents/workflows/help.md)
+- **remember** → [.agents/workflows/remember.md](.agents/workflows/remember.md)
+- **docs** → [.agents/workflows/docs.md](.agents/workflows/docs.md)
+- **bug** → [.agents/workflows/bug.md](.agents/workflows/bug.md)
 
 ## Operational Rules
 1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
@@ -228,6 +253,19 @@ Before performing any task, the agent must identify the current phase and load t
 - **Remember** via the Remember command (\`/remember\`) for non-phase memory checkpoints.
 
 **Important**: Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize \`/contract\`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
+
+## Workflow Routing
+
+To invoke a slash command, read the corresponding workflow file:
+
+- **evaluate** → [.agents/workflows/evaluate.md](.agents/workflows/evaluate.md)
+- **contract** → [.agents/workflows/contract.md](.agents/workflows/contract.md)
+- **execute** → [.agents/workflows/execute.md](.agents/workflows/execute.md)
+- **closeout** → [.agents/workflows/closeout.md](.agents/workflows/closeout.md)
+- **help** → [.agents/workflows/help.md](.agents/workflows/help.md)
+- **remember** → [.agents/workflows/remember.md](.agents/workflows/remember.md)
+- **docs** → [.agents/workflows/docs.md](.agents/workflows/docs.md)
+- **bug** → [.agents/workflows/bug.md](.agents/workflows/bug.md)
 
 ## Product Manager Experience
 1. **Proactive Guidance**: If the user starts a session without a specific request, proactively ask them if they want to improve their Project Charter / PRD, or if they have an idea to start the first MCD cycle.

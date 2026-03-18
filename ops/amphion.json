@@ -4,6 +4,6 @@
   "codename": "BLACKCLAW",
   "projectName": "Amphion Project",
   "initialVersion": "0.1.0",
-  "mcdVersion": "1.59.0",
+  "mcdVersion": "1.59.2",
   "commandDeckPath": ".amphion/command-deck"
 }

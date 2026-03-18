@@ -1,6 +1,6 @@
 ---
 name: closeout
-description: "Run MCD CLOSEOUT command for Amphion Project"
+description: "Run MCD CLOSEOUT command for {{PROJECT_NAME}}"
 ---
 
 # CLOSEOUT

@@ -12,10 +12,25 @@ This project follows the Micro-Contract Development (MCD) protocol. All agent ac
 - **Contract**: [CONTRACT.md](.amphion/control-plane/mcd/CONTRACT.md)
 - **Execute**: [EXECUTE.md](.amphion/control-plane/mcd/EXECUTE.md)
 - **Closeout**: [CLOSEOUT.md](.amphion/control-plane/mcd/CLOSEOUT.md)
+- **Bug**: Create a new bug card on the active Command Deck board.
 
 ## Utility Commands
 - **Help**: [HELP.md](.amphion/control-plane/mcd/HELP.md) (authority: `.amphion/control-plane/MCD_HELP_SOURCE.md`)
 - **Remember**: [REMEMBER.md](.amphion/control-plane/mcd/REMEMBER.md)
+- **Docs**: Derive strategy documents from context sources.
+
+## Workflow Routing
+
+To invoke a slash command, read the corresponding workflow file:
+
+- **evaluate** → [.agents/workflows/evaluate.md](.agents/workflows/evaluate.md)
+- **contract** → [.agents/workflows/contract.md](.agents/workflows/contract.md)
+- **execute** → [.agents/workflows/execute.md](.agents/workflows/execute.md)
+- **closeout** → [.agents/workflows/closeout.md](.agents/workflows/closeout.md)
+- **help** → [.agents/workflows/help.md](.agents/workflows/help.md)
+- **remember** → [.agents/workflows/remember.md](.agents/workflows/remember.md)
+- **docs** → [.agents/workflows/docs.md](.agents/workflows/docs.md)
+- **bug** → [.agents/workflows/bug.md](.agents/workflows/bug.md)
 
 ## Operational Rules
 1. Never chain MCD phases. If you complete an EVALUATE phase, you MUST halt tool execution, present your findings and ask the user to authorize `/contract`, which must be authored as milestone-bound board cards via DB/API. Once you complete a CONTRACT phase, you MUST halt tool execution and explicitly wait for the user to authorize the next phase.
@@ -42,7 +57,7 @@ If MCP tools are unavailable, fall back to the REST API:
 | Find (board map) | GET | `/api/find` | — (optional: `?q=`, `?milestoneId=`, `?list=`) |
 | Create chart | POST | `/api/charts` | `boardId`, `title`; opt: `markdown`, `description` |
 | Create milestone | POST | `/api/milestones` | `boardId`, `title`, `code` |
-| Create card | POST | `/api/cards` | `boardId`, `milestoneId`, `listId`, `title`; opt: `priority` (P0-P3), `kind` (task\|bug) |
+| Create card | POST | `/api/cards` | `boardId`, `milestoneId`, `listId`, `title`; opt: `priority` (P0-P3), `kind` (task|bug) |
 | Update card | PATCH | `/api/cards/{id}` | `boardId`; opt: `listId`, `title`, `priority`, `kind` |
 | Move card | POST | `/api/cards/{id}/move` | `listId` |
 | Delete card | DELETE | `/api/cards/{id}` | — |

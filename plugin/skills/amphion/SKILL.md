@@ -117,9 +117,10 @@ When `.amphion/` exists, compare the installed version against the latest releas
    fi
 
    # VS Code / Antigravity
-   mkdir -p .agent/workflows
+   mkdir -p .agents/workflows
    for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
-     sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agent/workflows/$(basename $f)"
+     sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
+     cp ".agents/workflows/$(basename $f)" ".agent/workflows/$(basename $f)" 2>/dev/null || true
    done
    ```
 
@@ -330,11 +331,17 @@ if [ -d ".windsurf" ]; then
 fi
 
 # VS Code / Antigravity (always install — no directory existence check needed)
+mkdir -p .agents/workflows
 mkdir -p .agent/workflows
 for f in /tmp/amphion-dl/plugin/dist/adapters/agents/*; do
-  sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agent/workflows/$(basename $f)"
+  sed "s/{{PROJECT_NAME}}/${PROJECT_NAME_ESCAPED}/g" "$f" > ".agents/workflows/$(basename $f)"
+  cp ".agents/workflows/$(basename $f)" ".agent/workflows/$(basename $f)"
+  if [ -d ".claude" ]; then
+    mkdir -p .claude/commands
+    cp ".agents/workflows/$(basename $f)" ".claude/commands/$(basename $f)"
+  fi
 done
-echo "Installed Antigravity/VS Code workflows → .agent/workflows/"
+echo "Installed Antigravity workflows → .agents/workflows/ (mirrors: .agent/, .claude/)"
 ```
 
 **Installed Skills:**
@@ -345,6 +352,7 @@ echo "Installed Antigravity/VS Code workflows → .agent/workflows/"
 - `/help` — Surface MCD methodology guidance and command reference
 - `/remember` — Write compact operational memory across sessions
 - `/docs` — Generate your Project Charter and High-Level PRD
+- `/bug` — Create a new bug card on the active Command Deck board
 - `/server` — Start, stop, or check the status of your local Command Deck
 - `/amphion` — Re-initialize or update your AmphionAgent workspace
 

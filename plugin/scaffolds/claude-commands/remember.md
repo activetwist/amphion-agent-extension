@@ -1,6 +1,6 @@
 ---
 name: remember
-description: "Capture a compact memory checkpoint for Amphion Project without phase transition"
+description: "Capture a compact memory checkpoint for {{PROJECT_NAME}} without phase transition"
 ---
 
 # REMEMBER

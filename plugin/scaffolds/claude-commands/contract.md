@@ -1,6 +1,6 @@
 ---
 name: contract
-description: "Run MCD CONTRACT command for Amphion Project"
+description: "Run MCD CONTRACT command for {{PROJECT_NAME}}"
 ---
 
 # CONTRACT

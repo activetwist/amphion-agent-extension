@@ -2,9 +2,24 @@
 
 All notable changes to this extension are documented in this file.
 
-## [Unreleased]
+## [1.59.2] - 2026-03-16
 
-_No changes yet._
+### Added
+- Canonical `/bug` command generation with canonical content across all IDE adapters.
+- Explicit `## Workflow Routing` discovery table in `AGENTS.md` and `CLAUDE.md`.
+
+### Fixed
+- Restored `.agents/workflows/` (plural) as primary Antigravity slash-command delivery path.
+- Added `name:` field to all Antigravity and Claude Code workflow frontmatter for reliable UI registration.
+- Restored `.claude/commands/` mirroring for Claude Code users while maintaining Antigravity fixes.
+- Fixed bash interpolation bug in `sync-plugin-scaffolds.sh` during pre-render sync.
+
+## [1.59.1] - 2026-03-16
+
+### Changed
+- VSIX build at 1.59.1.
+
+## [1.59.0] - 2026-03-16
 
 ## [1.57.0] - 2026-03-10
 

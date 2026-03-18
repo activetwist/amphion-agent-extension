@@ -1,4 +1,4 @@
-# Agent Instructions · Amphion Project (`BLACKCLAW`)
+# Agent Instructions · {{PROJECT_NAME}} (`{{CODENAME}}`)
 
 This project uses the MCD protocol for deterministic AI alignment and safety.
 
