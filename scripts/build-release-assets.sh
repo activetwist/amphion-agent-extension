@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # build-release-assets.sh
-# Builds all three GitHub release assets for AmphionAgent:
+# Builds all three GitHub release assets for AmphionAgent and publishes to registries:
 #   1. amphion-agent-{version}.vsix  (VS Code extension package)
 #   2. amphion-agent-claude-code.zip (Claude Code skill zip)
 #   3. amphion.md                    (skill readme / install guide)
 #
-# Run from project root. Requires: node, npm, vsce (via npm run package), zip.
+# Publish targets (requires PATs in .env or environment):
+#   - VS Code Marketplace: VSCE_PAT
+#   - Open VSX Registry:   OVSX_PAT
+#
+# Run from project root. Requires: node, npm, vsce, ovsx, zip.
+# Pass --skip-publish to build assets only without publishing.
 # Idempotent — safe to run multiple times.
 
 set -euo pipefail
@@ -14,6 +19,22 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$PROJECT_ROOT"
+
+# Parse flags
+SKIP_PUBLISH=false
+for arg in "$@"; do
+  case "$arg" in
+    --skip-publish) SKIP_PUBLISH=true ;;
+  esac
+done
+
+# Load .env if present (won't override already-set env vars)
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
 
 # Resolve version from package.json
 VERSION=$(node -e "console.log(require('./package.json').version)")
@@ -47,6 +68,33 @@ if [ ! -f "$VSIX_FILE" ]; then
   exit 1
 fi
 echo "  -> $VSIX_FILE ($(du -h "$VSIX_FILE" | cut -f1))"
+
+# --- 3. Publish ---
+if [ "$SKIP_PUBLISH" = true ]; then
+  echo ""
+  echo "[3/3] Skipping publish (--skip-publish)"
+else
+  echo ""
+  echo "[3/3] Publishing..."
+
+  # VS Code Marketplace
+  if [ -z "${VSCE_PAT:-}" ]; then
+    echo "  [WARN] VSCE_PAT not set — skipping VS Code Marketplace publish"
+  else
+    echo "  Publishing to VS Code Marketplace..."
+    VSCE_PAT="$VSCE_PAT" npx vsce publish --packagePath "$VSIX_FILE" 2>&1 | tail -3
+    echo "  -> VS Code Marketplace ✓"
+  fi
+
+  # Open VSX
+  if [ -z "${OVSX_PAT:-}" ]; then
+    echo "  [WARN] OVSX_PAT not set — skipping Open VSX publish"
+  else
+    echo "  Publishing to Open VSX..."
+    npx ovsx publish "$VSIX_FILE" -p "$OVSX_PAT" 2>&1 | tail -3
+    echo "  -> Open VSX ✓"
+  fi
+fi
 
 # --- Summary ---
 echo ""
